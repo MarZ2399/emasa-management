@@ -262,8 +262,8 @@ const PurchaseHistoryTab = ({ clienteRUC }) => {
                   <th className="px-3 py-3 text-center text-xs font-semibold uppercase">N° Documento</th>
                   <th className="px-3 py-3 text-center text-xs font-semibold uppercase">Cantidad</th>
                   <th className="px-3 py-3 text-right text-xs font-semibold uppercase">P. Unit. Neto</th>
-                  <th className="px-3 py-3 text-center text-xs font-semibold uppercase">% Dscto</th>
-                  <th className="px-3 py-3 text-center text-xs font-semibold uppercase">% Dscto 8</th>
+                  <th className="px-3 py-3 text-center text-xs font-semibold uppercase">% Dscto 1</th>
+                  <th className="px-3 py-3 text-center text-xs font-semibold uppercase">% Dscto 5</th>
                   <th className="px-3 py-3 text-right text-xs font-semibold uppercase">Total</th>
                 </tr>
               </thead>
