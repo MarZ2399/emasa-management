@@ -20,6 +20,10 @@ const CallsModule = () => {
   
   const [quotationItems, setQuotationItems] = useState([]);
 
+  const [codigoProducto, setCodigoProducto] = useState('');
+const [nombreProducto, setNombreProducto] = useState('');
+const [hasSearched, setHasSearched] = useState(false);
+
   const [callRecords, setCallRecords] = useState(initialCallRecords);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
@@ -261,7 +265,7 @@ const CallsModule = () => {
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         {/* Tabs Header */}
         <div className="border-b border-gray-200">
-          <nav className="flex">
+          <nav className="flex overflow-x-auto whitespace-nowrap no-scrollbar">
             <button
               onClick={() => setActiveTab('calls')}
               className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition ${
@@ -638,11 +642,17 @@ const CallsModule = () => {
           {activeTab === 'products' && (
   <div className="p-6">
     <ProductsTab
-      onAddToQuotation={prodData => {
-        setQuotationItems(items => [...items, prodData]);
-        setActiveTab('quotations'); // te lleva al tab cotización después de agregar
-      }}
-    />
+    codigoProducto={codigoProducto}
+    setCodigoProducto={setCodigoProducto}
+    nombreProducto={nombreProducto}
+    setNombreProducto={setNombreProducto}
+    hasSearched={hasSearched}
+    setHasSearched={setHasSearched}
+    onAddToQuotation={prodData => {
+      setQuotationItems(items => [...items, prodData]);
+      setActiveTab('quotations'); // Cambia automáticamente al tab Cotización
+    }}
+  />
   </div>
 )}
 

@@ -12,21 +12,22 @@ const ProdDetailModal = ({
   // Estados para los inputs editables
   const [quantity, setQuantity] = useState(1);
   const [discount1, setDiscount1] = useState(product.descuento1 || 0);
-  const [discount8, setDiscount8] = useState(product.descuento2 || 0);
+  const [discount5, setDiscount5] = useState(product.descuento5 || 0);
 
   // Cálculo del precio total con descuentos
   const precioConDescuento =
     product.precioNeto *
     ((100 - discount1) / 100) *
-    ((100 - discount8) / 100);
+    ((100 - discount5) / 100);
 
   const handleAddToQuotation = () => {
     onAddToQuotation({
       ...product,
       quantity,
       discount1,
-      discount8,
+      discount5,
       precioCotizar: precioConDescuento,
+      precioNeto: precioConDescuento
     });
     onClose(); // Cerrar el modal
   };
@@ -125,12 +126,12 @@ const ProdDetailModal = ({
                         />%
                       </div>
                       <div className="flex justify-between items-center">
-                        <label className="text-xs font-bold" htmlFor="inp-dscto8">8to Dsctó</label>
+                        <label className="text-xs font-bold" htmlFor="inp-dscto8">5to Dsctó</label>
                         <input
-                          id="inp-dscto8"
+                          id="inp-dscto5"
                           type="number"
-                          value={discount8}
-                          onChange={e => setDiscount8(Number(e.target.value))}
+                          value={discount5}
+                          onChange={e => setDiscount5(Number(e.target.value))}
                           className="w-16 text-right bg-white rounded px-2 py-1 outline-none"
                         />%
                       </div>

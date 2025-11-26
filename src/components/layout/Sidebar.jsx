@@ -11,7 +11,7 @@ const menuItems = [
   { icon: BarChart3, label: 'Seguimiento de Metas', module: 'dashboard' },
   { icon: Phone, label: 'Gestión de Cliente', module: 'calls' },
   // { icon: Users, label: 'Maestro de Cliente', module: 'clients' },
-  { icon: Package, label: 'Consulta de Productos', module: 'products' },
+  // { icon: Package, label: 'Consulta de Productos', module: 'products' },
   
   // { icon: FileText, label: 'Reportes', module: 'reports' },
   // { icon: BarChart3, label: 'Estadísticas', module: 'stats' },

@@ -4,10 +4,13 @@ import { initialProducts, getStockStatus } from '../../data/productsData';
 import ProdDetailModal from './ProdDetailModal';
 import Modal from '../common/Modal';
 
-const ProductsTab = ({ onAddToQuotation }) => {
-  const [codigoProducto, setCodigoProducto] = useState('');
-  const [nombreProducto, setNombreProducto] = useState('');
-  const [hasSearched, setHasSearched] = useState(false);
+const ProductsTab = ({ codigoProducto, setCodigoProducto,
+  nombreProducto, setNombreProducto,
+  hasSearched, setHasSearched,
+  onAddToQuotation }) => {
+  // const [codigoProducto, setCodigoProducto] = useState('');
+  // const [nombreProducto, setNombreProducto] = useState('');
+  // const [hasSearched, setHasSearched] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
