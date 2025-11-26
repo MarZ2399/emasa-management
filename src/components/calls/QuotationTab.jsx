@@ -79,98 +79,92 @@ const QuotationTab = ({ quotationItems, setQuotationItems, onBackToProducts, sel
 
       
       <div className="overflow-auto rounded-xl shadow-lg bg-white border">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-100 sticky top-0 z-10">
-            <tr>
-              <th className="p-4 font-bold text-gray-700 text-center">Item</th>
-              <th className="p-4 font-bold text-gray-700 text-center">Código</th>
-              <th className="p-4 font-bold text-gray-700 text-center">Descripción</th>
-              <th className="p-4 font-bold text-gray-700 text-center">Lista</th>
-              <th className="p-4 font-bold text-gray-700 text-center">1er Dscto</th>
-              <th className="p-4 font-bold text-gray-700 text-center">5to Dscto</th>
-              <th className="p-4 font-bold text-gray-700 text-center">Neto</th>
-              <th className="p-4 font-bold text-gray-700 text-center">Cant.</th>
-              <th className="p-4 font-bold text-gray-700 text-center">Neto Total</th>
-              <th className="p-4 font-bold text-gray-700 text-center">IGV</th>
-              <th className="p-4 font-bold text-gray-700 text-center">Importe</th>
-              <th></th>
+  <table className="min-w-full divide-y divide-gray-200 text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
+    <thead className="bg-gray-100 sticky top-0 z-10">
+      <tr>
+        <th style={{ width: 56 }} className="p-4 font-bold text-gray-700 text-center">Item</th>
+        <th style={{ width: 120 }} className="p-4 font-bold text-gray-700 text-center">Código Mercadería</th>
+        <th style={{ width: 210 }} className="p-4 font-bold text-gray-700 text-center">Descripción Mercadería</th>
+        <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">Precio Lista Unitario ($)</th>
+        <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">1er Dsco.</th>
+        <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">5to Dsco.</th>
+        <th style={{ width: 140 }} className="p-4 font-bold text-gray-700 text-center">Precio Neto Unitario ($)</th>
+        <th style={{ width: 70 }} className="p-4 font-bold text-gray-700 text-center">Cant.</th>
+        <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">Precio Neto Total ($)</th>
+        <th style={{ width: 100 }} className="p-4 font-bold text-gray-700 text-center">IGV ($)</th>
+        <th style={{ width: 120 }} className="p-4 font-bold text-gray-700 text-center">Importe Total ($)</th>
+        <th style={{ width: 56 }}></th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-gray-100">
+      {(quotationItems ?? []).length === 0 ? (
+        <tr>
+          <td colSpan={12} className="text-center p-8 text-gray-400 font-semibold">
+            No hay productos en la cotización.
+          </td>
+        </tr>
+      ) : (
+        (quotationItems ?? []).map((item, idx) => {
+          const precioNetoTotal = item.precioNeto * item.quantity;
+          const igvTotal = precioNetoTotal * IGV_RATE;
+          const importeTotal = precioNetoTotal + igvTotal;
+          return (
+            <tr key={idx} className="hover:bg-gray-50 transition">
+              <td style={{ width: 56 }} className="p-4 text-center font-mono font-bold text-blue-800 bg-blue-50 rounded-l-lg">{String(idx + 1).padStart(3, '0')}</td>
+              <td style={{ width: 120 }} className="p-4 text-center font-semibold">{item.codigo}</td>
+              <td style={{ width: 210 }} className="p-4 text-left">{item.nombre}</td>
+              <td style={{ width: 130 }} className="p-4 text-right text-gray-700">S/ {item.precioLista?.toFixed(2)}</td>
+              <td style={{ width: 90 }} className="p-4 text-right">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={item.discount1}
+                  onChange={e => handleEdit(idx, 'discount1', e.target.value)}
+                  className="w-16 bg-indigo-50 border border-indigo-200 rounded px-2 py-1 text-center font-semibold text-indigo-700"
+                />%
+              </td>
+              <td style={{ width: 90 }} className="p-4 text-right">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={item.discount5 || 0}
+                  onChange={e => handleEdit(idx, 'discount5', e.target.value)}
+                  className="w-16 bg-orange-50 border border-orange-200 rounded px-2 py-1 text-center font-semibold text-orange-700"
+                />%
+              </td>
+              <td style={{ width: 140 }} className="p-4 text-right font-bold text-green-700">S/ {item.precioNeto?.toFixed(2)}</td>
+              <td style={{ width: 70 }} className="p-4 text-center">
+                <input
+                  type="number"
+                  min={1}
+                  value={item.quantity}
+                  onChange={e => handleEdit(idx, 'quantity', e.target.value)}
+                  className="w-16 bg-blue-50 border border-blue-200 rounded px-2 py-1 text-center font-bold"
+                />
+              </td>
+              <td style={{ width: 130 }} className="p-4 text-right text-blue-900 font-bold">S/ {precioNetoTotal.toFixed(2)}</td>
+              <td style={{ width: 100 }} className="p-4 text-right text-yellow-700">S/ {igvTotal.toFixed(2)}</td>
+              <td style={{ width: 120 }} className="p-4 text-right text-red-800 font-bold">S/ {importeTotal.toFixed(2)}</td>
+              <td style={{ width: 56 }} className="p-4 text-center">
+                <button
+                  onClick={() => removeItem(idx)}
+                  className="p-1 rounded hover:bg-red-600 hover:text-white text-red-600 transition"
+                  title="Quitar producto"
+                >
+                  <Trash2 size={22} strokeWidth={2.5} />
+                </button>
+              </td>
             </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {(quotationItems ?? []).length === 0 ? (
-              <tr>
-                <td colSpan={12} className="text-center p-8 text-gray-400 font-semibold">
-                  No hay productos en la cotización.
-                </td>
-              </tr>
-            ) : (
-              (quotationItems ?? []).map((item, idx) => {
-                const precioNetoTotal = item.precioNeto * item.quantity;
-                const igvTotal = precioNetoTotal * IGV_RATE;
-                const importeTotal = precioNetoTotal + igvTotal;
-                return (
-                  <tr key={idx} className="hover:bg-gray-50 transition">
-                    <td className="p-4 text-center font-mono font-bold text-blue-800 bg-blue-50 rounded-l-lg">
-                      {String(idx+1).padStart(3, '0')}
-                    </td>
-                    <td className="p-4 text-center font-semibold">{item.codigo}</td>
-                    <td className="p-4 text-left">{item.nombre}</td>
-                    <td className="p-4 text-right text-gray-700">
-                      S/ {item.precioLista?.toFixed(2)}
-                    </td>
-                    {/* 1er descuento editable */}
-                    <td className="p-4 text-right">
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={item.discount1}
-                        onChange={e => handleEdit(idx, 'discount1', e.target.value)}
-                        className="w-16 bg-indigo-50 border border-indigo-200 rounded px-2 py-1 text-center font-semibold text-indigo-700"
-                      />%
-                    </td>
-                    {/* 5to descuento editable */}
-                    <td className="p-4 text-right">
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={item.discount5 || 0}
-                        onChange={e => handleEdit(idx, 'discount5', e.target.value)}
-                        className="w-16 bg-orange-50 border border-orange-200 rounded px-2 py-1 text-center font-semibold text-orange-700"
-                      />%
-                    </td>
-                    {/* precio neto */}
-                    <td className="p-4 text-right font-bold text-green-700">S/ {item.precioNeto?.toFixed(2)}</td>
-                    {/* cantidad editable */}
-                    <td className="p-4 text-center">
-                      <input
-                        type="number"
-                        min={1}
-                        value={item.quantity}
-                        onChange={e => handleEdit(idx, 'quantity', e.target.value)}
-                        className="w-16 bg-blue-50 border border-blue-200 rounded px-2 py-1 text-center font-bold"
-                      />
-                    </td>
-                    <td className="p-4 text-right text-blue-900 font-bold">S/ {precioNetoTotal.toFixed(2)}</td>
-                    <td className="p-4 text-right text-yellow-700">S/ {igvTotal.toFixed(2)}</td>
-                    <td className="p-4 text-right text-red-800 font-bold">S/ {importeTotal.toFixed(2)}</td>
-                    <td className="p-4 text-center">
-                      <button
-                        onClick={() => removeItem(idx)}
-                        className="p-1 rounded hover:bg-red-600 hover:text-white text-red-600 transition"
-                        title="Quitar producto"
-                      >
-                        <Trash2 size={22} strokeWidth={2.5} />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+          );
+        }
+        )
+      )}
+    </tbody>
+  </table>
+</div>
+
       {/* Resumen totales alineado a la derecha y compacto */}
       <div className="w-full flex justify-end mt-4">
         <div className="space-y-2 max-w-xs w-full mr-4">
