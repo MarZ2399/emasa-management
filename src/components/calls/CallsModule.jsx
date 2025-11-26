@@ -8,7 +8,8 @@ import ClientSearchPanel from './ClientSearchPanel';
 import CallTableRow from './CallTableRow';
 import ProductsTab from './ProductsTab';
 import PurchaseHistoryTab from './PurchaseHistoryTab';
-import QuotationsList from './QuotationsList';
+//import QuotationsList from './QuotationsList';
+import QuotationTab from './QuotationTab';
 import ConfirmDialog from '../common/ConfirmDialog';
 import SectionHeader from '../common/SectionHeader';
 
@@ -17,6 +18,8 @@ const CallsModule = () => {
   const [activeTab, setActiveTab] = useState('calls');
   const [selectedClientRUC, setSelectedClientRUC] = useState(null); // ✅ NUEVO: Estado para RUC
   
+  const [quotationItems, setQuotationItems] = useState([]);
+
   const [callRecords, setCallRecords] = useState(initialCallRecords);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
@@ -301,6 +304,25 @@ const CallsModule = () => {
                 <span>Consulta de Productos</span>
               </div>
             </button>
+
+            <button
+  onClick={() => setActiveTab('quotations')}
+  className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition ${
+    activeTab === 'quotations'
+      ? 'border-green-600 text-green-600 bg-green-50'
+      : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+  }`}
+>
+  <div className="flex items-center justify-center gap-2">
+    <FileText className="w-5 h-5" />
+    <span>Cotización</span>
+    {quotationItems.length > 0 && (
+      <span className="ml-2 px-2.5 py-0.5 bg-blue-600 text-white text-xs font-bold rounded-full">
+        {quotationItems.length}
+      </span>
+    )}
+  </div>
+</button>
 
             {/* <button
               onClick={() => setActiveTab('quotations')}
@@ -608,13 +630,32 @@ const CallsModule = () => {
           )}
           
           {/* Tab: Consulta de Productos */}
-          {activeTab === 'products' && (
+          {/* {activeTab === 'products' && (
             <div className="p-6">
               <ProductsTab />
             </div>
-          )}
+          )} */}
+          {activeTab === 'products' && (
+  <div className="p-6">
+    <ProductsTab
+      onAddToQuotation={prodData => {
+        setQuotationItems(items => [...items, prodData]);
+        setActiveTab('quotations'); // te lleva al tab cotización después de agregar
+      }}
+    />
+  </div>
+)}
 
           {/* Tab: Cotizaciones */}
+          {activeTab === 'quotations' && (
+  <div className="p-6">
+   <QuotationTab
+  quotationItems={quotationItems}
+  setQuotationItems={setQuotationItems}
+/>
+  </div>
+)}
+
           {/* {activeTab === 'quotations' && (
             <div className="p-6">
               <QuotationsList selectedClient={selectedClient} />

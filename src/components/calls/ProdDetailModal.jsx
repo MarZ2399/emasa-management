@@ -1,34 +1,68 @@
-import React from 'react';
+import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 
-const ProdDetailModal = ({ product, isOpen, onClose }) => {
+const ProdDetailModal = ({
+  product,
+  isOpen,
+  onClose,
+  onAddToQuotation // callback para agregar producto a la cotización
+}) => {
   if (!product || !isOpen) return null;
+
+  // Estados para los inputs editables
+  const [quantity, setQuantity] = useState(1);
+  const [discount1, setDiscount1] = useState(product.descuento1 || 0);
+  const [discount8, setDiscount8] = useState(product.descuento2 || 0);
+
+  // Cálculo del precio total con descuentos
+  const precioConDescuento =
+    product.precioNeto *
+    ((100 - discount1) / 100) *
+    ((100 - discount8) / 100);
+
+  const handleAddToQuotation = () => {
+    onAddToQuotation({
+      ...product,
+      quantity,
+      discount1,
+      discount8,
+      precioCotizar: precioConDescuento,
+    });
+    onClose(); // Cerrar el modal
+  };
 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
       <div className="bg-gray-50 rounded-lg shadow-xl max-w-7xl w-full max-h-[95vh] overflow-y-auto relative">
-        {/* Botón Cerrar */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-500 hover:text-red-600 text-2xl font-bold z-10"
-        >
-          ✖
-        </button>
+
+        {/* Header con botón de agregar */}
+        <div className="flex items-center justify-between p-4 border-b">
+          <h2 className="text-2xl font-bold text-gray-800">{product.nombre}</h2>
+          <div className="flex gap-2">
+            <button
+              onClick={handleAddToQuotation}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold"
+            >
+              Agregar producto
+            </button>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-red-600 text-2xl font-bold z-10"
+              title="Cerrar"
+            >
+              ✖
+            </button>
+          </div>
+        </div>
 
         <div className="p-6">
           <div className="space-y-6">
-            {/* Título del Modal */}
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">{product.nombre}</h2>
-              <p className="text-gray-600">Código: {product.codigo}</p>
-            </div>
-
             {/* Grid Principal 2 Columnas */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              
+
               {/* COLUMNA IZQUIERDA */}
               <div className="space-y-6">
-                
+
                 {/* BÚSQUEDA */}
                 <div className="bg-white rounded-lg shadow-md overflow-hidden">
                   <div className="bg-[#334a5e] text-white p-4">
@@ -68,23 +102,46 @@ const ProdDetailModal = ({ product, isOpen, onClose }) => {
                       <span className="font-bold">Precio Neto:</span>
                       <span className="text-right">S/ {product.precioNeto.toFixed(2)}</span>
                     </div>
-                    <div className="bg-green-100 p-3 rounded">
-                      <div className="flex justify-between">
-                        <span className="font-bold text-green-800">Cantidad:</span>
-                        <span className="font-bold text-green-800">{product.stock}</span>
-                      </div>
+                    <div className="bg-green-100 p-3 rounded flex items-center justify-between">
+                      <label className="font-bold text-green-800" htmlFor="inp-qty">Cantidad:</label>
+                      <input
+                        id="inp-qty"
+                        type="number"
+                        min={1}
+                        value={quantity}
+                        onChange={e => setQuantity(Number(e.target.value))}
+                        className="text-right font-bold text-green-800 w-20 bg-white rounded px-2 py-1 outline-none"
+                      />
                     </div>
-                    <div className="bg-green-100 p-3 rounded">
-                      <div className="flex justify-between mb-1">
-                        <span className="text-xs font-bold">1er Dsctó</span>
-                        <span className="text-xs">{product.descuento1}%</span>
+                    <div className="bg-green-100 p-3 rounded flex flex-col gap-1">
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-bold" htmlFor="inp-dscto1">1er Dsctó</label>
+                        <input
+                          id="inp-dscto1"
+                          type="number"
+                          value={discount1}
+                          onChange={e => setDiscount1(Number(e.target.value))}
+                          className="w-16 text-right bg-white rounded px-2 py-1 outline-none"
+                        />%
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-xs font-bold">8to Dsctó</span>
-                        <span className="text-xs">{product.descuento2}%</span>
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-bold" htmlFor="inp-dscto8">8to Dsctó</label>
+                        <input
+                          id="inp-dscto8"
+                          type="number"
+                          value={discount8}
+                          onChange={e => setDiscount8(Number(e.target.value))}
+                          className="w-16 text-right bg-white rounded px-2 py-1 outline-none"
+                        />%
                       </div>
                     </div>
                   </div>
+                </div>
+
+                {/* Resumen de total con descuentos */}
+                <div className="p-4 bg-blue-50 rounded-lg flex justify-between font-semibold">
+                  <span>Precio con descuentos x {quantity}:</span>
+                  <span>S/ {(precioConDescuento * quantity).toFixed(2)}</span>
                 </div>
 
                 {/* PRECIO REGULAR DÓLARES */}
@@ -136,12 +193,11 @@ const ProdDetailModal = ({ product, isOpen, onClose }) => {
                     </div>
                   </div>
                 </div>
-
               </div>
 
               {/* COLUMNA DERECHA */}
               <div className="space-y-6">
-                
+
                 {/* STOCK */}
                 <div className="bg-white rounded-lg shadow-md overflow-hidden">
                   <div className="bg-black text-white p-4 flex justify-between items-center">
@@ -169,7 +225,7 @@ const ProdDetailModal = ({ product, isOpen, onClose }) => {
                       <span className="font-bold">Stock Tránsito</span>
                       <span className="font-bold">{product.stockTransito}</span>
                     </div>
-                    
+
                     <div className="bg-yellow-100 p-3 rounded mt-4">
                       <div className="flex justify-between mb-2">
                         <span className="font-bold text-yellow-800">Fase Embarque</span>
@@ -276,7 +332,6 @@ const ProdDetailModal = ({ product, isOpen, onClose }) => {
                       <span className="font-bold">Nombre Evento u Oferta</span>
                       <span>{product.categoria}</span>
                     </div>
-                    
                     <div className="mt-4 pt-4 border-t space-y-2">
                       <p className="font-bold">Observaciones:</p>
                       <ul className="space-y-1 text-xs">

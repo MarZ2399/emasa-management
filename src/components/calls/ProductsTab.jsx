@@ -4,7 +4,7 @@ import { initialProducts, getStockStatus } from '../../data/productsData';
 import ProdDetailModal from './ProdDetailModal';
 import Modal from '../common/Modal';
 
-const ProductsTab = () => {
+const ProductsTab = ({ onAddToQuotation }) => {
   const [codigoProducto, setCodigoProducto] = useState('');
   const [nombreProducto, setNombreProducto] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
@@ -268,11 +268,17 @@ const ProductsTab = () => {
       )}
 
       {/* Modal de Detalle Completo */}
-      <ProdDetailModal 
+      {/* <ProdDetailModal 
         product={selectedProduct} 
         isOpen={modalOpen} 
         onClose={() => setModalOpen(false)} 
-      />
+      /> */}
+      <ProdDetailModal 
+  product={selectedProduct} 
+  isOpen={modalOpen} 
+  onClose={() => setModalOpen(false)}
+  onAddToQuotation={onAddToQuotation}
+/>
     </div>
   );
 };
