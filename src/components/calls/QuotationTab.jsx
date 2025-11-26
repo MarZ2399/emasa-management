@@ -1,15 +1,16 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { previewQuotationPDF, generateQuotationPDF } from '../../utils/pdfGenerator';
 import PDFPreview from './PDFPreview';
-
+import { getNextQuotationNumber, getCurrentQuotationNumber } from '../../data/quotationCounter';
 
 
 const IGV_RATE = 0.18;
 
 const QuotationTab = ({ quotationItems, setQuotationItems, onBackToProducts, selectedClient}) => {
   const pdfRef = useRef(null);
+  const [quotationNumber, setQuotationNumber] = useState(getCurrentQuotationNumber());
 
   // Edita campo en un item y recalcula
   const handleEdit = (idx, field, value) => {
@@ -33,6 +34,10 @@ const QuotationTab = ({ quotationItems, setQuotationItems, onBackToProducts, sel
   };
 
   const handleRegister = () => {
+    // Incrementa el contador al registrar
+    const nextNumber = getNextQuotationNumber();
+    setQuotationNumber(nextNumber);
+    
     toast.success('Cotización registrada con éxito', { position: 'top-right' });
     setQuotationItems([]); // Limpia la cotización
   };
@@ -65,11 +70,14 @@ const QuotationTab = ({ quotationItems, setQuotationItems, onBackToProducts, sel
         igv={igv}
         total={total}
         selectedClient={selectedClient}
+        quotationNumber={quotationNumber}
       />
 
       <h2 className="text-3xl font-extrabold tracking-tight text-gray-800 mb-6">
         Cotización
       </h2>
+
+      
       <div className="overflow-auto rounded-xl shadow-lg bg-white border">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-100 sticky top-0 z-10">
