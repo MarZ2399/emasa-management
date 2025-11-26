@@ -659,12 +659,22 @@ const [hasSearched, setHasSearched] = useState(false);
           {/* Tab: Cotizaciones */}
           {activeTab === 'quotations' && (
   <div className="p-6">
+    <QuotationTab
+      quotationItems={quotationItems}
+      setQuotationItems={setQuotationItems}
+      onBackToProducts={() => setActiveTab('products')}
+      selectedClient={selectedClient} // Solo si tu QuotationTab espera este prop para mostrar en PDF
+    />
+  </div>
+)}
+          {/* {activeTab === 'quotations' && (
+  <div className="p-6">
    <QuotationTab
   quotationItems={quotationItems}
   setQuotationItems={setQuotationItems}
 />
   </div>
-)}
+)} */}
 
           {/* {activeTab === 'quotations' && (
             <div className="p-6">

@@ -1,10 +1,16 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { previewQuotationPDF, generateQuotationPDF } from '../../utils/pdfGenerator';
+import PDFPreview from './PDFPreview';
+
+
 
 const IGV_RATE = 0.18;
 
-const QuotationTab = ({ quotationItems, setQuotationItems, onBackToProducts }) => {
+const QuotationTab = ({ quotationItems, setQuotationItems, onBackToProducts, selectedClient}) => {
+  const pdfRef = useRef(null);
+
   // Edita campo en un item y recalcula
   const handleEdit = (idx, field, value) => {
     setQuotationItems(items => items.map((item, i) =>
@@ -35,8 +41,32 @@ const QuotationTab = ({ quotationItems, setQuotationItems, onBackToProducts }) =
   const igv = subtotal * IGV_RATE;
   const total = subtotal + igv;
 
+  // Handler para PDF preview
+  const handlePreviewPDF = async () => {
+    if (!pdfRef.current) return;
+    await previewQuotationPDF(pdfRef.current);
+    toast.success('Vista previa PDF generada', { position: 'top-right' });
+  };
+
+  // Handler para PDF descarga
+  const handleDownloadPDF = async () => {
+    if (!pdfRef.current) return;
+    await generateQuotationPDF(pdfRef.current, `cotizacion_${new Date().toISOString().split('T')[0]}.pdf`);
+    toast.success('PDF descargado', { position: 'top-right' });
+  };
+
   return (
     <div className="space-y-8">
+      {/* PDFPreview oculto para generación PDF */}
+      <PDFPreview
+        ref={pdfRef}
+        quotationItems={quotationItems}
+        subtotal={subtotal}
+        igv={igv}
+        total={total}
+        selectedClient={selectedClient}
+      />
+
       <h2 className="text-3xl font-extrabold tracking-tight text-gray-800 mb-6">
         Cotización
       </h2>
@@ -72,7 +102,9 @@ const QuotationTab = ({ quotationItems, setQuotationItems, onBackToProducts }) =
                 const importeTotal = precioNetoTotal + igvTotal;
                 return (
                   <tr key={idx} className="hover:bg-gray-50 transition">
-                    <td className="p-4 text-center font-mono font-bold text-blue-800 bg-blue-50 rounded-l-lg">{String(idx+1).padStart(3, '0')}</td>
+                    <td className="p-4 text-center font-mono font-bold text-blue-800 bg-blue-50 rounded-l-lg">
+                      {String(idx+1).padStart(3, '0')}
+                    </td>
                     <td className="p-4 text-center font-semibold">{item.codigo}</td>
                     <td className="p-4 text-left">{item.nombre}</td>
                     <td className="p-4 text-right text-gray-700">
@@ -131,44 +163,58 @@ const QuotationTab = ({ quotationItems, setQuotationItems, onBackToProducts }) =
           </tbody>
         </table>
       </div>
-      {/* Resumen totales */}
       {/* Resumen totales alineado a la derecha y compacto */}
-<div className="w-full flex justify-end mt-4">
-  <div className="space-y-2 max-w-xs w-full mr-4">
-    <div className="bg-gray-50 rounded px-4 py-2 shadow text-sm flex items-center justify-between">
-      <span className="font-bold text-gray-700">Subtotal:</span>
-      <span className="font-bold text-blue-800">S/ {subtotal.toFixed(2)}</span>
-    </div>
-    <div className="bg-gray-50 rounded px-4 py-2 shadow text-sm flex items-center justify-between">
-      <span className="font-bold text-gray-700">IGV:</span>
-      <span className="font-bold text-yellow-700">S/ {igv.toFixed(2)}</span>
-    </div>
-    <div className="bg-gray-100 rounded px-4 py-2 shadow-lg border border-blue-200 text-sm flex items-center justify-between">
-      <span className="font-bold text-gray-900">Total:</span>
-      <span className="font-extrabold text-blue-900">S/ {total.toFixed(2)}</span>
-    </div>
-  </div>
-</div>
+      <div className="w-full flex justify-end mt-4">
+        <div className="space-y-2 max-w-xs w-full mr-4">
+          <div className="bg-gray-50 rounded px-4 py-2 shadow text-sm flex items-center justify-between">
+            <span className="font-bold text-gray-700">Subtotal:</span>
+            <span className="font-bold text-blue-800">S/ {subtotal.toFixed(2)}</span>
+          </div>
+          <div className="bg-gray-50 rounded px-4 py-2 shadow text-sm flex items-center justify-between">
+            <span className="font-bold text-gray-700">IGV:</span>
+            <span className="font-bold text-yellow-700">S/ {igv.toFixed(2)}</span>
+          </div>
+          <div className="bg-gray-100 rounded px-4 py-2 shadow-lg border border-blue-200 text-sm flex items-center justify-between">
+            <span className="font-bold text-gray-900">Total:</span>
+            <span className="font-extrabold text-blue-900">S/ {total.toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
 
-{/* Botones extremos: flex-col en móvil, flex-row con justify-between en desktop */}
-<div className="w-full flex flex-col md:flex-row justify-between items-center mt-6 gap-3">
-  <button
-    onClick={onBackToProducts}
-    className="bg-gradient-to-r from-blue-500 to-blue-700 text-white font-bold px-4 py-2 rounded-lg shadow hover:scale-105 transition text-sm w-full md:w-auto"
-  >
-    Seguir agregando productos
-  </button>
-  <button
-    onClick={handleRegister}
-    disabled={quotationItems.length === 0}
-    className={`bg-green-600 text-white font-bold px-4 py-2 rounded-lg shadow hover:scale-105 transition text-sm w-full md:w-auto
-    ${quotationItems.length === 0 ? 'opacity-60 cursor-not-allowed' : ''}`}
-  >
-    Registrar Cotización
-  </button>
-  
-</div>
+      {/* Botones PDF y flujo */}
+      <div className="w-full flex flex-col md:flex-row justify-between items-center mt-6 gap-3">
+        <button
+          onClick={onBackToProducts}
+          className="bg-gradient-to-r from-blue-500 to-blue-700 text-white font-bold px-4 py-2 rounded-lg shadow hover:scale-105 transition text-sm w-full md:w-auto"
+        >
+          Seguir agregando productos
+        </button>
 
+        <div className="flex gap-2 w-full md:w-auto justify-end">
+          <button
+            onClick={handlePreviewPDF}
+            disabled={quotationItems.length === 0}
+            className="bg-orange-600 text-white font-bold px-4 py-2 rounded-lg shadow hover:scale-105 transition text-sm"
+          >
+            👁️ Previsualizar PDF
+          </button>
+          <button
+            onClick={handleDownloadPDF}
+            disabled={quotationItems.length === 0}
+            className="bg-gray-600 text-white font-bold px-4 py-2 rounded-lg shadow hover:scale-105 transition text-sm"
+          >
+            📥 Descargar PDF
+          </button>
+          <button
+            onClick={handleRegister}
+            disabled={quotationItems.length === 0}
+            className={`bg-green-600 text-white font-bold px-4 py-2 rounded-lg shadow hover:scale-105 transition text-sm
+            ${quotationItems.length === 0 ? 'opacity-60 cursor-not-allowed' : ''}`}
+          >
+            Registrar Cotización
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
