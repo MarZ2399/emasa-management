@@ -115,34 +115,48 @@ const QuotationTab = ({ quotationItems, setQuotationItems, onBackToProducts, sel
               <td style={{ width: 210 }} className="p-4 text-left">{item.nombre}</td>
               <td style={{ width: 130 }} className="p-4 text-right text-gray-700">S/ {item.precioLista?.toFixed(2)}</td>
               <td style={{ width: 90 }} className="p-4 text-right">
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={item.discount1}
-                  onChange={e => handleEdit(idx, 'discount1', e.target.value)}
-                  className="w-16 bg-indigo-50 border border-indigo-200 rounded px-2 py-1 text-center font-semibold text-indigo-700"
-                />%
-              </td>
-              <td style={{ width: 90 }} className="p-4 text-right">
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={item.discount5 || 0}
-                  onChange={e => handleEdit(idx, 'discount5', e.target.value)}
-                  className="w-16 bg-orange-50 border border-orange-200 rounded px-2 py-1 text-center font-semibold text-orange-700"
-                />%
-              </td>
+  <input
+    type="text"
+    inputMode="numeric"
+    pattern="[0-9]*"
+    value={item.discount1}
+    onChange={e => {
+      let value = e.target.value.replace(/\D/g, ""); // Solo números
+      if (value !== "" && (parseInt(value) < 0 || parseInt(value) > 100)) value = "100"; // Máximo 100
+      handleEdit(idx, 'discount1', value);
+    }}
+    className="w-16 bg-indigo-50 border border-indigo-200 rounded px-2 py-1 text-center font-semibold text-indigo-700"
+  />%
+</td>
+<td style={{ width: 90 }} className="p-4 text-right">
+  <input
+    type="text"
+    inputMode="numeric"
+    pattern="[0-9]*"
+    value={item.discount5 || ""}
+    onChange={e => {
+      let value = e.target.value.replace(/\D/g, "");
+      if (value !== "" && (parseInt(value) < 0 || parseInt(value) > 100)) value = "100";
+      handleEdit(idx, 'discount5', value);
+    }}
+    className="w-16 bg-orange-50 border border-orange-200 rounded px-2 py-1 text-center font-semibold text-orange-700"
+  />%
+</td>
               <td style={{ width: 140 }} className="p-4 text-right font-bold text-green-700">S/ {item.precioNeto?.toFixed(2)}</td>
               <td style={{ width: 70 }} className="p-4 text-center">
                 <input
-                  type="number"
-                  min={1}
-                  value={item.quantity}
-                  onChange={e => handleEdit(idx, 'quantity', e.target.value)}
-                  className="w-16 bg-blue-50 border border-blue-200 rounded px-2 py-1 text-center font-bold"
-                />
+  type="text"
+  inputMode="numeric"
+  pattern="[0-9]*"
+  value={item.quantity}
+  onChange={e => {
+    // Solo números (sin decimales, sin letras)
+    const value = e.target.value.replace(/\D/g, "");
+    handleEdit(idx, 'quantity', value);
+  }}
+  className="w-16 bg-blue-50 border border-blue-200 rounded px-2 py-1 text-center font-bold"
+/>
+
               </td>
               <td style={{ width: 130 }} className="p-4 text-right text-blue-900 font-bold">S/ {precioNetoTotal.toFixed(2)}</td>
               <td style={{ width: 100 }} className="p-4 text-right text-yellow-700">S/ {igvTotal.toFixed(2)}</td>
