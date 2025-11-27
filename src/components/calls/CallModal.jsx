@@ -8,14 +8,14 @@ const CallModal = ({ isOpen, onClose, formData, onChange, onSubmit, isEditing })
   return ReactDOM.createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="bg-blue-600 text-white px-6 py-4 flex items-center justify-between rounded-t-lg sticky top-0 z-10">
+        <div className="bg-[#334a5e] text-white px-6 py-4 flex items-center justify-between rounded-t-lg sticky top-0 z-10">
           <h2 className="text-xl font-bold">
             {isEditing ? 'Editar Registro de Llamada' : 'Nuevo Registro de Llamada'}
           </h2>
           <button
             onClick={onClose}
             type="button"
-            className="text-white hover:bg-blue-700 rounded p-1 transition"
+            className="text-white hover:bg-gray-700 rounded p-1 transition"
           >
             <X className="w-6 h-6" />
           </button>
@@ -187,7 +187,7 @@ const CallModal = ({ isOpen, onClose, formData, onChange, onSubmit, isEditing })
             <button
               type="button"
               onClick={onSubmit}
-              className="w-full sm:w-auto px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+              className="w-full sm:w-auto px-6 py-2 bg-[#334a5e] text-white rounded-lg hover:bg-blue-700 transition font-medium"
             >
               {isEditing ? 'Actualizar' : 'Guardar'}
             </button>

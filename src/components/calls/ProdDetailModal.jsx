@@ -42,7 +42,7 @@ const ProdDetailModal = ({
           <div className="flex gap-2">
             <button
               onClick={handleAddToQuotation}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold"
+              className="bg-[#334a5e] hover:bg-[#2c3e50] text-white px-4 py-2 rounded font-bold"
             >
               Agregar producto
             </button>

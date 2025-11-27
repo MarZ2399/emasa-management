@@ -159,7 +159,7 @@ const PurchaseHistoryTab = ({ clienteRUC }) => {
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`px-3 py-1.5 text-sm rounded-lg transition flex items-center gap-1 ${
-                showFilters ? 'bg-blue-600 text-white' : 'border border-gray-300 hover:bg-gray-50'
+                showFilters ? 'bg-[#334a5e] text-white' : 'border border-gray-300 hover:bg-gray-50'
               }`}
             >
               <Filter className="w-4 h-4" />

@@ -1,11 +1,12 @@
 // src/components/dashboard/DashboardModule.jsx
 import React, { useState, useMemo } from 'react';
-import { Phone, ShoppingCart, FileText, Clock, Calendar, Award } from 'lucide-react';
+import { Phone, ShoppingCart, FileText, Clock, Calendar, Award,TrendingUp } from 'lucide-react';
 import MetricCard from './MetricCard';
 import WeeklyChart from './WeeklyChart';
 import AgentRanking from './AgentRanking';
 import ResultsDonut from './ResultsDonut';
 import DashboardFilters from './DashboardFilters';
+import SectionHeader from '../common/SectionHeader';
 import { historicalCallsData, agentGoals, agentsRanking } from '../../data/dashboardData';
 
 const DashboardModule = ({ currentUser }) => {
@@ -152,27 +153,23 @@ const DashboardModule = ({ currentUser }) => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-green-600 rounded-xl shadow-lg p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">
-              {isAdmin && selectedAgent === 'all' ? 'Dashboard General' : 'Mi Dashboard'}
-            </h1>
-            <div className="flex items-center gap-3 text-blue-100">
-              <Calendar className="w-4 h-4" />
-              <span className="text-sm capitalize">{currentDate}</span>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="text-sm text-blue-100">Progreso {period === 'today' ? 'Hoy' : period === 'week' ? 'Semanal' : 'Mensual'}</div>
-              <div className="text-4xl font-bold">{totalProgress}%</div>
-            </div>
-            <Award className="w-16 h-16 opacity-80" />
-          </div>
-        </div>
+      <SectionHeader
+    icon={TrendingUp}
+    title={isAdmin && selectedAgent === 'all' ? 'Dashboard General' : 'Mi Dashboard'}
+    subtitle={
+      <div className="flex items-center gap-2 text-blue-100">
+        <Calendar className="w-4 h-4" />
+        <span className="capitalize">{currentDate}</span>
       </div>
+    }
+    showButton={true}
+    buttonText={`${totalProgress}%`}
+    buttonTextMobile={`${totalProgress}%`}
+    buttonIcon={Award}
+    // O puedes quitar el botón si no necesitas acción
+    gradientFrom="from-[#334a5e]"
+    gradientTo="to-[#2ecc70]"
+  />
 
       {/* Filtros */}
       <DashboardFilters
