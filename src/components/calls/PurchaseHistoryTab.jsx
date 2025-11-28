@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ShoppingCart, Package, Calendar, DollarSign, FileText, Filter, X } from 'lucide-react';
 import { getClientPurchases, getEstadoStyle } from '../../data/purchaseHistoryData';
 
-const PurchaseHistoryTab = ({ clienteRUC }) => {
+const PurchaseHistoryTab = ({ clienteRUC, onProductClick }) => {
   const purchases = getClientPurchases(clienteRUC);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -275,7 +275,17 @@ const PurchaseHistoryTab = ({ clienteRUC }) => {
                     <td className="px-3 py-3 text-xs whitespace-nowrap">{purchase.vendedorHecho}</td>
                     <td className="px-3 py-3 text-xs whitespace-nowrap">{purchase.ruc}</td>
                     <td className="px-3 py-3 text-xs">{purchase.razonSocial}</td>
-                    <td className="px-3 py-3 text-xs whitespace-nowrap font-medium text-blue-600">{purchase.codigoProducto}</td>
+                    {/* <td className="px-3 py-3 text-xs whitespace-nowrap font-medium text-blue-600">{purchase.codigoProducto}</td> */}
+                    {/* ✅ Código clickeable */}
+                    <td className="px-3 py-3 text-xs whitespace-nowrap">
+                      <button
+                        onClick={() => onProductClick(purchase.codigoProducto)}
+                        className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition cursor-pointer"
+                        title="Ver producto"
+                      >
+                        {purchase.codigoProducto}
+                      </button>
+                    </td>
                     <td className="px-3 py-3 text-xs">{purchase.descripcionProducto}</td>
                     <td className="px-3 py-3 text-xs text-center font-semibold">{purchase.numRegistro}</td>
                     <td className="px-3 py-3 text-xs text-center">

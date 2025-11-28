@@ -17,6 +17,8 @@ const CallsModule = () => {
   // Estado para tabs
   const [activeTab, setActiveTab] = useState('calls');
   const [selectedClientRUC, setSelectedClientRUC] = useState(null); // ✅ NUEVO: Estado para RUC
+
+   const [resetClientSearch, setResetClientSearch] = useState(0); // ✅ Nuevo estado
   
   const [quotationItems, setQuotationItems] = useState([]);
 
@@ -75,66 +77,91 @@ const [hasSearched, setHasSearched] = useState(false);
     }
   };
 
-  const handleOpenModal = (record = null) => {
-    if (record) {
-      setEditingRecord(record);
+ const handleOpenModal = (record = null) => {
+  if (record) {
+    // Modo edición
+    setEditingRecord(record);
+    setFormData({
+      estatusLlamada: record.estatusLlamada || '',
+      contacto: record.contacto || '',
+      telef1: record.telef1 || '',
+      telef2: record.telef2 || '',
+      usuario: record.usuario || '',
+      clave: record.clave || '',
+      proxLlamada: record.proxLlamada || '',
+      observaciones: record.observaciones || '',
+      resultadoGestion: record.resultadoGestion || '',
+      asesor: record.asesor || 'Usuario Actual',
+      contactadoNombre: record.contactadoNombre || '' // ✅ Agregar este campo
+    });
+  } else {
+    // Modo creación
+    setEditingRecord(null);
+    if (selectedClient) {
       setFormData({
-        estatusLlamada: record.estatusLlamada || '',
-        contacto: record.contacto || '',
-        telef1: record.telef1 || '',
-        telef2: record.telef2 || '',
-        usuario: record.usuario || '',
-        clave: record.clave || '',
-        proxLlamada: record.proxLlamada || '',
-        observaciones: record.observaciones || '',
-        resultadoGestion: record.resultadoGestion || '',
-        asesor: record.asesor || 'Usuario Actual'
+        estatusLlamada: '',
+        contacto: '',
+        telef1: selectedClient.telefPadron || '',
+        telef2: selectedClient.telefTV || '',
+        usuario: selectedClient.usuario || '',
+        clave: '',
+        proxLlamada: '',
+        observaciones: '',
+        resultadoGestion: '',
+        asesor: selectedClient.vendedor || 'Usuario Actual',
+        contactadoNombre: '' // ✅ Agregar este campo vacío
       });
     } else {
-      setEditingRecord(null);
-      if (selectedClient) {
-        setFormData({
-          estatusLlamada: '',
-          contacto: '',
-          telef1: selectedClient.telefPadron || '',
-          telef2: selectedClient.telefTV || '',
-          usuario: selectedClient.usuario || '',
-          clave: '',
-          proxLlamada: '',
-          observaciones: '',
-          resultadoGestion: '',
-          asesor: selectedClient.vendedor || 'Usuario Actual'
-        });
-      } else {
-        setFormData({
-          estatusLlamada: '',
-          contacto: '',
-          telef1: '',
-          telef2: '',
-          usuario: '',
-          clave: '',
-          proxLlamada: '',
-          observaciones: '',
-          resultadoGestion: '',
-          asesor: 'Usuario Actual'
-        });
-      }
+      setFormData({
+        estatusLlamada: '',
+        contacto: '',
+        telef1: '',
+        telef2: '',
+        usuario: '',
+        clave: '',
+        proxLlamada: '',
+        observaciones: '',
+        resultadoGestion: '',
+        asesor: 'Usuario Actual',
+        contactadoNombre: '' // ✅ Agregar este campo vacío
+      });
     }
-    setIsModalOpen(true);
-  };
+  }
+  setIsModalOpen(true);
+};
+
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingRecord(null);
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
+  const handleFormChange = (e) => {
+  const { name, value } = e.target;
+  
+  // ✅ Si cambia el contacto, autocompletar teléfono
+  if (name === 'contactadoNombre' && selectedClient?.contactos) {
+    const contactoSeleccionado = selectedClient.contactos.find(
+      c => c.fullName === value
+    );
+    
+    if (contactoSeleccionado) {
+      setFormData(prev => ({
+        ...prev,
+        contactadoNombre: value,
+        telef1: contactoSeleccionado.phone || prev.telef1,
+        telef2: prev.telef2
+      }));
+      return;
+    }
+  }
+  
+  // Cambio normal de campos
+  setFormData(prev => ({
+    ...prev,
+    [name]: value
+  }));
+};
 
   const handleSubmit = () => {
     if (!formData.contacto || !formData.telef1 || !formData.resultadoGestion) {
@@ -236,6 +263,39 @@ const [hasSearched, setHasSearched] = useState(false);
     setCurrentPage(pageNumber);
   };
 
+  const handleProductClick = (codigoProducto) => {
+    setCodigoProducto(codigoProducto);
+    setNombreProducto('');
+    setHasSearched(true);
+    setActiveTab('products');
+  };
+
+  const handleRegistrationComplete = () => {
+    // Resetear cliente seleccionado
+    setSelectedClient(null);
+    setSelectedClientRUC(null);
+    
+    // Resetear búsqueda de productos
+    setCodigoProducto('');
+    setNombreProducto('');
+    setHasSearched(false);
+
+    // ✅ Incrementar contador en vez de alternar booleano
+    setResetClientSearch(prev => prev + 1);
+    
+    // Volver al tab de llamadas (o al que prefieras)
+    setActiveTab('calls');
+    
+    // Notificación adicional (opcional)
+    toast.success('Cotización completada. Puedes buscar un nuevo cliente', { 
+  position: 'top-right',
+  duration: 3000
+});
+  };
+
+ 
+
+
   return (
     <div className="space-y-6">
       {/* Header con título */}
@@ -259,7 +319,10 @@ const [hasSearched, setHasSearched] = useState(false);
       />
 
       {/* Panel de Búsqueda de Cliente */}
-      <ClientSearchPanel onClientSelect={handleClientSelect} />
+      <ClientSearchPanel 
+      onClientSelect={handleClientSelect} 
+      resetTrigger={resetClientSearch} // ✅ Pasar prop
+      />
 
       {/* Sistema de Tabs */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
@@ -497,56 +560,59 @@ const [hasSearched, setHasSearched] = useState(false);
                     <div className="overflow-x-auto px-6 py-4">
                       <table className="w-full min-w-[1200px]">
                         <thead className="bg-[#334a5e] text-white">
-                          <tr>
-                            <th className="pl-6 pr-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-40 min-w-[160px]">
-                              Fecha Gestión
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-80 min-w-[320px]">
-                              Resultados Gestión
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-36 min-w-[140px]">
-                              Asesor
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-28 min-w-[110px]">
-                              Contacto
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-32 min-w-[120px]">
-                              Telef 1
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-32 min-w-[120px]">
-                              Telef 2
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-32 min-w-[120px]">
-                              Usuario
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-72 min-w-[280px]">
-                              Observaciones
-                            </th>
-                            <th className="pl-4 pr-6 py-3 text-center text-xs font-semibold uppercase tracking-wider w-28 min-w-[100px]">
-                              Acciones
-                            </th>
-                          </tr>
-                        </thead>
+  <tr>
+    <th className="pl-6 pr-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-40 min-w-[160px]">
+      Fecha Gestión
+    </th>
+    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-80 min-w-[320px]">
+      Resultados Gestión
+    </th>
+    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-36 min-w-[140px]">
+      Asesor
+    </th>
+    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-40 min-w-[160px]">
+      Contactado
+    </th>
+    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-28 min-w-[140px]">
+      Tipo Contacto
+    </th>
+    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-32 min-w-[120px]">
+      Telef 1
+    </th>
+    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-32 min-w-[120px]">
+      Telef 2
+    </th>
+    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-32 min-w-[120px]">
+      Usuario
+    </th>
+    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-72 min-w-[280px]">
+      Observaciones
+    </th>
+    <th className="pl-4 pr-6 py-3 text-center text-xs font-semibold uppercase tracking-wider w-28 min-w-[100px]">
+      Acciones
+    </th>
+  </tr>
+</thead>
 
-                        <tbody className="divide-y divide-gray-200 bg-white">
-                          {currentRecords.length > 0 ? (
-                            currentRecords.map((record, index) => (
-                              <CallTableRow
-                                key={record.id}
-                                record={record}
-                                index={index}
-                                onEdit={handleOpenModal}
-                                onDelete={handleDelete}
-                              />
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan="9" className="px-6 py-12 text-center text-gray-500">
-                                No se encontraron registros de llamadas
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
+<tbody className="divide-y divide-gray-200 bg-white">
+  {currentRecords.length > 0 ? (
+    currentRecords.map((record, index) => (
+      <CallTableRow
+        key={record.id}
+        record={record}
+        index={index}
+        onEdit={handleOpenModal}
+        onDelete={handleDelete}
+      />
+    ))
+  ) : (
+    <tr>
+      <td colSpan="10" className="px-6 py-12 text-center text-gray-500">
+        No se encontraron registros de llamadas
+      </td>
+    </tr>
+  )}
+</tbody>
                       </table>
                     </div>
                   </div>
@@ -629,7 +695,10 @@ const [hasSearched, setHasSearched] = useState(false);
            {/* ✅ NUEVO TAB: Últimas Compras */}
           {activeTab === 'purchases' && (
             <div className="p-6">
-              <PurchaseHistoryTab clienteRUC={selectedClientRUC} />
+              <PurchaseHistoryTab 
+              clienteRUC={selectedClientRUC} 
+              onProductClick={handleProductClick}/>
+              
             </div>
           )}
           
@@ -664,6 +733,7 @@ const [hasSearched, setHasSearched] = useState(false);
       setQuotationItems={setQuotationItems}
       onBackToProducts={() => setActiveTab('products')}
       selectedClient={selectedClient} // Solo si tu QuotationTab espera este prop para mostrar en PDF
+      onRegistrationComplete={handleRegistrationComplete} // ✅ Pasar handler
     />
   </div>
 )}
@@ -685,14 +755,24 @@ const [hasSearched, setHasSearched] = useState(false);
       </div>
 
       {/* Modal */}
-      <CallModal
+      {/* <CallModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         formData={formData}
         onChange={handleInputChange}
         onSubmit={handleSubmit}
         isEditing={!!editingRecord}
-      />
+      /> */}
+      <CallModal
+  isOpen={isModalOpen}
+  onClose={handleCloseModal}
+  formData={formData}
+  onChange={handleFormChange}
+  onSubmit={handleSubmit}
+  isEditing={!!editingRecord} // ✅ Corregir aquí
+  clienteContactos={selectedClient?.contactos || []} // ✅ Pasar los contactos del cliente
+/>
+
 
       {/* Modal de Confirmación */}
       <ConfirmDialog

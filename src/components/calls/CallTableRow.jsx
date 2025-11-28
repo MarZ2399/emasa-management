@@ -13,6 +13,10 @@ const CallTableRow = ({ record, index, onEdit, onDelete }) => {
       <td className="px-4 py-3 text-sm text-gray-700">
         {record.asesor}
       </td>
+      {/* ✅ Nueva columna: Contactado */}
+      <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+        {record.contactadoNombre || '-'}
+      </td>
       <td className="px-4 py-3">
         {record.contacto && (
           <span className={`px-2 py-1 rounded text-xs font-semibold ${

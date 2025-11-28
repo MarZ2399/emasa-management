@@ -8,9 +8,10 @@ import { getNextQuotationNumber, getCurrentQuotationNumber } from '../../data/qu
 
 const IGV_RATE = 0.18;
 
-const QuotationTab = ({ quotationItems, setQuotationItems, onBackToProducts, selectedClient}) => {
+const QuotationTab = ({ quotationItems, setQuotationItems, onBackToProducts, selectedClient,onRegistrationComplete }) => {
   const pdfRef = useRef(null);
   const [quotationNumber, setQuotationNumber] = useState(getCurrentQuotationNumber());
+   const [isRegistering, setIsRegistering] = useState(false); // ✅ Nuevo estado
 
   // Edita campo en un item y recalcula
   const handleEdit = (idx, field, value) => {
@@ -33,13 +34,45 @@ const QuotationTab = ({ quotationItems, setQuotationItems, onBackToProducts, sel
     toast.error('Producto eliminado de la cotización', { position: 'top-right' });
   };
 
-  const handleRegister = () => {
-    // Incrementa el contador al registrar
-    const nextNumber = getNextQuotationNumber();
-    setQuotationNumber(nextNumber);
-    
-    toast.success('Cotización registrada con éxito', { position: 'top-right' });
-    setQuotationItems([]); // Limpia la cotización
+  const handleRegister = async () => {
+    if (quotationItems.length === 0) {
+      toast.error('No hay productos en la cotización', { position: 'top-right' });
+      return;
+    }
+
+    setIsRegistering(true); // ✅ Activar loading
+
+    try {
+      // Genera y descarga el PDF
+      if (pdfRef.current) {
+        await generateQuotationPDF(
+          pdfRef.current, 
+          `cotizacion_${quotationNumber}.pdf`
+        );
+      }
+
+      // Incrementa el contador
+      const nextNumber = getNextQuotationNumber();
+      setQuotationNumber(nextNumber);
+      
+      // Notificación de éxito
+      toast.success('Cotización registrada y descargada correctamente', { 
+        position: 'top-right',
+        duration: 4000
+      });
+      
+      // Limpia la cotización
+      setQuotationItems([]);
+      // ✅ Notifica al padre para resetear todo
+      if (onRegistrationComplete) {
+        onRegistrationComplete();
+      }
+    } catch (error) {
+      toast.error('Error al generar la cotización', { position: 'top-right' });
+      console.error(error);
+    } finally {
+      setIsRegistering(false); // ✅ Desactivar loading
+    }
   };
 
   const subtotal = (quotationItems ?? []).reduce((sum, p) => sum + p.precioNeto * p.quantity, 0);
@@ -223,11 +256,21 @@ const QuotationTab = ({ quotationItems, setQuotationItems, onBackToProducts, sel
           </button>
           <button
             onClick={handleRegister}
-            disabled={quotationItems.length === 0}
-            className={`bg-green-600 text-white font-bold px-4 py-2 rounded-lg shadow hover:scale-105 transition text-sm
-            ${quotationItems.length === 0 ? 'opacity-60 cursor-not-allowed' : ''}`}
+            disabled={quotationItems.length === 0 || isRegistering}
+            className={`bg-green-600 text-white font-bold px-4 py-2 rounded-lg shadow hover:scale-105 transition text-sm flex items-center gap-2
+            ${quotationItems.length === 0 || isRegistering ? 'opacity-60 cursor-not-allowed' : ''}`}
           >
-            Registrar Cotización
+            {isRegistering ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Generando...
+              </>
+            ) : (
+              'Registrar Cotización'
+            )}
           </button>
         </div>
       </div>

@@ -2,7 +2,15 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { X } from 'lucide-react';
 
-const CallModal = ({ isOpen, onClose, formData, onChange, onSubmit, isEditing }) => {
+const CallModal = ({ 
+  isOpen, 
+  onClose, 
+  formData, 
+  onChange, 
+  onSubmit, 
+  isEditing,
+  clienteContactos = [] // ✅ Nueva prop: lista de contactos del cliente
+}) => {
   if (!isOpen) return null;
 
   return ReactDOM.createPortal(
@@ -23,6 +31,27 @@ const CallModal = ({ isOpen, onClose, formData, onChange, onSubmit, isEditing })
 
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* ✅ NUEVO CAMPO: Contactado */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Contactado *
+              </label>
+              <select
+                name="contactadoNombre"
+                value={formData.contactadoNombre || ''}
+                onChange={onChange}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Seleccionar contacto...</option>
+                {clienteContactos.map((contacto, index) => (
+                  <option key={index} value={contacto.fullName}>
+                    {contacto.fullName} - {contacto.phone}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Estatus Llamada

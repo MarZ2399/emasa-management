@@ -1,13 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState,useEffect } from 'react';
 import { Search, CheckCircle, AlertCircle } from 'lucide-react';
 import { findClientByRuc, findClientByName } from '../../data/callsData';
+import InfoCard from '../common/InfoCard'; // ✅ Importar el InfoCard reutilizable
 
-const ClientSearchPanel = ({ onClientSelect }) => {
+const ClientSearchPanel = ({ onClientSelect, resetTrigger }) => {
   const [ruc, setRuc] = useState('');
   const [razonSocial, setRazonSocial] = useState('');
   const [clientData, setClientData] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
   const [notFound, setNotFound] = useState(false);
+
+
+  // ✅ Efecto para limpiar campos cuando cambia resetTrigger
+  useEffect(() => {
+    if (resetTrigger > 0) {
+      handleClear();
+    }
+  }, [resetTrigger]);
+
 
   const handleSearch = () => {
     if (!ruc && !razonSocial) {
@@ -21,12 +31,10 @@ const ClientSearchPanel = ({ onClientSelect }) => {
     setTimeout(() => {
       let foundClient = null;
       
-      // Buscar por RUC primero
       if (ruc) {
         foundClient = findClientByRuc(ruc);
       }
       
-      // Si no se encontró por RUC, buscar por nombre
       if (!foundClient && razonSocial) {
         foundClient = findClientByName(razonSocial);
       }
@@ -164,19 +172,11 @@ const ClientSearchPanel = ({ onClientSelect }) => {
             ]}
           />
 
-          {/* DATOS CONTACTO */}
+          {/* DATOS CONTACTO - 3 columnas */}
           <InfoCard
             title="Datos Contacto"
             color="blue"
-            data={[
-              { label: 'Correo 1', value: clientData.correo1 },
-              { label: 'Correo 2', value: clientData.correo2 || '-' },
-              { label: 'Correo 3', value: clientData.correo3 || '-' },
-              { label: 'Teléf. Padrón', value: clientData.telefPadron },
-              { label: 'Teléf. TV', value: clientData.telefTV },
-              { label: 'Reasignado a TV', value: clientData.reasignadoTV || '-', highlight: 'red' },
-              { label: 'Televentas Actual', value: clientData.televentasActual || '-', highlight: 'red' }
-            ]}
+            data={clientData.contactos || []} // ✅ Ahora pasa el array de contactos
           />
 
           {/* DATOS ECOMMERCE Y VENTAS */}
@@ -195,56 +195,6 @@ const ClientSearchPanel = ({ onClientSelect }) => {
           />
         </div>
       )}
-    </div>
-  );
-};
-
-// Componente reutilizable para las tarjetas de información
-const InfoCard = ({ title, subtitle, icon, color, data }) => {
-  const colors = {
-    green: {
-      border: 'border-[#2ecc70]',
-      header: 'bg-[#2ecc70]',
-      label: 'bg-[#2ecc70]/10'
-    },
-    blue: {
-      border: 'border-[#334a5e]',
-      header: 'bg-[#334a5e]',
-      label: 'bg-[#334a5e]/10'
-    }
-  };
-
-  const selectedColor = colors[color] || colors.green;
-
-  return (
-    <div className={`border ${selectedColor.border} rounded-lg overflow-hidden`}>
-      <div className={`${selectedColor.header} text-white px-4 py-3 flex items-center justify-between`}>
-        <h3 className="font-bold flex items-center gap-2">
-          {icon}
-          {title}
-        </h3>
-        {subtitle && (
-          <span className="text-xs bg-white bg-opacity-20 px-3 py-1 rounded-full">
-            {subtitle}
-          </span>
-        )}
-      </div>
-      <div className="p-4 space-y-2">
-        {data.map((item, index) => (
-          <div key={index} className="grid grid-cols-3 gap-2 text-sm">
-            <div className={`${selectedColor.label} px-3 py-2 rounded font-semibold ${
-              item.highlight === 'red' ? 'text-red-700' : ''
-            }`}>
-              {item.label}
-            </div>
-            <div className={`col-span-2 px-3 py-2 bg-gray-50 rounded ${
-              item.highlight === 'red' ? 'font-semibold text-red-700' : ''
-            }`}>
-              {item.value}
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 };

@@ -25,14 +25,30 @@ export const clientsDatabase = [
     clienteMalPagador: 'No',
     motivoMalPagador: 'Sin Antecedente',
     
-    // DATOS CONTACTO
-    correo1: 'altatecnologiadiesel@gmail.com',
-    correo2: '',
-    correo3: '',
-    telefPadron: '973996878',
-    telefTV: '973996878',
-    reasignadoTV: '',
-    televentasActual: '',
+    // DATOS CONTACTO (Array de contactos)
+    contactos: [
+      {
+        title: 'Contacto 1',
+        email: 'altatecnologiadiesel@gmail.com',
+        phone: '973996878',
+        fullName: 'Juan Carlos Pérez',
+        birthday: '12/03/1985'
+      },
+      {
+        title: 'Contacto 2',
+        email: 'jperez@altatecnologia.com',
+        phone: '987654321',
+        fullName: 'María Elena Torres',
+        birthday: '22/07/1990'
+      },
+      {
+        title: 'Contacto 3',
+        email: 'ventas@altatecnologia.com',
+        phone: '965432178',
+        fullName: 'Roberto Sánchez',
+        birthday: '15/11/1988'
+      }
+    ],
     
     // DATOS ECOMMERCE
     usuario: 'ALTA.TEC',
@@ -53,6 +69,7 @@ export const clientsDatabase = [
     departamento: 'Lima',
     zonaCliente: 'Zona Este',
     fechaCreacion: '15/03/2023',
+    
     giro: '08 - Distribuidor',
     categoria: '01',
     vendedor: 'Yessir Flores',
@@ -62,13 +79,31 @@ export const clientsDatabase = [
     diasAtraso: '15',
     clienteMalPagador: 'No',
     motivoMalPagador: 'Sin Antecedente',
-    correo1: 'ventas@losandes.com',
-    correo2: 'administracion@losandes.com',
-    correo3: '',
-    telefPadron: '987123456',
-    telefTV: '987123456',
-    reasignadoTV: '',
-    televentasActual: '',
+    
+    contactos: [
+      {
+        title: 'Contacto 1',
+        email: 'ventas@losandes.com',
+        phone: '987123456',
+        fullName: 'Luis Alberto Díaz',
+        birthday: '05/08/1982'
+      },
+      {
+        title: 'Contacto 2',
+        email: 'administracion@losandes.com',
+        phone: '945678123',
+        fullName: 'Carmen Rosa Vargas',
+        birthday: '18/12/1991'
+      },
+      {
+        title: 'Contacto 3',
+        email: 'logistica@losandes.com',
+        phone: '912345678',
+        fullName: 'Fernando Quispe',
+        birthday: '30/04/1987'
+      }
+    ],
+    
     usuario: 'LOS.ANDES',
     clave: '456',
     corePrincipal: 'Repuestos Generales -> USD 15000',
@@ -83,15 +118,16 @@ export const clientsDatabase = [
 export const initialCallRecords = [
   {
     id: 1,
-    clienteRuc: '2060467759', // Relación con el cliente
+    clienteRuc: '2060467759',
     fechaGestion: '08/06/2025 15:36:32',
     resultadoGestion: 'No Contesta',
     asesor: 'Yessir Flores',
     contacto: 'Outbound',
-    telef1: '973996878',
+    telef1: '973996878', // Juan Carlos Pérez
     telef2: '',
     usuario: 'ALTA.TEC',
     clave: '',
+    contactadoNombre: 'Juan Carlos Pérez',
     observaciones: 'Primera llamada, no respondió'
   },
   {
@@ -101,10 +137,11 @@ export const initialCallRecords = [
     resultadoGestion: 'Seguimiento / Consulta De Pedido',
     asesor: 'Giancarlo Nicho',
     contacto: 'Inbound',
-    telef1: '973996878',
+    telef1: '987654321', // María Elena Torres
     telef2: '973996878',
     usuario: 'ALTA.TEC',
     clave: '',
+    contactadoNombre: 'María Elena Torres',
     observaciones: 'Cliente solicitó información sobre pedido #12345'
   },
   {
@@ -114,10 +151,11 @@ export const initialCallRecords = [
     resultadoGestion: 'Venta',
     asesor: 'Giancarlo Nicho',
     contacto: 'Inbound',
-    telef1: '973996878',
+    telef1: '965432178', // Roberto Sánchez
     telef2: '',
     usuario: 'ALTA.TEC',
     clave: '',
+    contactadoNombre: 'Roberto Sánchez',
     observaciones: 'Venta exitosa de producto Premium'
   },
   {
@@ -127,10 +165,11 @@ export const initialCallRecords = [
     resultadoGestion: 'Venta',
     asesor: 'Giancarlo Nicho',
     contacto: 'Inbound',
-    telef1: '973996878',
-    telef2: '973996878',
+    telef1: '973996878', // Juan Carlos Pérez
+    telef2: '987654321',
     usuario: 'ALTA.TEC',
     clave: '',
+    contactadoNombre: 'Juan Carlos Pérez',
     observaciones: 'Cliente recurrente, compra mensual'
   },
   {
@@ -140,10 +179,11 @@ export const initialCallRecords = [
     resultadoGestion: '- Cotización',
     asesor: 'Giancarlo Nicho',
     contacto: 'Inbound',
-    telef1: '973996878',
+    telef1: '987654321', // María Elena Torres
     telef2: '',
     usuario: 'ALTA.TEC',
     clave: '',
+    contactadoNombre: 'María Elena Torres',
     observaciones: 'Solicitó cotización para 50 unidades'
   },
   {
@@ -153,10 +193,11 @@ export const initialCallRecords = [
     resultadoGestion: '- Cotización',
     asesor: 'Giancarlo Nicho',
     contacto: 'Inbound',
-    telef1: '973996878',
-    telef2: '',
+    telef1: '965432178', // Roberto Sánchez
+    telef2: '973996878',
     usuario: 'ALTA.TEC',
     clave: '',
+    contactadoNombre: 'Roberto Sánchez',
     observaciones: 'Envió cotización por correo'
   },
   {
@@ -166,13 +207,13 @@ export const initialCallRecords = [
     resultadoGestion: 'No Contesta',
     asesor: 'Giancarlo Nicho',
     contacto: 'Outbound',
-    telef1: '973996878',
+    telef1: '973996878', // Juan Carlos Pérez
     telef2: '',
     usuario: 'ALTA.TEC',
     clave: '',
+    contactadoNombre: 'Juan Carlos Pérez',
     observaciones: 'Intentar nuevamente mañana'
   },
-  // Llamadas del segundo cliente
   {
     id: 8,
     clienteRuc: '2045678901',
@@ -180,10 +221,11 @@ export const initialCallRecords = [
     resultadoGestion: 'Venta',
     asesor: 'Yessir Flores',
     contacto: 'Outbound',
-    telef1: '987123456',
+    telef1: '987123456', // Luis Alberto Díaz
     telef2: '',
     usuario: 'LOS.ANDES',
     clave: '',
+    contactadoNombre: 'Luis Alberto Díaz',
     observaciones: 'Venta de repuestos por $800'
   },
   {
@@ -193,13 +235,16 @@ export const initialCallRecords = [
     resultadoGestion: 'Seguimiento / Consulta De Pedido',
     asesor: 'Yessir Flores',
     contacto: 'Inbound',
-    telef1: '987123456',
-    telef2: '',
+    telef1: '945678123', // Carmen Rosa Vargas
+    telef2: '987123456',
     usuario: 'LOS.ANDES',
     clave: '',
+    contactadoNombre: 'Carmen Rosa Vargas',
     observaciones: 'Consulta sobre pago pendiente'
   }
 ];
+
+
 
 // Función helper para buscar cliente por RUC
 export const findClientByRuc = (ruc) => {
