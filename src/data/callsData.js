@@ -119,128 +119,146 @@ export const initialCallRecords = [
   {
     id: 1,
     clienteRuc: '2060467759',
+    clienteNombre: 'Alta Tecnologia En Diesel E.I.R.L',
     fechaGestion: '08/06/2025 15:36:32',
     resultadoGestion: 'No Contesta',
     asesor: 'Yessir Flores',
     contacto: 'Outbound',
-    telef1: '973996878', // Juan Carlos Pérez
+    telef1: '973996878',
     telef2: '',
     usuario: 'ALTA.TEC',
     clave: '',
     contactadoNombre: 'Juan Carlos Pérez',
-    observaciones: 'Primera llamada, no respondió'
+    observaciones: 'Primera llamada, no respondió',
+    proxLlamada: '2025-12-02T10:00' // ✅ Formato datetime-local
   },
   {
     id: 2,
     clienteRuc: '2060467759',
+    clienteNombre: 'Alta Tecnologia En Diesel E.I.R.L',
     fechaGestion: '07/05/2025 14:06:20',
     resultadoGestion: 'Seguimiento / Consulta De Pedido',
     asesor: 'Giancarlo Nicho',
     contacto: 'Inbound',
-    telef1: '987654321', // María Elena Torres
+    telef1: '987654321',
     telef2: '973996878',
     usuario: 'ALTA.TEC',
     clave: '',
     contactadoNombre: 'María Elena Torres',
-    observaciones: 'Cliente solicitó información sobre pedido #12345'
+    observaciones: 'Cliente solicitó información sobre pedido #12345',
+    proxLlamada: '2025-12-01T15:30' // ✅ Próxima llamada hoy
   },
   {
     id: 3,
     clienteRuc: '2060467759',
+    clienteNombre: 'Alta Tecnologia En Diesel E.I.R.L',
     fechaGestion: '29/04/2025 11:18:33',
     resultadoGestion: 'Venta',
     asesor: 'Giancarlo Nicho',
     contacto: 'Inbound',
-    telef1: '965432178', // Roberto Sánchez
+    telef1: '965432178',
     telef2: '',
     usuario: 'ALTA.TEC',
     clave: '',
     contactadoNombre: 'Roberto Sánchez',
-    observaciones: 'Venta exitosa de producto Premium'
+    observaciones: 'Venta exitosa de producto Premium',
+    proxLlamada: '' // Sin próxima llamada programada
   },
   {
     id: 4,
     clienteRuc: '2060467759',
+    clienteNombre: 'Alta Tecnologia En Diesel E.I.R.L',
     fechaGestion: '29/04/2025 11:18:18',
     resultadoGestion: 'Venta',
     asesor: 'Giancarlo Nicho',
     contacto: 'Inbound',
-    telef1: '973996878', // Juan Carlos Pérez
+    telef1: '973996878',
     telef2: '987654321',
     usuario: 'ALTA.TEC',
     clave: '',
     contactadoNombre: 'Juan Carlos Pérez',
-    observaciones: 'Cliente recurrente, compra mensual'
+    observaciones: 'Cliente recurrente, compra mensual',
+    proxLlamada: '2025-12-05T09:00'
   },
   {
     id: 5,
     clienteRuc: '2060467759',
+    clienteNombre: 'Alta Tecnologia En Diesel E.I.R.L',
     fechaGestion: '29/04/2025 11:10:19',
     resultadoGestion: '- Cotización',
     asesor: 'Giancarlo Nicho',
     contacto: 'Inbound',
-    telef1: '987654321', // María Elena Torres
+    telef1: '987654321',
     telef2: '',
     usuario: 'ALTA.TEC',
     clave: '',
     contactadoNombre: 'María Elena Torres',
-    observaciones: 'Solicitó cotización para 50 unidades'
+    observaciones: 'Solicitó cotización para 50 unidades',
+    proxLlamada: '2025-12-01T14:00' // ✅ Crítica: hoy
   },
   {
     id: 6,
     clienteRuc: '2060467759',
+    clienteNombre: 'Alta Tecnologia En Diesel E.I.R.L',
     fechaGestion: '29/04/2025 09:54:35',
     resultadoGestion: '- Cotización',
     asesor: 'Giancarlo Nicho',
     contacto: 'Inbound',
-    telef1: '965432178', // Roberto Sánchez
+    telef1: '965432178',
     telef2: '973996878',
     usuario: 'ALTA.TEC',
     clave: '',
     contactadoNombre: 'Roberto Sánchez',
-    observaciones: 'Envió cotización por correo'
+    observaciones: 'Envió cotización por correo',
+    proxLlamada: '2025-11-30T16:00' // ✅ Vencida (ayer)
   },
   {
     id: 7,
     clienteRuc: '2060467759',
+    clienteNombre: 'Alta Tecnologia En Diesel E.I.R.L',
     fechaGestion: '28/04/2025 17:34:25',
     resultadoGestion: 'No Contesta',
     asesor: 'Giancarlo Nicho',
     contacto: 'Outbound',
-    telef1: '973996878', // Juan Carlos Pérez
+    telef1: '973996878',
     telef2: '',
     usuario: 'ALTA.TEC',
     clave: '',
     contactadoNombre: 'Juan Carlos Pérez',
-    observaciones: 'Intentar nuevamente mañana'
+    observaciones: 'Intentar nuevamente mañana',
+    proxLlamada: '2025-12-03T11:30'
   },
   {
     id: 8,
     clienteRuc: '2045678901',
+    clienteNombre: 'Comercial Los Andes S.A.C.',
     fechaGestion: '06/06/2025 10:25:10',
     resultadoGestion: 'Venta',
     asesor: 'Yessir Flores',
     contacto: 'Outbound',
-    telef1: '987123456', // Luis Alberto Díaz
+    telef1: '987123456',
     telef2: '',
     usuario: 'LOS.ANDES',
     clave: '',
     contactadoNombre: 'Luis Alberto Díaz',
-    observaciones: 'Venta de repuestos por $800'
+    observaciones: 'Venta de repuestos por $800',
+    proxLlamada: '2025-12-04T10:00'
   },
   {
     id: 9,
     clienteRuc: '2045678901',
+    clienteNombre: 'Comercial Los Andes S.A.C.',
     fechaGestion: '01/06/2025 15:30:45',
     resultadoGestion: 'Seguimiento / Consulta De Pedido',
     asesor: 'Yessir Flores',
     contacto: 'Inbound',
-    telef1: '945678123', // Carmen Rosa Vargas
+    telef1: '945678123',
     telef2: '987123456',
     usuario: 'LOS.ANDES',
     clave: '',
     contactadoNombre: 'Carmen Rosa Vargas',
-    observaciones: 'Consulta sobre pago pendiente'
+    observaciones: 'Consulta sobre pago pendiente',
+    proxLlamada: '2025-12-01T13:00' // ✅ Urgente: hoy
   }
 ];
 

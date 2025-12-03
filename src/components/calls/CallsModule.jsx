@@ -12,6 +12,7 @@ import PurchaseHistoryTab from './PurchaseHistoryTab';
 import QuotationTab from './QuotationTab';
 import ConfirmDialog from '../common/ConfirmDialog';
 import SectionHeader from '../common/SectionHeader';
+import CallReminders from './CallReminders';
 
 const CallsModule = () => {
   // Estado para tabs
@@ -64,7 +65,7 @@ const [hasSearched, setHasSearched] = useState(false);
 
   const handleClientSelect = (clientData) => {
     setSelectedClient(clientData);
-    setSelectedClientRUC(clientData?.ruc || null); // ✅ Guardar RUC
+    setSelectedClientRUC(clientData?.ruc || null); //  Guardar RUC
     setCurrentPage(1);
     if (clientData) {
       setFormData(prev => ({
@@ -92,7 +93,7 @@ const [hasSearched, setHasSearched] = useState(false);
       observaciones: record.observaciones || '',
       resultadoGestion: record.resultadoGestion || '',
       asesor: record.asesor || 'Usuario Actual',
-      contactadoNombre: record.contactadoNombre || '' // ✅ Agregar este campo
+      contactadoNombre: record.contactadoNombre || '' //  Agregar este campo
     });
   } else {
     // Modo creación
@@ -299,17 +300,6 @@ const [hasSearched, setHasSearched] = useState(false);
   return (
     <div className="space-y-6">
       {/* Header con título */}
-      {/* <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-blue-50 rounded-lg">
-            <Phone className="w-6 h-6 text-blue-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Gestión de Clientes</h1>
-            <p className="text-sm text-gray-500">Buscar cliente y gestionar llamadas</p>
-          </div>
-        </div>
-      </div> */}
       {/* Reemplaza el header anterior con: */}
       <SectionHeader
         icon={Phone}
@@ -390,20 +380,6 @@ const [hasSearched, setHasSearched] = useState(false);
     )}
   </div>
 </button>
-
-            {/* <button
-              onClick={() => setActiveTab('quotations')}
-              className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition ${
-                activeTab === 'quotations'
-                  ? 'border-green-600 text-green-600 bg-green-50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <FileText className="w-5 h-5" />
-                <span>Cotizaciones</span>
-              </div>
-            </button> */}
           </nav>
         </div>
 
@@ -576,6 +552,9 @@ const [hasSearched, setHasSearched] = useState(false);
     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-28 min-w-[140px]">
       Tipo Contacto
     </th>
+    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-40 min-w-[160px]">
+            Próxima Llamada
+          </th>
     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-32 min-w-[120px]">
       Telef 1
     </th>
@@ -703,11 +682,6 @@ const [hasSearched, setHasSearched] = useState(false);
           )}
           
           {/* Tab: Consulta de Productos */}
-          {/* {activeTab === 'products' && (
-            <div className="p-6">
-              <ProductsTab />
-            </div>
-          )} */}
           {activeTab === 'products' && (
   <div className="p-6">
     <ProductsTab
@@ -737,32 +711,12 @@ const [hasSearched, setHasSearched] = useState(false);
     />
   </div>
 )}
-          {/* {activeTab === 'quotations' && (
-  <div className="p-6">
-   <QuotationTab
-  quotationItems={quotationItems}
-  setQuotationItems={setQuotationItems}
-/>
-  </div>
-)} */}
 
-          {/* {activeTab === 'quotations' && (
-            <div className="p-6">
-              <QuotationsList selectedClient={selectedClient} />
-            </div>
-          )} */}
         </div>
       </div>
 
       {/* Modal */}
-      {/* <CallModal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        formData={formData}
-        onChange={handleInputChange}
-        onSubmit={handleSubmit}
-        isEditing={!!editingRecord}
-      /> */}
+      
       <CallModal
   isOpen={isModalOpen}
   onClose={handleCloseModal}
@@ -785,6 +739,8 @@ const [hasSearched, setHasSearched] = useState(false);
         cancelText="Cancelar"
         type="danger"
       />
+
+      <CallReminders callRecords={callRecords} />
     </div>
   );
 };
