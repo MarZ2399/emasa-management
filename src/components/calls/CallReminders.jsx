@@ -1,11 +1,11 @@
+// src/components/calls/CallReminders.jsx
 import React, { useState, useEffect } from 'react';
-import ReactDOM from 'react-dom'; // ✅ Importar ReactDOM
+import ReactDOM from 'react-dom';
 import { Bell, X, Calendar, Clock, Phone, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const CallReminders = ({ callRecords }) => {
+const CallReminders = ({ callRecords, isOpen, onClose }) => {
   const [reminders, setReminders] = useState([]);
-  const [showPanel, setShowPanel] = useState(false);
   const [notifiedReminders, setNotifiedReminders] = useState(new Set());
 
   // Función para verificar si una llamada está próxima
@@ -107,7 +107,7 @@ const CallReminders = ({ callRecords }) => {
             </div>
           ),
           {
-            duration: 10000,
+            duration: 3000,
             position: 'top-right',
             style: {
               background: reminder.urgency === 'overdue' ? '#FEE2E2' : '#FEF3C7',
@@ -151,32 +151,19 @@ const CallReminders = ({ callRecords }) => {
     }
   };
 
-  const urgentCount = reminders.filter(r => 
-    r.urgency === 'overdue' || r.urgency === 'critical' || r.urgency === 'urgent'
-  ).length;
+  if (!isOpen) return null;
 
-  // ✅ Renderizar el panel y overlay con Portal
-  const portalContent = showPanel && (
+  const portalContent = (
     <>
-      {/* Overlay para cerrar */}
-      <div
-        className="fixed inset-0 bg-black/30 z-[9998]"
-        onClick={() => setShowPanel(false)}
-      />
-
-      {/* Panel lateral de recordatorios */}
+      <div className="fixed inset-0 bg-black/30 z-[9998]" onClick={onClose} />
       <div className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-[9999] overflow-hidden flex flex-col animate-slide-in-right">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
+        <div className="bg-gradient-to-r bg-[#334a5e] to-blue-700 text-white p-6">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
               <Bell className="w-6 h-6" />
               <h3 className="text-xl font-bold">Recordatorios</h3>
             </div>
-            <button
-              onClick={() => setShowPanel(false)}
-              className="p-1 hover:bg-white/20 rounded-lg transition"
-            >
+            <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-lg transition">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -185,38 +172,29 @@ const CallReminders = ({ callRecords }) => {
           </p>
         </div>
 
-        {/* Lista de recordatorios */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {reminders.length > 0 ? (
             reminders.map(reminder => (
-              <div
-                key={reminder.id}
-                className={`p-4 rounded-lg border-2 transition hover:shadow-md ${getUrgencyStyle(reminder.urgency)}`}
-              >
+              <div key={reminder.id} className={`p-4 rounded-lg border-2 transition hover:shadow-md ${getUrgencyStyle(reminder.urgency)}`}>
                 <div className="flex items-start justify-between mb-2">
                   <span className={`px-2 py-1 rounded-full text-xs font-bold ${getUrgencyBadge(reminder.urgency)}`}>
                     {reminder.timeLabel}
                   </span>
                 </div>
-
                 <h4 className="font-bold text-gray-900 mb-1">{reminder.clienteNombre}</h4>
-                
                 <div className="space-y-1 text-sm">
                   <div className="flex items-center gap-2 text-gray-600">
                     <User className="w-4 h-4" />
                     <span>{reminder.asesor}</span>
                   </div>
-                  
                   <div className="flex items-center gap-2 text-gray-600">
                     <Calendar className="w-4 h-4" />
                     <span>{reminder.proxLlamadaDate.toLocaleDateString('es-ES')}</span>
                   </div>
-                  
                   <div className="flex items-center gap-2 text-gray-600">
                     <Clock className="w-4 h-4" />
                     <span>{reminder.proxLlamadaDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
-
                   {reminder.telef1 && (
                     <div className="flex items-center gap-2 text-gray-600">
                       <Phone className="w-4 h-4" />
@@ -226,7 +204,6 @@ const CallReminders = ({ callRecords }) => {
                     </div>
                   )}
                 </div>
-
                 {reminder.observaciones && (
                   <p className="mt-2 text-xs text-gray-600 italic border-t border-gray-200 pt-2">
                     {reminder.observaciones}
@@ -245,30 +222,7 @@ const CallReminders = ({ callRecords }) => {
     </>
   );
 
-  return (
-    <>
-      {/* Botón de notificaciones flotante */}
-      <div className="fixed bottom-6 right-6 z-[9997]">
-        <button
-          onClick={() => setShowPanel(!showPanel)}
-          className="relative bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg transition-transform hover:scale-110"
-        >
-          <Bell className="w-6 h-6" />
-          {urgentCount > 0 && (
-            <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">
-              {urgentCount}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* ✅ Renderizar con Portal */}
-      {portalContent && ReactDOM.createPortal(
-        portalContent,
-        document.body
-      )}
-    </>
-  );
+  return ReactDOM.createPortal(portalContent, document.body);
 };
 
 export default CallReminders;

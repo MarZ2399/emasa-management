@@ -1,87 +1,88 @@
-import React from 'react';
-import { Menu, Phone, X } from 'lucide-react';
-import { Home, Users, FileText, Settings, BarChart3, LogOut } from 'lucide-react';
+// src/components/layout/TopBar.jsx
+import React, { useState } from 'react';
+import { Menu, Search } from 'lucide-react';
+import NotificationDropdown from './header/NotificationDropdown';
+import UserDropdown from './header/UserDropdown';
+import DarkModeSwitcher from './header/DarkModeSwitcher';
+import MobileSidebar from './MobileSidebar';
+import CallReminders from '../calls/CallReminders';  // ✅ Solo el componente (sin el hook)
+import { useCallReminders } from '../../hooks/useCallReminders';  // ✅ Hook desde hooks/
+import { currentUser } from '../../data/userData';
+import { initialCallRecords } from '../../data/callsData';
 import logoImage from "../../assets/logo-emasa1.png";
 
-const menuItems = [
-   // { icon: Home, label: 'Dashboard', module: 'dashboard' },
-  { icon: BarChart3, label: 'Seguimiento de Metas', module: 'dashboard' },
-  { icon: Phone, label: 'Gestión de Cliente', module: 'calls' },
-  { icon: Users, label: 'Maestro de Cliente', module: 'clients' },
-  
-  // { icon: FileText, label: 'Reportes', module: 'reports' },
-  // { icon: BarChart3, label: 'Estadísticas', module: 'stats' },
-  // { icon: Settings, label: 'Configuración', module: 'settings' },
-];
-
-
 const TopBar = ({ mobileMenuOpen, onToggleMobileMenu, currentModule, onModuleChange }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showReminderPanel, setShowReminderPanel] = useState(false);
+
+  // ✅ Obtener recordatorios usando el hook
+  const reminders = useCallReminders(initialCallRecords);
+
   return (
     <>
-      <div className="lg:hidden bg-white border-b border-gray-200 p-4 flex items-center justify-end">
-        <button
-          onClick={onToggleMobileMenu}
-          className="p-2 hover:bg-gray-100 rounded-lg"
-        >
-          <Menu className="w-6 h-6 text-gray-700" />
-        </button>
-        {/* <div className="flex items-center gap-2">
-          <Phone className="text-blue-600 w-6 h-6" />
-          <span className="font-bold text-gray-800">Llamadas PostVenta</span>
-        </div>
-        <div className="w-10" /> */}
-      </div>
+      <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+        <div className="flex items-center justify-between px-4 py-3 lg:px-6">
+          
+          {/* LEFT SECTION */}
+          <div className="flex items-center gap-4 flex-1">
+            {/* Mobile: Hamburger */}
+            <button
+              onClick={onToggleMobileMenu}
+              className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition"
+            >
+              <Menu className="w-6 h-6 text-gray-700" />
+            </button>
 
-      {mobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onToggleMobileMenu} />
-          <aside className="absolute left-0 top-0 bottom-0 w-64 bg-gradient-to-b from-blue-300 to-green-700 text-white flex flex-col">
-            <div className="p-4 flex items-center justify-between border-b border-green-600">
-              <div className="flex items-center justify-center gap-3 flex-1">
-                                      
-                                      <img 
-                                        src={logoImage} 
-                                        alt="CallCenter Logo" 
-                                        className="h-10 w-auto object-contain"
-                                      />
-                                    </div>
-              <button
-                onClick={onToggleMobileMenu}
-                className="p-2 hover:bg-green-800 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
+           
+          </div>
+
+          {/* CENTER - Mobile: Logo centrado */}
+          <div className="lg:hidden absolute left-1/2 transform -translate-x-1/2">
+            <img 
+              src={logoImage} 
+              alt="EMASA" 
+              className="h-8 w-auto object-contain"
+            />
+          </div>
+
+          {/* RIGHT SECTION */}
+          <div className="flex items-center gap-3">
+            {/* Desktop: Dark Mode + Notifications + User */}
+            <div className="hidden md:flex items-center gap-3">
+              <DarkModeSwitcher />
+              <NotificationDropdown 
+                reminders={reminders} 
+                onViewAll={() => setShowReminderPanel(true)} 
+              />
+              <UserDropdown user={currentUser} />
             </div>
 
-            <nav className="flex-1 p-4 space-y-2">
-              {menuItems.map((item, index) => (
-                <button
-                  key={index}
-                  onClick={() => {
-                    onModuleChange(item.module);
-                    onToggleMobileMenu();
-                  }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-                    currentModule === item.module
-                      ? 'bg-white text-green-700 shadow-lg' 
-                      : 'hover:bg-green-800 text-white'
-                  }`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
-                </button>
-              ))}
-            </nav>
-
-            <div className="p-4 border-t border-green-600">
-              <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-green-800 rounded-lg transition">
-                <LogOut className="w-5 h-5" />
-                <span className="font-medium">Cerrar Sesión</span>
-              </button>
+            {/* Mobile: Notifications + Avatar */}
+            <div className="md:hidden flex items-center gap-2">
+              <NotificationDropdown 
+                reminders={reminders} 
+                onViewAll={() => setShowReminderPanel(true)} 
+              />
+              <UserDropdown user={currentUser} isMobile />
             </div>
-          </aside>
+          </div>
         </div>
-      )}
+      </header>
+
+      {/* Mobile Sidebar */}
+      <MobileSidebar
+        isOpen={mobileMenuOpen}
+        onClose={onToggleMobileMenu}
+        currentModule={currentModule}
+        onModuleChange={onModuleChange}
+      />
+
+      {/* Panel completo de recordatorios */}
+      <CallReminders
+        callRecords={initialCallRecords}
+        isOpen={showReminderPanel}
+        onClose={() => setShowReminderPanel(false)}
+      />
     </>
   );
 };

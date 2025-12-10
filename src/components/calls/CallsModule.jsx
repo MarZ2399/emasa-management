@@ -1,14 +1,15 @@
 // src/components/calls/CallsModule.jsx
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
-import { Phone, Plus, Search, Filter, Package, FileText, ShoppingCart } from 'lucide-react';
+import { Phone, Plus, Search, Filter, Package, FileText, ShoppingCart, Sparkles } from 'lucide-react';
 import { initialCallRecords } from '../../data/callsData';
+import { getClientPurchases } from '../../data/purchaseHistoryData';
 import CallModal from './CallModal';
 import ClientSearchPanel from './ClientSearchPanel';
 import CallTableRow from './CallTableRow';
 import ProductsTab from './ProductsTab';
 import PurchaseHistoryTab from './PurchaseHistoryTab';
-//import QuotationsList from './QuotationsList';
+import ProductSuggestionsTab from './ProductSuggestionsTab';
 import QuotationTab from './QuotationTab';
 import ConfirmDialog from '../common/ConfirmDialog';
 import SectionHeader from '../common/SectionHeader';
@@ -17,23 +18,18 @@ import CallReminders from './CallReminders';
 const CallsModule = () => {
   // Estado para tabs
   const [activeTab, setActiveTab] = useState('calls');
-  const [selectedClientRUC, setSelectedClientRUC] = useState(null); // ✅ NUEVO: Estado para RUC
-
-   const [resetClientSearch, setResetClientSearch] = useState(0); // ✅ Nuevo estado
-  
+  const [selectedClientRUC, setSelectedClientRUC] = useState(null);
+  const [resetClientSearch, setResetClientSearch] = useState(0);
   const [quotationItems, setQuotationItems] = useState([]);
-
   const [codigoProducto, setCodigoProducto] = useState('');
-const [nombreProducto, setNombreProducto] = useState('');
-const [hasSearched, setHasSearched] = useState(false);
-
+  const [nombreProducto, setNombreProducto] = useState('');
+  const [hasSearched, setHasSearched] = useState(false);
   const [callRecords, setCallRecords] = useState(initialCallRecords);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
-  
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage] = useState(15);
   
@@ -65,7 +61,7 @@ const [hasSearched, setHasSearched] = useState(false);
 
   const handleClientSelect = (clientData) => {
     setSelectedClient(clientData);
-    setSelectedClientRUC(clientData?.ruc || null); //  Guardar RUC
+    setSelectedClientRUC(clientData?.ruc || null);
     setCurrentPage(1);
     if (clientData) {
       setFormData(prev => ({
@@ -78,59 +74,56 @@ const [hasSearched, setHasSearched] = useState(false);
     }
   };
 
- const handleOpenModal = (record = null) => {
-  if (record) {
-    // Modo edición
-    setEditingRecord(record);
-    setFormData({
-      estatusLlamada: record.estatusLlamada || '',
-      contacto: record.contacto || '',
-      telef1: record.telef1 || '',
-      telef2: record.telef2 || '',
-      usuario: record.usuario || '',
-      clave: record.clave || '',
-      proxLlamada: record.proxLlamada || '',
-      observaciones: record.observaciones || '',
-      resultadoGestion: record.resultadoGestion || '',
-      asesor: record.asesor || 'Usuario Actual',
-      contactadoNombre: record.contactadoNombre || '' //  Agregar este campo
-    });
-  } else {
-    // Modo creación
-    setEditingRecord(null);
-    if (selectedClient) {
+  const handleOpenModal = (record = null) => {
+    if (record) {
+      setEditingRecord(record);
       setFormData({
-        estatusLlamada: '',
-        contacto: '',
-        telef1: selectedClient.telefPadron || '',
-        telef2: selectedClient.telefTV || '',
-        usuario: selectedClient.usuario || '',
-        clave: '',
-        proxLlamada: '',
-        observaciones: '',
-        resultadoGestion: '',
-        asesor: selectedClient.vendedor || 'Usuario Actual',
-        contactadoNombre: '' // ✅ Agregar este campo vacío
+        estatusLlamada: record.estatusLlamada || '',
+        contacto: record.contacto || '',
+        telef1: record.telef1 || '',
+        telef2: record.telef2 || '',
+        usuario: record.usuario || '',
+        clave: record.clave || '',
+        proxLlamada: record.proxLlamada || '',
+        observaciones: record.observaciones || '',
+        resultadoGestion: record.resultadoGestion || '',
+        asesor: record.asesor || 'Usuario Actual',
+        contactadoNombre: record.contactadoNombre || ''
       });
     } else {
-      setFormData({
-        estatusLlamada: '',
-        contacto: '',
-        telef1: '',
-        telef2: '',
-        usuario: '',
-        clave: '',
-        proxLlamada: '',
-        observaciones: '',
-        resultadoGestion: '',
-        asesor: 'Usuario Actual',
-        contactadoNombre: '' // ✅ Agregar este campo vacío
-      });
+      setEditingRecord(null);
+      if (selectedClient) {
+        setFormData({
+          estatusLlamada: '',
+          contacto: '',
+          telef1: selectedClient.telefPadron || '',
+          telef2: selectedClient.telefTV || '',
+          usuario: selectedClient.usuario || '',
+          clave: '',
+          proxLlamada: '',
+          observaciones: '',
+          resultadoGestion: '',
+          asesor: selectedClient.vendedor || 'Usuario Actual',
+          contactadoNombre: ''
+        });
+      } else {
+        setFormData({
+          estatusLlamada: '',
+          contacto: '',
+          telef1: '',
+          telef2: '',
+          usuario: '',
+          clave: '',
+          proxLlamada: '',
+          observaciones: '',
+          resultadoGestion: '',
+          asesor: 'Usuario Actual',
+          contactadoNombre: ''
+        });
+      }
     }
-  }
-  setIsModalOpen(true);
-};
-
+    setIsModalOpen(true);
+  };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
@@ -138,31 +131,29 @@ const [hasSearched, setHasSearched] = useState(false);
   };
 
   const handleFormChange = (e) => {
-  const { name, value } = e.target;
-  
-  // ✅ Si cambia el contacto, autocompletar teléfono
-  if (name === 'contactadoNombre' && selectedClient?.contactos) {
-    const contactoSeleccionado = selectedClient.contactos.find(
-      c => c.fullName === value
-    );
+    const { name, value } = e.target;
     
-    if (contactoSeleccionado) {
-      setFormData(prev => ({
-        ...prev,
-        contactadoNombre: value,
-        telef1: contactoSeleccionado.phone || prev.telef1,
-        telef2: prev.telef2
-      }));
-      return;
+    if (name === 'contactadoNombre' && selectedClient?.contactos) {
+      const contactoSeleccionado = selectedClient.contactos.find(
+        c => c.fullName === value
+      );
+      
+      if (contactoSeleccionado) {
+        setFormData(prev => ({
+          ...prev,
+          contactadoNombre: value,
+          telef1: contactoSeleccionado.phone || prev.telef1,
+          telef2: prev.telef2
+        }));
+        return;
+      }
     }
-  }
-  
-  // Cambio normal de campos
-  setFormData(prev => ({
-    ...prev,
-    [name]: value
-  }));
-};
+    
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
 
   const handleSubmit = () => {
     if (!formData.contacto || !formData.telef1 || !formData.resultadoGestion) {
@@ -272,35 +263,22 @@ const [hasSearched, setHasSearched] = useState(false);
   };
 
   const handleRegistrationComplete = () => {
-    // Resetear cliente seleccionado
     setSelectedClient(null);
     setSelectedClientRUC(null);
-    
-    // Resetear búsqueda de productos
     setCodigoProducto('');
     setNombreProducto('');
     setHasSearched(false);
-
-    // ✅ Incrementar contador en vez de alternar booleano
     setResetClientSearch(prev => prev + 1);
-    
-    // Volver al tab de llamadas (o al que prefieras)
     setActiveTab('calls');
     
-    // Notificación adicional (opcional)
     toast.success('Cotización completada. Puedes buscar un nuevo cliente', { 
-  position: 'top-right',
-  duration: 3000
-});
+      position: 'top-right',
+      duration: 3000
+    });
   };
-
- 
-
 
   return (
     <div className="space-y-6">
-      {/* Header con título */}
-      {/* Reemplaza el header anterior con: */}
       <SectionHeader
         icon={Phone}
         title="Gestión de Clientes"
@@ -308,15 +286,13 @@ const [hasSearched, setHasSearched] = useState(false);
         showButton={false}
       />
 
-      {/* Panel de Búsqueda de Cliente */}
       <ClientSearchPanel 
-      onClientSelect={handleClientSelect} 
-      resetTrigger={resetClientSearch} // ✅ Pasar prop
+        onClientSelect={handleClientSelect} 
+        resetTrigger={resetClientSearch}
       />
 
       {/* Sistema de Tabs */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        {/* Tabs Header */}
         <div className="border-b border-gray-200">
           <nav className="flex overflow-x-auto whitespace-nowrap no-scrollbar">
             <button
@@ -333,7 +309,6 @@ const [hasSearched, setHasSearched] = useState(false);
               </div>
             </button>
 
-            {/* ✅ NUEVO TAB: Últimas Compras */}
             <button
               onClick={() => setActiveTab('purchases')}
               className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition ${
@@ -347,12 +322,27 @@ const [hasSearched, setHasSearched] = useState(false);
                 <span>Últimas Compras</span>
               </div>
             </button>
+
+            {/* ✅ NUEVO TAB: Sugerencias */}
+            <button
+              onClick={() => setActiveTab('suggestions')}
+              className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition ${
+                activeTab === 'suggestions'
+                  ? 'border-purple-600 text-purple-600 bg-purple-50'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <Sparkles className="w-5 h-5" />
+                <span>Sugerencias</span>
+              </div>
+            </button>
             
             <button
               onClick={() => setActiveTab('products')}
               className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition ${
                 activeTab === 'products'
-                  ? 'border-purple-600 text-purple-600 bg-purple-50'
+                  ? 'border-indigo-600 text-indigo-600 bg-indigo-50'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
@@ -363,34 +353,32 @@ const [hasSearched, setHasSearched] = useState(false);
             </button>
 
             <button
-  onClick={() => setActiveTab('quotations')}
-  className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition ${
-    activeTab === 'quotations'
-      ? 'border-green-600 text-green-600 bg-green-50'
-      : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-  }`}
->
-  <div className="flex items-center justify-center gap-2">
-    <FileText className="w-5 h-5" />
-    <span>Cotización</span>
-    {quotationItems.length > 0 && (
-      <span className="ml-2 px-2.5 py-0.5 bg-blue-600 text-white text-xs font-bold rounded-full">
-        {quotationItems.length}
-      </span>
-    )}
-  </div>
-</button>
+              onClick={() => setActiveTab('quotations')}
+              className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition ${
+                activeTab === 'quotations'
+                  ? 'border-green-600 text-green-600 bg-green-50'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <FileText className="w-5 h-5" />
+                <span>Cotización</span>
+                {quotationItems.length > 0 && (
+                  <span className="ml-2 px-2.5 py-0.5 bg-blue-600 text-white text-xs font-bold rounded-full">
+                    {quotationItems.length}
+                  </span>
+                )}
+              </div>
+            </button>
           </nav>
         </div>
 
-        {/* Tabs Content */}
         <div>
           {/* Tab: Historial de Llamadas */}
           {activeTab === 'calls' && (
             <>
               {selectedClient ? (
                 <div>
-                  {/* Header con título y botón */}
                   <div className="p-6 border-b border-gray-200">
                     <div className="flex items-center justify-between">
                       <div>
@@ -409,7 +397,6 @@ const [hasSearched, setHasSearched] = useState(false);
                     </div>
                   </div>
 
-                  {/* Barra de búsqueda y filtros */}
                   <div className="px-6 py-4 border-b border-gray-200">
                     <div className="space-y-4">
                       <div className="flex gap-3">
@@ -436,14 +423,11 @@ const [hasSearched, setHasSearched] = useState(false);
                         </button>
                       </div>
 
-                      {/* Panel de Filtros Expandible */}
                       {showFilters && (
                         <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Fecha Inicio
-                              </label>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Fecha Inicio</label>
                               <input
                                 type="date"
                                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -453,9 +437,7 @@ const [hasSearched, setHasSearched] = useState(false);
                             </div>
                             
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Fecha Fin
-                              </label>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Fecha Fin</label>
                               <input
                                 type="date"
                                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -465,9 +447,7 @@ const [hasSearched, setHasSearched] = useState(false);
                             </div>
 
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Asesor
-                              </label>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Asesor</label>
                               <select 
                                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                 value={filters.asesor}
@@ -480,9 +460,7 @@ const [hasSearched, setHasSearched] = useState(false);
                             </div>
 
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Tipo Contacto
-                              </label>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Tipo Contacto</label>
                               <select 
                                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                 value={filters.tipoContacto}
@@ -495,9 +473,7 @@ const [hasSearched, setHasSearched] = useState(false);
                             </div>
 
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Resultado
-                              </label>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Resultado</label>
                               <select 
                                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                 value={filters.resultado}
@@ -531,79 +507,52 @@ const [hasSearched, setHasSearched] = useState(false);
                     </div>
                   </div>
 
-                  {/* Tabla de Registros */}
                   <div className="overflow-hidden">
                     <div className="overflow-x-auto px-6 py-4">
-                      <table className="w-full min-w-[1200px]">
+                      <table className="w-full min-w-[1300px]">
                         <thead className="bg-[#334a5e] text-white">
-  <tr>
-    <th className="pl-6 pr-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-40 min-w-[160px]">
-      Fecha Gestión
-    </th>
-    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-80 min-w-[320px]">
-      Resultados Gestión
-    </th>
-    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-36 min-w-[140px]">
-      Asesor
-    </th>
-    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-40 min-w-[160px]">
-      Contactado
-    </th>
-    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-28 min-w-[140px]">
-      Tipo Contacto
-    </th>
-    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-40 min-w-[160px]">
-            Próxima Llamada
-          </th>
-    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-32 min-w-[120px]">
-      Telef 1
-    </th>
-    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-32 min-w-[120px]">
-      Telef 2
-    </th>
-    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-32 min-w-[120px]">
-      Usuario
-    </th>
-    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-72 min-w-[280px]">
-      Observaciones
-    </th>
-    <th className="pl-4 pr-6 py-3 text-center text-xs font-semibold uppercase tracking-wider w-28 min-w-[100px]">
-      Acciones
-    </th>
-  </tr>
-</thead>
-
-<tbody className="divide-y divide-gray-200 bg-white">
-  {currentRecords.length > 0 ? (
-    currentRecords.map((record, index) => (
-      <CallTableRow
-        key={record.id}
-        record={record}
-        index={index}
-        onEdit={handleOpenModal}
-        onDelete={handleDelete}
-      />
-    ))
-  ) : (
-    <tr>
-      <td colSpan="10" className="px-6 py-12 text-center text-gray-500">
-        No se encontraron registros de llamadas
-      </td>
-    </tr>
-  )}
-</tbody>
+                          <tr>
+                            <th className="pl-6 pr-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-40 min-w-[160px]">Fecha Gestión</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-80 min-w-[320px]">Resultados Gestión</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-36 min-w-[140px]">Asesor</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-40 min-w-[160px]">Contactado</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-28 min-w-[140px]">Tipo Contacto</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-40 min-w-[160px]">Próxima Llamada</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-32 min-w-[120px]">Telef 1</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-32 min-w-[120px]">Telef 2</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-32 min-w-[120px]">Usuario</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-72 min-w-[280px]">Observaciones</th>
+                            <th className="pl-4 pr-6 py-3 text-center text-xs font-semibold uppercase tracking-wider w-28 min-w-[100px]">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 bg-white">
+                          {currentRecords.length > 0 ? (
+                            currentRecords.map((record, index) => (
+                              <CallTableRow
+                                key={record.id}
+                                record={record}
+                                index={index}
+                                onEdit={handleOpenModal}
+                                onDelete={handleDelete}
+                              />
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="11" className="px-6 py-12 text-center text-gray-500">
+                                No se encontraron registros de llamadas
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
                       </table>
                     </div>
                   </div>
 
-                  {/* Paginación */}
                   {filteredRecords.length > 0 && (
                     <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
                       <div className="text-sm text-gray-600">
                         Mostrando <span className="font-semibold">{indexOfFirstRecord + 1}</span> a{' '}
-                        <span className="font-semibold">
-                          {Math.min(indexOfLastRecord, filteredRecords.length)}
-                        </span>{' '}
+                        <span className="font-semibold">{Math.min(indexOfLastRecord, filteredRecords.length)}</span>{' '}
                         de <span className="font-semibold">{filteredRecords.length}</span> registros
                       </div>
                       
@@ -671,64 +620,73 @@ const [hasSearched, setHasSearched] = useState(false);
             </>
           )}
 
-           {/* ✅ NUEVO TAB: Últimas Compras */}
+          {/* Tab: Últimas Compras */}
           {activeTab === 'purchases' && (
             <div className="p-6">
               <PurchaseHistoryTab 
-              clienteRUC={selectedClientRUC} 
-              onProductClick={handleProductClick}/>
-              
+                clienteRUC={selectedClientRUC} 
+                onProductClick={handleProductClick}
+              />
+            </div>
+          )}
+
+          {/* ✅ Tab: Sugerencias de Productos */}
+          {activeTab === 'suggestions' && (
+            <div className="p-6">
+              <ProductSuggestionsTab
+                clienteRUC={selectedClientRUC}
+                purchaseHistory={selectedClientRUC ? getClientPurchases(selectedClientRUC) : []}
+                onAddToQuotation={(productData) => {
+                  setQuotationItems(items => [...items, productData]);
+                  setActiveTab('quotations');
+                }}
+              />
             </div>
           )}
           
           {/* Tab: Consulta de Productos */}
           {activeTab === 'products' && (
-  <div className="p-6">
-    <ProductsTab
-    codigoProducto={codigoProducto}
-    setCodigoProducto={setCodigoProducto}
-    nombreProducto={nombreProducto}
-    setNombreProducto={setNombreProducto}
-    hasSearched={hasSearched}
-    setHasSearched={setHasSearched}
-    onAddToQuotation={prodData => {
-      setQuotationItems(items => [...items, prodData]);
-      setActiveTab('quotations'); // Cambia automáticamente al tab Cotización
-    }}
-  />
-  </div>
-)}
+            <div className="p-6">
+              <ProductsTab
+                codigoProducto={codigoProducto}
+                setCodigoProducto={setCodigoProducto}
+                nombreProducto={nombreProducto}
+                setNombreProducto={setNombreProducto}
+                hasSearched={hasSearched}
+                setHasSearched={setHasSearched}
+                onAddToQuotation={prodData => {
+                  setQuotationItems(items => [...items, prodData]);
+                  setActiveTab('quotations');
+                }}
+              />
+            </div>
+          )}
 
           {/* Tab: Cotizaciones */}
           {activeTab === 'quotations' && (
-  <div className="p-6">
-    <QuotationTab
-      quotationItems={quotationItems}
-      setQuotationItems={setQuotationItems}
-      onBackToProducts={() => setActiveTab('products')}
-      selectedClient={selectedClient} // Solo si tu QuotationTab espera este prop para mostrar en PDF
-      onRegistrationComplete={handleRegistrationComplete} // ✅ Pasar handler
-    />
-  </div>
-)}
-
+            <div className="p-6">
+              <QuotationTab
+                quotationItems={quotationItems}
+                setQuotationItems={setQuotationItems}
+                onBackToProducts={() => setActiveTab('products')}
+                selectedClient={selectedClient}
+                onRegistrationComplete={handleRegistrationComplete}
+              />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Modal */}
-      
       <CallModal
-  isOpen={isModalOpen}
-  onClose={handleCloseModal}
-  formData={formData}
-  onChange={handleFormChange}
-  onSubmit={handleSubmit}
-  isEditing={!!editingRecord} // ✅ Corregir aquí
-  clienteContactos={selectedClient?.contactos || []} // ✅ Pasar los contactos del cliente
-/>
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        formData={formData}
+        onChange={handleFormChange}
+        onSubmit={handleSubmit}
+        isEditing={!!editingRecord}
+        clienteContactos={selectedClient?.contactos || []}
+      />
 
-
-      {/* Modal de Confirmación */}
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
         onClose={() => setConfirmDialog({ isOpen: false, recordId: null })}
