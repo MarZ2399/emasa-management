@@ -698,7 +698,7 @@ const CallsModule = () => {
         type="danger"
       />
 
-      <CallReminders callRecords={callRecords} />
+      {/* <CallReminders callRecords={callRecords} /> */}
     </div>
   );
 };
