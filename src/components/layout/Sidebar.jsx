@@ -1,18 +1,19 @@
 // src/components/layout/Sidebar.jsx
 import React from 'react';
-import { Phone, BarChart3, LogOut, ChevronLeft } from 'lucide-react';
+import { Phone, BarChart3, Package, LogOut, ChevronLeft } from 'lucide-react';
 import logoImage from "../../assets/logo-emasa1.png";
 
 const menuItems = [
   { icon: BarChart3, label: 'Seguimiento de Metas', module: 'dashboard' },
   { icon: Phone, label: 'Gestión de Cliente', module: 'calls' },
+  { icon: Package, label: 'Gestión de Pedidos', module: 'orders' }, // 🆕 NUEVO
 ];
 
 const Sidebar = ({ isOpen, onToggle, currentModule, onModuleChange }) => {
   return (
     <aside className={`hidden lg:flex flex-col bg-gradient-to-b from-[#2ecc70] to-[#334a5e] text-white transition-all duration-300 ${isOpen ? 'w-64' : 'w-20'}`}>
       
-      {/* Logo y Toggle - SIN border-b */}
+      {/* Logo y Toggle */}
       <div className={`p-4 flex items-center ${isOpen ? 'justify-between' : 'justify-center'}`}>
         {isOpen && (
           <div className="flex items-center justify-center gap-3 flex-1">
@@ -59,8 +60,6 @@ const Sidebar = ({ isOpen, onToggle, currentModule, onModuleChange }) => {
           </button>
         ))}
       </nav>
-
-      
     </aside>
   );
 };

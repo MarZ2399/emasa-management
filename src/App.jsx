@@ -6,11 +6,13 @@ import ClientsModule from './components/clients/ClientsModule';
 import CallsModule from './components/calls/CallsModule';
 import DashboardModule from './components/dashboard/DashboardModule';
 import ProductsModule from './components/products/ProductsModule';
-
+import OrdersModule from './components/orders/OrdersModule'; // 🆕 IMPORT
+import CallReminders from './components/calls/CallReminders';
+import { initialCallRecords } from './data/callsData';
 
 const App = () => {
   const [currentModule, setCurrentModule] = useState('dashboard');
-
+  const [showReminderPanel, setShowReminderPanel] = useState(false); // 🆕 Estado para panel de recordatorios
 
   const renderModule = () => {
     switch (currentModule) {
@@ -22,6 +24,8 @@ const App = () => {
         return <ProductsModule />;
       case 'dashboard':
         return <DashboardModule />;
+      case 'orders': // 🆕 NUEVO MÓDULO
+        return <OrdersModule />;
       case 'reports':
         return (
           <div className="max-w-7xl mx-auto">
@@ -53,7 +57,6 @@ const App = () => {
         return <CallsModule />;
     }
   };
-
 
   return (
     <>
@@ -95,13 +98,22 @@ const App = () => {
         }}
       />
 
-
-      <MainLayout currentModule={currentModule} onModuleChange={setCurrentModule}>
+      <MainLayout 
+        currentModule={currentModule} 
+        onModuleChange={setCurrentModule}
+        onOpenReminders={() => setShowReminderPanel(true)} // 🆕 Prop para abrir recordatorios
+      >
         {renderModule()}
       </MainLayout>
+
+      {/* 🆕 Panel de recordatorios de llamadas */}
+      <CallReminders
+        callRecords={initialCallRecords}
+        isOpen={showReminderPanel}
+        onClose={() => setShowReminderPanel(false)}
+      />
     </>
   );
 };
-
 
 export default App;
