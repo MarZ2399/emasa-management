@@ -74,15 +74,15 @@ const ProductSuggestionsTab = ({ clienteRUC, purchaseHistory, onAddToQuotation }
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg shadow-md p-6 text-white">
+      {/* <div className="bg-gradient-to-r from-green-600 to-blue-600 rounded-lg shadow-md p-6 text-white">
         <div className="flex items-center gap-3 mb-2">
           <Sparkles className="w-8 h-8" />
-          <h2 className="text-2xl font-bold">Sugerencias Inteligentes</h2>
+          <h2 className="text-2xl font-bold">Sugerencias</h2>
         </div>
         <p className="text-purple-100">
           Basado en las compras anteriores de este cliente, te recomendamos estos productos
         </p>
-      </div>
+      </div> */}
 
       {/* Grid de productos sugeridos */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -92,7 +92,7 @@ const ProductSuggestionsTab = ({ clienteRUC, purchaseHistory, onAddToQuotation }
             className="bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200 hover:border-purple-400 group"
           >
             {/* Badge de relevancia */}
-            <div className="bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 flex items-center justify-between">
+            <div className="bg-gradient-to-r from-green-500 to-blue-500 px-4 py-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Star className="w-4 h-4 text-yellow-300 fill-yellow-300" />
                 <span className="text-white text-xs font-bold">
@@ -152,7 +152,7 @@ const ProductSuggestionsTab = ({ clienteRUC, purchaseHistory, onAddToQuotation }
               {/* Botón agregar */}
               <button
                 onClick={() => handleAddToQuotation(product)}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 group-hover:scale-105"
+                className="w-full bg-gradient-to-r from-greenle-600 to-blue-600 hover:from-purple-700 hover:to-pink-700 text-white py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 group-hover:scale-105"
               >
                 <ShoppingCart className="w-4 h-4" />
                 Agregar a Cotización

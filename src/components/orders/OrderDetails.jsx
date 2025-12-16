@@ -1,17 +1,38 @@
 // src/components/orders/OrderDetails.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { 
   X, Package, User, Calendar, MapPin, Truck, 
   DollarSign, FileText, MessageSquare, Phone, 
-  CreditCard, Edit2, Save
+  CreditCard, Edit2, Save, Coins
 } from 'lucide-react';
 import OrderStatusBadge from './OrderStatusBadge';
-import { orderStatuses } from '../../data/ordersData';
+import { orderStatuses, currencyTypes } from '../../data/ordersData';
 import toast from 'react-hot-toast';
 
 const OrderDetails = ({ order, onClose, onUpdateStatus }) => {
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [newStatus, setNewStatus] = useState(order.status);
+
+  // Bloquear scroll del body cuando el modal está abierto
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+
+  // Cerrar con tecla ESC
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
 
   const handleUpdateStatus = () => {
     if (newStatus !== order.status) {
@@ -21,9 +42,20 @@ const OrderDetails = ({ order, onClose, onUpdateStatus }) => {
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl my-8 max-h-[90vh] overflow-y-auto">
+  // Obtener símbolo de moneda
+  const getCurrencySymbol = () => {
+    return order.tipoMoneda === 'USD' ? '$' : 'S/';
+  };
+
+  const modalContent = (
+    <div 
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-xl shadow-2xl w-full max-w-4xl my-8 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-3">
@@ -100,20 +132,22 @@ const OrderDetails = ({ order, onClose, onUpdateStatus }) => {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-gray-500">Razón Social:</span>
-                <p className="font-medium text-gray-900 mt-1">{order.clienteNombre}</p>
+                <div className="text-gray-500">Razón Social:</div>
+                <div className="font-medium text-gray-900 mt-1">{order.clienteNombre}</div>
               </div>
               <div>
-                <span className="text-gray-500">RUC:</span>
-                <p className="font-medium text-gray-900 mt-1">{order.clienteRuc}</p>
+                <div className="text-gray-500">RUC:</div>
+                <div className="font-medium text-gray-900 mt-1">{order.clienteRuc}</div>
               </div>
               <div>
-                <span className="text-gray-500">Asesor Comercial:</span>
-                <p className="font-medium text-gray-900 mt-1">{order.asesor}</p>
+                <div className="text-gray-500">Asesor Comercial:</div>
+                <div className="font-medium text-gray-900 mt-1">{order.asesor}</div>
               </div>
               <div>
-                <span className="text-gray-500">N° Cotización:</span>
-                <p className="font-medium text-gray-900 mt-1">COT-{String(order.quotationId).padStart(4, '0')}</p>
+                <div className="text-gray-500">N° Cotización:</div>
+                <div className="font-medium text-gray-900 mt-1">
+                  COT-{String(order.quotationId).padStart(4, '0')}
+                </div>
               </div>
             </div>
           </div>
@@ -126,46 +160,51 @@ const OrderDetails = ({ order, onClose, onUpdateStatus }) => {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-gray-500">N° Orden de Compra:</span>
-                <p className="font-medium text-gray-900 mt-1">{order.ordenCompra}</p>
+                <div className="text-gray-500">N° Orden de Compra:</div>
+                <div className="font-medium text-gray-900 mt-1">{order.ordenCompra}</div>
               </div>
               <div>
-                <span className="text-gray-500">Fecha de Pedido:</span>
+                <div className="text-gray-500">Fecha de Pedido:</div>
                 <div className="flex items-center gap-2 mt-1">
                   <Calendar className="w-4 h-4 text-gray-400" />
-                  <p className="font-medium text-gray-900">
+                  <span className="font-medium text-gray-900">
                     {new Date(order.fechaPedido).toLocaleDateString('es-ES', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric'
                     })}
-                  </p>
+                  </span>
                 </div>
               </div>
               <div>
-                <span className="text-gray-500">Fecha de Entrega:</span>
+                <div className="text-gray-500">Fecha de Entrega:</div>
                 <div className="flex items-center gap-2 mt-1">
                   <Calendar className="w-4 h-4 text-gray-400" />
-                  <p className="font-medium text-gray-900">
+                  <span className="font-medium text-gray-900">
                     {new Date(order.fechaEntrega).toLocaleDateString('es-ES', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric'
                     })}
-                  </p>
+                  </span>
                 </div>
               </div>
               <div>
-                <span className="text-gray-500">Plazos de Pago:</span>
-                <p className="font-medium text-gray-900 mt-1">{order.plazos}</p>
-              </div>
-              <div>
-                <span className="text-gray-500">Método de Pago:</span>
+                <div className="text-gray-500">Tipo de Moneda:</div>
                 <div className="flex items-center gap-2 mt-1">
-                  <DollarSign className="w-4 h-4 text-green-600" />
-                  <p className="font-medium text-gray-900 capitalize">{order.metodoPago.replace('_', ' ')}</p>
+                  <Coins className="w-4 h-4 text-green-600" />
+                  <span className="font-medium text-gray-900">
+                    {order.tipoMoneda === 'PEN' ? 'Soles (S/)' : 'Dólares ($)'}
+                  </span>
                 </div>
               </div>
+              <div>
+                <div className="text-gray-500">Forma de Pago:</div>
+                <div className="font-medium text-gray-900 mt-1 uppercase">
+                  {order.formaPago?.replace(/_/g, ' ')}
+                </div>
+              </div>
+              
             </div>
           </div>
 
@@ -177,20 +216,22 @@ const OrderDetails = ({ order, onClose, onUpdateStatus }) => {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-gray-500">Pago de Transporte:</span>
-                <p className="font-medium text-gray-900 mt-1 capitalize">{order.pagoTransporte}</p>
+                <div className="text-gray-500">Responsable de Transporte:</div>
+                <div className="font-medium text-gray-900 mt-1 capitalize">
+                  {order.pagoTransporte}
+                </div>
               </div>
               <div>
-                <span className="text-gray-500">Zona de Transporte:</span>
-                <p className="font-medium text-gray-900 mt-1">
+                <div className="text-gray-500">Zona de Transporte:</div>
+                <div className="font-medium text-gray-900 mt-1">
                   {order.transporteZona === 'lima_callao' ? 'Lima - Callao' : 'Provincia'}
-                </p>
+                </div>
               </div>
               <div>
-                <span className="text-gray-500">Tipo de Entrega:</span>
-                <p className="font-medium text-gray-900 mt-1 capitalize">
+                <div className="text-gray-500">Tipo de Entrega:</div>
+                <div className="font-medium text-gray-900 mt-1 capitalize">
                   {order.tipoEntrega.replace('_', ' ')}
-                </p>
+                </div>
               </div>
             </div>
 
@@ -199,11 +240,11 @@ const OrderDetails = ({ order, onClose, onUpdateStatus }) => {
                 <div className="flex items-start gap-2 mb-3">
                   <MapPin className="w-5 h-5 text-blue-600 mt-0.5" />
                   <div className="flex-1">
-                    <span className="text-gray-500 text-sm">Dirección de Despacho:</span>
-                    <p className="font-medium text-gray-900 mt-1">{order.direccionDespacho}</p>
-                    <p className="text-gray-600 mt-1">
+                    <div className="text-gray-500 text-sm">Dirección de Despacho:</div>
+                    <div className="font-medium text-gray-900 mt-1">{order.direccionDespacho}</div>
+                    <div className="text-gray-600 mt-1">
                       {order.distritoDespacho}, {order.provinciaDespacho}
-                    </p>
+                    </div>
                   </div>
                 </div>
 
@@ -214,22 +255,28 @@ const OrderDetails = ({ order, onClose, onUpdateStatus }) => {
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4 text-gray-500" />
                         <div>
-                          <span className="text-gray-500">Nombre:</span>
-                          <p className="font-medium text-gray-900">{order.agenciaDespacho.nombre}</p>
+                          <div className="text-gray-500">Nombre:</div>
+                          <div className="font-medium text-gray-900">
+                            {order.agenciaDespacho.nombre}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <CreditCard className="w-4 h-4 text-gray-500" />
                         <div>
-                          <span className="text-gray-500">DNI:</span>
-                          <p className="font-medium text-gray-900">{order.agenciaDespacho.dni}</p>
+                          <div className="text-gray-500">DNI:</div>
+                          <div className="font-medium text-gray-900">
+                            {order.agenciaDespacho.dni}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Phone className="w-4 h-4 text-gray-500" />
                         <div>
-                          <span className="text-gray-500">Teléfono:</span>
-                          <p className="font-medium text-gray-900">{order.agenciaDespacho.telefono}</p>
+                          <div className="text-gray-500">Teléfono:</div>
+                          <div className="font-medium text-gray-900">
+                            {order.agenciaDespacho.telefono}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -249,24 +296,40 @@ const OrderDetails = ({ order, onClose, onUpdateStatus }) => {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Código</th>
-                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Descripción</th>
-                    <th className="px-4 py-2 text-center text-xs font-semibold text-gray-700">Cant.</th>
-                    <th className="px-4 py-2 text-right text-xs font-semibold text-gray-700">P. Unit.</th>
-                    <th className="px-4 py-2 text-right text-xs font-semibold text-gray-700">Subtotal</th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">
+                      Código
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">
+                      Descripción
+                    </th>
+                    <th className="px-4 py-2 text-center text-xs font-semibold text-gray-700">
+                      Cant.
+                    </th>
+                    <th className="px-4 py-2 text-right text-xs font-semibold text-gray-700">
+                      P. Unit.
+                    </th>
+                    <th className="px-4 py-2 text-right text-xs font-semibold text-gray-700">
+                      Subtotal
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {order.productos.map(producto => (
                     <tr key={producto.id}>
-                      <td className="px-4 py-3 text-sm text-gray-900">{producto.codigo}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{producto.descripcion}</td>
-                      <td className="px-4 py-3 text-sm text-center text-gray-900">{producto.cantidad}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {producto.codigo}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {producto.descripcion}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-center text-gray-900">
+                        {producto.cantidad}
+                      </td>
                       <td className="px-4 py-3 text-sm text-right text-gray-900">
-                        S/ {producto.precioUnitario.toFixed(2)}
+                        {getCurrencySymbol()} {producto.precioUnitario.toFixed(2)}
                       </td>
                       <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
-                        S/ {producto.subtotal.toFixed(2)}
+                        {getCurrencySymbol()} {producto.subtotal.toFixed(2)}
                       </td>
                     </tr>
                   ))}
@@ -277,7 +340,7 @@ const OrderDetails = ({ order, onClose, onUpdateStatus }) => {
                       Subtotal:
                     </td>
                     <td className="px-4 py-2 text-right font-semibold text-gray-900">
-                      S/ {order.subtotal.toFixed(2)}
+                      {getCurrencySymbol()} {order.subtotal.toFixed(2)}
                     </td>
                   </tr>
                   <tr>
@@ -285,7 +348,7 @@ const OrderDetails = ({ order, onClose, onUpdateStatus }) => {
                       IGV (18%):
                     </td>
                     <td className="px-4 py-2 text-right font-semibold text-gray-900">
-                      S/ {order.igv.toFixed(2)}
+                      {getCurrencySymbol()} {order.igv.toFixed(2)}
                     </td>
                   </tr>
                   <tr>
@@ -293,7 +356,7 @@ const OrderDetails = ({ order, onClose, onUpdateStatus }) => {
                       TOTAL:
                     </td>
                     <td className="px-4 py-2 text-right font-bold text-green-600 text-lg">
-                      S/ {order.total.toFixed(2)}
+                      {getCurrencySymbol()} {order.total.toFixed(2)}
                     </td>
                   </tr>
                 </tfoot>
@@ -308,7 +371,9 @@ const OrderDetails = ({ order, onClose, onUpdateStatus }) => {
                 <MessageSquare className="w-5 h-5 text-gray-700" />
                 Observaciones
               </h3>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{order.observaciones}</p>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                {order.observaciones}
+              </p>
             </div>
           )}
 
@@ -325,6 +390,8 @@ const OrderDetails = ({ order, onClose, onUpdateStatus }) => {
       </div>
     </div>
   );
+
+  return ReactDOM.createPortal(modalContent, document.body);
 };
 
 export default OrderDetails;

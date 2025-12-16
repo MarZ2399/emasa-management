@@ -1,13 +1,19 @@
 // src/components/orders/OrderForm.jsx
 import React, { useState, useEffect } from 'react';
-import ReactDOM from 'react-dom'; // 🆕 IMPORT
+import ReactDOM from 'react-dom';
 import { 
   ShoppingCart, FileText, DollarSign, Truck, MapPin, 
-  Calendar, MessageSquare, Save, X, Package, AlertCircle 
+  Calendar, MessageSquare, Save, X, Package, AlertCircle,Coins
 } from 'lucide-react';
 import ShippingAgencyForm from './ShippingAgencyForm';
+import SearchableSelect from '../common/SearchableSelect';
 import { 
-  paymentMethods, deliveryTypes, transportResponsible, transportZones 
+  paymentMethods, 
+   paymentTerms, // 🆕 IMPORT
+  currencyTypes, // 🆕 IMPORT
+  deliveryTypes, 
+  transportResponsibleByZone, // 🔄 CAMBIADO
+  transportZones 
 } from '../../data/ordersData';
 import { 
   shippingAddresses, provincias, distritosByProvincia 
@@ -17,9 +23,10 @@ import toast from 'react-hot-toast';
 const OrderForm = ({ quotation, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     ordenCompra: '',
-    pagoTransporte: 'empresa',
+    pagoTransporte: '', // 🔄 Vacío inicialmente
     transporteZona: 'lima_callao',
-    plazos: '15 días',
+    tipoMoneda: 'PEN', 
+    formaPago: '',
     metodoPago: 'transferencia',
     tipoEntrega: 'despacho',
     direccionDespacho: '',
@@ -38,7 +45,30 @@ const OrderForm = ({ quotation, onClose, onSave }) => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 🆕 useEffect para bloquear scroll del body cuando el modal está abierto
+  // 🆕 Obtener opciones dinámicas según zona
+  const availableTransportOptions = transportResponsibleByZone[formData.transporteZona] || [];
+
+  // 🆕 useEffect para establecer valor por defecto al cambiar zona
+  useEffect(() => {
+    if (availableTransportOptions.length > 0) {
+      // Si es Lima-Callao, establecer "empresa" por defecto
+      if (formData.transporteZona === 'lima_callao') {
+        setFormData(prev => ({
+          ...prev,
+          pagoTransporte: 'empresa'
+        }));
+      } 
+      // Si es provincia, establecer "cliente" por defecto
+      else if (formData.transporteZona === 'provincia') {
+        setFormData(prev => ({
+          ...prev,
+          pagoTransporte: 'cliente'
+        }));
+      }
+    }
+  }, [formData.transporteZona]);
+
+  // useEffect para bloquear scroll
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => {
@@ -46,7 +76,7 @@ const OrderForm = ({ quotation, onClose, onSave }) => {
     };
   }, []);
 
-  // 🆕 Cerrar con tecla ESC
+  // useEffect para cerrar con ESC
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
@@ -82,11 +112,19 @@ const OrderForm = ({ quotation, onClose, onSave }) => {
     }
   };
 
+  // 🆕 Handler especial para cambio de zona
+  const handleTransportZoneChange = (zona) => {
+    setFormData(prev => ({
+      ...prev,
+      transporteZona: zona,
+      pagoTransporte: '' // Resetear pago de transporte
+    }));
+  };
+
   const handleAddressSelect = (addressId) => {
     setSelectedAddressId(addressId);
     
     if (addressId === 'new') {
-      // Nueva dirección - limpiar campos
       setFormData(prev => ({
         ...prev,
         direccionDespacho: '',
@@ -94,7 +132,6 @@ const OrderForm = ({ quotation, onClose, onSave }) => {
         distritoDespacho: ''
       }));
     } else if (addressId) {
-      // Dirección existente - cargar datos
       const address = clientAddresses.find(addr => addr.id === parseInt(addressId));
       if (address) {
         setFormData(prev => ({
@@ -111,7 +148,7 @@ const OrderForm = ({ quotation, onClose, onSave }) => {
     setFormData(prev => ({
       ...prev,
       provinciaDespacho: provincia,
-      distritoDespacho: '' // Reset distrito al cambiar provincia
+      distritoDespacho: ''
     }));
   };
 
@@ -125,12 +162,10 @@ const OrderForm = ({ quotation, onClose, onSave }) => {
   const validate = () => {
     const newErrors = {};
 
-    // Validación de Orden de Compra
     if (!formData.ordenCompra.trim()) {
       newErrors.ordenCompra = 'N° de Orden de Compra es requerido';
     }
 
-    // Validación de Fecha de Entrega
     if (!formData.fechaEntrega) {
       newErrors.fechaEntrega = 'Fecha de entrega es requerida';
     } else {
@@ -143,7 +178,11 @@ const OrderForm = ({ quotation, onClose, onSave }) => {
       }
     }
 
-    // Validaciones específicas para despacho
+    // 🆕 Validar que se haya seleccionado responsable de transporte
+    if (!formData.pagoTransporte) {
+      newErrors.pagoTransporte = 'Debe seleccionar responsable de transporte';
+    }
+
     if (formData.tipoEntrega !== 'retiro') {
       if (!formData.direccionDespacho.trim()) {
         newErrors.direccionDespacho = 'Dirección de despacho es requerida';
@@ -152,7 +191,6 @@ const OrderForm = ({ quotation, onClose, onSave }) => {
         newErrors.distritoDespacho = 'Distrito es requerido';
       }
 
-      // Validar datos de agencia
       if (!formData.agenciaDespacho.nombre.trim()) {
         newErrors.agenciaNombre = 'Nombre de contacto es requerido';
       }
@@ -179,7 +217,6 @@ const OrderForm = ({ quotation, onClose, onSave }) => {
     setIsSubmitting(true);
 
     try {
-      // Generar número de pedido
       const numeroPedido = `PED-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`;
 
       const orderData = {
@@ -199,7 +236,6 @@ const OrderForm = ({ quotation, onClose, onSave }) => {
         createdBy: 'admin@emasa.com',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        // Si es retiro, limpiar datos de agencia
         agenciaDespacho: formData.tipoEntrega === 'retiro' ? null : formData.agenciaDespacho
       };
 
@@ -214,12 +250,11 @@ const OrderForm = ({ quotation, onClose, onSave }) => {
     }
   };
 
-  // 🆕 Contenido del modal
   const modalContent = (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div 
         className="bg-white rounded-xl shadow-2xl w-full max-w-6xl my-8 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()} // Evitar cerrar al hacer click dentro del modal
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-[#2ecc70] to-[#27ae60] text-white px-6 py-4 flex items-center justify-between z-10">
@@ -319,76 +354,62 @@ const OrderForm = ({ quotation, onClose, onSave }) => {
                 )}
               </div>
 
-              {/* Plazos */}
+              {/* 🆕 Tipo de Moneda */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Plazos de Pago
-                </label>
-                <input
-                  type="text"
-                  value={formData.plazos}
-                  onChange={(e) => handleChange('plazos', e.target.value)}
-                  placeholder="15 días, 30 días, etc."
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent"
-                />
-              </div>
-
-              {/* Método de Pago */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Método de Pago
+                  Tipo de Moneda <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <select
-                    value={formData.metodoPago}
-                    onChange={(e) => handleChange('metodoPago', e.target.value)}
+                    value={formData.tipoMoneda}
+                    onChange={(e) => handleChange('tipoMoneda', e.target.value)}
                     className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white"
                   >
-                    {paymentMethods.map(method => (
-                      <option key={method.value} value={method.value}>
-                        {method.label}
+                    {currencyTypes.map(currency => (
+                      <option key={currency.value} value={currency.value}>
+                        {currency.label}
                       </option>
                     ))}
                   </select>
                 </div>
               </div>
+
+              {/* 🆕 Forma de Pago (Condiciones) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Forma de Pago <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.formaPago}
+                  onChange={(e) => handleChange('formaPago', e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white"
+                >
+                  {paymentTerms.map(term => (
+                    <option key={term.value} value={term.value}>
+                      {term.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
-          {/* Sección 2: Transporte */}
+          {/* Sección 2: Transporte - 🔄 ACTUALIZADA */}
           <div className="border border-gray-200 rounded-lg p-5">
             <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
               <Truck className="w-5 h-5 text-gray-700" />
               Datos de Transporte
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Pago de Transporte */}
+              {/* Zona de Transporte - PRIMERO */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Pago de Transporte
-                </label>
-                <select
-                  value={formData.pagoTransporte}
-                  onChange={(e) => handleChange('pagoTransporte', e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white"
-                >
-                  {transportResponsible.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Zona de Transporte */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Zona de Transporte
+                  Zona de Transporte <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={formData.transporteZona}
-                  onChange={(e) => handleChange('transporteZona', e.target.value)}
+                  onChange={(e) => handleTransportZoneChange(e.target.value)}
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white"
                 >
                   {transportZones.map(zone => (
@@ -398,9 +419,32 @@ const OrderForm = ({ quotation, onClose, onSave }) => {
                   ))}
                 </select>
               </div>
+
+              {/* 🆕 Responsable de Transporte - SEARCHABLE */}
+    <SearchableSelect
+      value={formData.pagoTransporte}
+      onChange={(value) => handleChange('pagoTransporte', value)}
+      options={availableTransportOptions}
+      label="Responsable de Transporte"
+      placeholder="Buscar agencia o responsable..."
+      required={true}
+      error={errors.pagoTransporte}
+    />
+
+             
+            </div>
+
+            {/* 🆕 Mensaje informativo según zona */}
+            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+              {formData.transporteZona === 'lima_callao' ? (
+                <p>✓ Para Lima y Callao, EMASA se encarga del transporte.</p>
+              ) : (
+                <p>✓ Para envíos a provincia, seleccione la agencia de transporte preferida.</p>
+              )}
             </div>
           </div>
 
+          {/* Resto del formulario... (continúa igual) */}
           {/* Sección 3: Entrega */}
           <div className="border border-gray-200 rounded-lg p-5">
             <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -588,11 +632,7 @@ const OrderForm = ({ quotation, onClose, onSave }) => {
     </div>
   );
 
-  // 🆕 Renderizar usando createPortal
-  return ReactDOM.createPortal(
-    modalContent,
-    document.body
-  );
+  return ReactDOM.createPortal(modalContent, document.body);
 };
 
 export default OrderForm;

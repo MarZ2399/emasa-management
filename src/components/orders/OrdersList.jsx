@@ -204,7 +204,7 @@ const OrdersList = ({ orders, onUpdateStatus }) => {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
-                        <DollarSign className="w-4 h-4 text-green-600" />
+                        
                         <span className="font-semibold text-gray-900">
                           S/ {order.total.toFixed(2)}
                         </span>
@@ -260,10 +260,22 @@ const OrdersList = ({ orders, onUpdateStatus }) => {
                   <span className="text-gray-500">OC:</span>
                   <p className="font-medium text-gray-900">{order.ordenCompra}</p>
                 </div>
-                <div>
-                  <span className="text-gray-500">Total:</span>
-                  <p className="font-semibold text-green-600">S/ {order.total.toFixed(2)}</p>
-                </div>
+                <td className="px-4 py-3">
+  <div className="flex items-center gap-1">
+    <DollarSign className="w-4 h-4 text-green-600" />
+    <span className="font-semibold text-gray-900">
+      {order.tipoMoneda === 'USD' ? '$' : 'S/'} {order.total.toFixed(2)}
+    </span>
+  </div>
+</td>
+
+// Y en la versión mobile:
+<div>
+  <span className="text-gray-500">Total:</span>
+  <p className="font-semibold text-green-600">
+    {order.tipoMoneda === 'USD' ? '$' : 'S/'} {order.total.toFixed(2)}
+  </p>
+</div>
                 <div>
                   <span className="text-gray-500">Fecha Pedido:</span>
                   <p className="font-medium text-gray-900">
