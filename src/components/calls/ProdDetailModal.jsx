@@ -1,35 +1,82 @@
+// src/components/calls/ProdDetailModal.jsx
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
+import { Building2, AlertCircle, ShoppingCart } from 'lucide-react';
+import { getWarehouseStockStatus } from '../../data/productsData';
+import toast from 'react-hot-toast';
 
 const ProdDetailModal = ({
   product,
   isOpen,
   onClose,
-  onAddToQuotation // callback para agregar producto a la cotización
+  onAddToQuotation
 }) => {
   if (!product || !isOpen) return null;
 
   // Estados para los inputs editables
   const [quantity, setQuantity] = useState(1);
-  const [discount1, setDiscount1] = useState(product.descuento1 || 0);
-  const [discount5, setDiscount5] = useState(product.descuento5 || 0);
+  const [discount1] = useState(product.descuento1 || 0); // ✅ Solo lectura
+  const [discount5, setDiscount5] = useState(product.descuento5 || 0); // ✅ Editable
+  const [selectedWarehouse, setSelectedWarehouse] = useState('');
+
+  // Obtener estados de stock por almacén
+  const stockBSFStatus = getWarehouseStockStatus(product.stockBSF);
+  const stockSanLuisStatus = getWarehouseStockStatus(product.stockSanLuis);
 
   // Cálculo del precio total con descuentos
-  const precioConDescuento =
-    product.precioNeto *
-    ((100 - discount1) / 100) *
-    ((100 - discount5) / 100);
+ const precioNetoDolar = product.precioNetoDolar; // 68.00
+const precioConDescuento =
+  precioNetoDolar *
+  ((100 - discount1) / 100) *
+  ((100 - discount5) / 100);
+
+  // Validar stock disponible según almacén seleccionado
+  const getAvailableStock = () => {
+    if (selectedWarehouse === 'BSF') return product.stockBSF;
+    if (selectedWarehouse === 'SAN_LUIS') return product.stockSanLuis;
+    return 0;
+  };
+
+  const availableStock = getAvailableStock();
+  const canAdd = selectedWarehouse && quantity > 0 && quantity <= availableStock;
 
   const handleAddToQuotation = () => {
+    if (!selectedWarehouse) {
+      toast.error('Por favor selecciona un almacén', { position: 'top-right' });
+      return;
+    }
+
+    if (quantity > availableStock) {
+      toast.error(`Stock insuficiente en ${selectedWarehouse === 'BSF' ? 'BSF' : 'San Luis'}`, {
+        position: 'top-right'
+      });
+      return;
+    }
+
+    if (quantity <= 0) {
+      toast.error('La cantidad debe ser mayor a 0', { position: 'top-right' });
+      return;
+    }
+
     onAddToQuotation({
       ...product,
       quantity,
       discount1,
-      discount5,
-      precioCotizar: precioConDescuento,
-      precioNeto: precioConDescuento
+      precioLista: product.precioListaDolar, // ✅ Precio lista en dólares
+    precioNeto: precioConDescuento, // ✅ Precio neto con descuentos en dólares
+    precioCotizar: precioConDescuento,
+    warehouse: selectedWarehouse,
+    warehouseName: selectedWarehouse === 'BSF' ? 'BSF' : 'San Luis'
     });
-    onClose(); // Cerrar el modal
+
+    toast.success(`Producto agregado desde almacén ${selectedWarehouse === 'BSF' ? 'BSF' : 'San Luis'}`, {
+      position: 'top-right'
+    });
+
+    setQuantity(1);
+    setDiscount5(product.descuento5 || 0);
+    setSelectedWarehouse('');
+    onClose();
   };
 
   return ReactDOM.createPortal(
@@ -37,13 +84,20 @@ const ProdDetailModal = ({
       <div className="bg-gray-50 rounded-lg shadow-xl max-w-7xl w-full max-h-[95vh] overflow-y-auto relative">
 
         {/* Header con botón de agregar */}
-        <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center justify-between p-4 border-b bg-white sticky top-0 z-10">
           <h2 className="text-2xl font-bold text-gray-800">{product.nombre}</h2>
           <div className="flex gap-2">
             <button
               onClick={handleAddToQuotation}
-              className="bg-[#334a5e] hover:bg-[#2c3e50] text-white px-4 py-2 rounded font-bold"
+              disabled={!canAdd}
+              className={`px-4 py-2 rounded font-bold transition flex items-center gap-2 ${
+                canAdd
+                  ? 'bg-[#334a5e] hover:bg-[#2c3e50] text-white'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+              title={!canAdd ? 'Selecciona un almacén y verifica el stock' : 'Agregar producto'}
             >
+              <ShoppingCart className="w-5 h-5" />
               Agregar producto
             </button>
             <button
@@ -89,7 +143,218 @@ const ProdDetailModal = ({
                   </div>
                 </div>
 
-                {/* PRECIOS */}
+                {/* ✅ SELECTOR DE ALMACÉN + CANTIDAD + DESCUENTOS */}
+                <div className="bg-white rounded-lg shadow-md overflow-hidden border-2 border-blue-200">
+                  <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-4">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                      <Building2 className="w-6 h-6" />
+                      SELECCIONAR ALMACÉN
+                    </h3>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    
+                    {/* SELECCIÓN DE ALMACENES */}
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Almacén BSF */}
+                      <button
+                        onClick={() => setSelectedWarehouse('BSF')}
+                        disabled={product.stockBSF === 0}
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          selectedWarehouse === 'BSF'
+                            ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-300'
+                            : 'border-gray-300 hover:border-blue-300'
+                        } ${
+                          product.stockBSF === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="w-5 h-5 text-blue-600" />
+                            <span className="font-bold text-gray-900">BSF</span>
+                          </div>
+                          {selectedWarehouse === 'BSF' && (
+                            <span className="text-blue-600 text-xl">✓</span>
+                          )}
+                        </div>
+                        <div className="text-left mb-2">
+                          <span className="text-3xl font-bold text-blue-600">{product.stockBSF}</span>
+                          <span className="text-sm text-gray-600 ml-1">unidades</span>
+                        </div>
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium border ${stockBSFStatus.color}`}>
+                          {stockBSFStatus.icon} {stockBSFStatus.text}
+                        </span>
+                      </button>
+
+                      {/* Almacén San Luis */}
+                      <button
+                        onClick={() => setSelectedWarehouse('SAN_LUIS')}
+                        disabled={product.stockSanLuis === 0}
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          selectedWarehouse === 'SAN_LUIS'
+                            ? 'border-green-500 bg-green-50 ring-2 ring-green-300'
+                            : 'border-gray-300 hover:border-green-300'
+                        } ${
+                          product.stockSanLuis === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="w-5 h-5 text-green-600" />
+                            <span className="font-bold text-gray-900">San Luis</span>
+                          </div>
+                          {selectedWarehouse === 'SAN_LUIS' && (
+                            <span className="text-green-600 text-xl">✓</span>
+                          )}
+                        </div>
+                        <div className="text-left mb-2">
+                          <span className="text-3xl font-bold text-green-600">{product.stockSanLuis}</span>
+                          <span className="text-sm text-gray-600 ml-1">unidades</span>
+                        </div>
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium border ${stockSanLuisStatus.color}`}>
+                          {stockSanLuisStatus.icon} {stockSanLuisStatus.text}
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Mensaje informativo */}
+                    {!selectedWarehouse && (
+                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
+                        <span className="text-sm text-yellow-800 font-medium">
+                          Selecciona un almacén para continuar
+                        </span>
+                      </div>
+                    )}
+
+                    {selectedWarehouse && (
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm font-medium text-blue-900">
+                          📍 Almacén seleccionado: <span className="font-bold">{selectedWarehouse === 'BSF' ? 'BSF' : 'San Luis'}</span>
+                        </p>
+                        <p className="text-sm text-blue-700 mt-1">
+                          Stock disponible: <span className="font-bold">{availableStock}</span> unidades
+                        </p>
+                      </div>
+                    )}
+
+                    {/* ✅ CANTIDAD */}
+                    <div className="bg-green-100 border-2 border-green-300 p-4 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <label className="font-bold text-green-800 text-base" htmlFor="inp-qty">
+                          Cantidad:
+                        </label>
+                        <input
+  id="inp-qty"
+  type="text"
+  inputMode="numeric"
+  pattern="[0-9]*"
+  value={quantity}
+  onChange={e => {
+    const value = e.target.value.replace(/\D/g, ""); // Solo números
+    
+    if (value === "") {
+      setQuantity(""); // Permitir campo vacío temporalmente
+    } else {
+      const numValue = parseInt(value);
+      
+      // Validar contra stock disponible
+      if (selectedWarehouse && numValue > availableStock) {
+        setQuantity(availableStock);
+      } else {
+        setQuantity(numValue);
+      }
+    }
+  }}
+  onBlur={() => {
+    // Solo cuando pierde el foco, si está vacío o es 0, establecer 1
+    if (!quantity || quantity === "" || quantity === 0) {
+      setQuantity(1);
+    }
+  }}
+  disabled={!selectedWarehouse}
+  className="text-right font-bold text-green-800 text-lg w-24 bg-white rounded-lg px-3 py-2 outline-none border-2 border-green-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
+/>
+                      </div>
+                    </div>
+
+                    {/* ✅ VALIDACIÓN DE STOCK */}
+                    {selectedWarehouse && quantity > availableStock && (
+                      <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <AlertCircle className="w-5 h-5 text-red-600" />
+                        <span className="text-sm text-red-600 font-medium">
+                          Stock insuficiente. Solo hay {availableStock} unidades disponibles.
+                        </span>
+                      </div>
+                    )}
+
+                    {/* ✅ DESCUENTOS */}
+                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 p-4 rounded-lg space-y-3">
+                      {/* 1er Descuento - READONLY */}
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-bold text-indigo-800">1er Dsctó</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={discount1}
+                            readOnly
+                            className="w-20 text-right bg-gray-200 border border-gray-400 rounded-lg px-3 py-1.5 font-semibold text-gray-700 cursor-not-allowed"
+                          />
+                          <span className="font-bold text-gray-700">%</span>
+                        </div>
+                      </div>
+
+                      {/* 5to Descuento - EDITABLE */}
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-bold text-purple-800" htmlFor="inp-dscto5">
+                          5to Dsctó
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+      id="inp-dscto5"
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      value={discount5}
+      onChange={e => {
+        const value = e.target.value.replace(/\D/g, ""); // Solo números
+        
+        if (value === "") {
+          setDiscount5(""); // Permitir campo vacío temporalmente
+        } else {
+          const numValue = parseInt(value);
+          
+          // Limitar a máximo 100
+          if (numValue > 100) {
+            setDiscount5(100);
+          } else {
+            setDiscount5(numValue);
+          }
+        }
+      }}
+      onBlur={() => {
+        // Al salir del campo, si está vacío establecer en 0
+        if (discount5 === "" || discount5 === null || discount5 === undefined) {
+          setDiscount5(0);
+        }
+      }}
+      className="w-20 text-right bg-white border-2 border-purple-300 rounded-lg px-3 py-1.5 font-semibold text-purple-800 outline-none focus:ring-2 focus:ring-purple-500"
+    />
+                          <span className="font-bold text-purple-800">%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ✅ PRECIO FINAL CON DESCUENTOS */}
+                    <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 rounded-lg text-white">
+  <div className="flex justify-between items-center">
+    <span className="font-bold text-base">Precio con descuentos x {quantity}:</span>
+    <span className="font-extrabold text-xl">$ {(precioConDescuento * quantity).toFixed(2)}</span>
+  </div>
+</div>
+                  </div>
+                </div>
+
+                {/* ✅ PRECIOS - CONTENEDOR SEPARADO */}
                 <div className="bg-white rounded-lg shadow-md overflow-hidden">
                   <div className="bg-black text-white p-4">
                     <h3 className="font-bold text-lg">PRECIOS</h3>
@@ -97,52 +362,13 @@ const ProdDetailModal = ({
                   <div className="p-6 space-y-3">
                     <div className="flex justify-between">
                       <span className="font-bold">Precio Lista:</span>
-                      <span className="text-right">S/ {(product.precioLista || product.precio * 1.3).toFixed(2)}</span>
+                      <span className="text-right">$ {(product.precioListaDolar || product.precio * 1.3).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="font-bold">Precio Neto:</span>
-                      <span className="text-right">S/ {product.precioNeto.toFixed(2)}</span>
-                    </div>
-                    <div className="bg-green-100 p-3 rounded flex items-center justify-between">
-                      <label className="font-bold text-green-800" htmlFor="inp-qty">Cantidad:</label>
-                      <input
-                        id="inp-qty"
-                        type="number"
-                        min={1}
-                        value={quantity}
-                        onChange={e => setQuantity(Number(e.target.value))}
-                        className="text-right font-bold text-green-800 w-20 bg-white rounded px-2 py-1 outline-none"
-                      />
-                    </div>
-                    <div className="bg-green-100 p-3 rounded flex flex-col gap-1">
-                      <div className="flex justify-between items-center">
-                        <label className="text-xs font-bold" htmlFor="inp-dscto1">1er Dsctó</label>
-                        <input
-                          id="inp-dscto1"
-                          type="number"
-                          value={discount1}
-                          onChange={e => setDiscount1(Number(e.target.value))}
-                          className="w-16 text-right bg-white rounded px-2 py-1 outline-none"
-                        />%
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <label className="text-xs font-bold" htmlFor="inp-dscto8">5to Dsctó</label>
-                        <input
-                          id="inp-dscto5"
-                          type="number"
-                          value={discount5}
-                          onChange={e => setDiscount5(Number(e.target.value))}
-                          className="w-16 text-right bg-white rounded px-2 py-1 outline-none"
-                        />%
-                      </div>
+                      <span className="text-right">$ {product.precioNetoDolar.toFixed(2)}</span>
                     </div>
                   </div>
-                </div>
-
-                {/* Resumen de total con descuentos */}
-                <div className="p-4 bg-blue-50 rounded-lg flex justify-between font-semibold">
-                  <span>Precio con descuentos x {quantity}:</span>
-                  <span>S/ {(precioConDescuento * quantity).toFixed(2)}</span>
                 </div>
 
                 {/* PRECIO REGULAR DÓLARES */}

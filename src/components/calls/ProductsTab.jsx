@@ -1,16 +1,18 @@
+// src/components/calls/ProductsTab.jsx
 import React, { useState } from 'react';
-import { Search, Package, AlertCircle, Eye } from 'lucide-react';
-import { initialProducts, getStockStatus } from '../../data/productsData';
+import { Search, Package, AlertCircle, Eye, Building2 } from 'lucide-react';
+import { initialProducts, getStockStatus, getWarehouseStockStatus } from '../../data/productsData';
 import ProdDetailModal from './ProdDetailModal';
-import Modal from '../common/Modal';
 
-const ProductsTab = ({ codigoProducto, setCodigoProducto,
-  nombreProducto, setNombreProducto,
-  hasSearched, setHasSearched,
-  onAddToQuotation }) => {
-  // const [codigoProducto, setCodigoProducto] = useState('');
-  // const [nombreProducto, setNombreProducto] = useState('');
-  // const [hasSearched, setHasSearched] = useState(false);
+const ProductsTab = ({ 
+  codigoProducto, 
+  setCodigoProducto,
+  nombreProducto, 
+  setNombreProducto,
+  hasSearched, 
+  setHasSearched,
+  onAddToQuotation 
+}) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -116,7 +118,7 @@ const ProductsTab = ({ codigoProducto, setCodigoProducto,
           {filteredProducts.length > 0 ? (
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px]">
+                <table className="w-full min-w-[1100px]">
                   <thead className="bg-[#334a5e] text-white">
                     <tr>
                       <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Acciones</th>
@@ -124,7 +126,13 @@ const ProductsTab = ({ codigoProducto, setCodigoProducto,
                       <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Producto</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Categoría</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Proveedor</th>
-                      <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Stock</th>
+                      {/* ✅ COLUMNA UNIFICADA DE STOCK */}
+                      <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">
+                        <div className="flex items-center justify-center gap-2">
+                          <Building2 className="w-4 h-4" />
+                          Stock por Almacén
+                        </div>
+                      </th>
                       <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Estado</th>
                       <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider">Precio</th>
                       <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Unidad</th>
@@ -134,6 +142,9 @@ const ProductsTab = ({ codigoProducto, setCodigoProducto,
                     {currentProducts.length > 0 ? (
                       currentProducts.map((product) => {
                         const stockStatus = getStockStatus(product.stock);
+                        const stockBSFStatus = getWarehouseStockStatus(product.stockBSF);
+                        const stockSanLuisStatus = getWarehouseStockStatus(product.stockSanLuis);
+                        
                         return (
                           <tr key={product.id} className="hover:bg-gray-50 transition">
                             <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -159,16 +170,43 @@ const ProductsTab = ({ codigoProducto, setCodigoProducto,
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                               {product.proveedor}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-bold text-gray-900">
-                              {product.stock}
+                            
+                            {/* ✅ STOCK POR ALMACÉN - DISEÑO VERTICAL */}
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="space-y-2">
+                                {/* BSF */}
+                                <div className="flex items-center justify-between gap-3 bg-blue-50 rounded-lg px-3 py-2 border border-blue-200">
+                                  <div className="flex items-center gap-2">
+                                    <Building2 className="w-4 h-4 text-blue-600" />
+                                    <span className="text-xs font-semibold text-blue-800">BSF</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-bold text-blue-900">{product.stockBSF}</span>
+                                    <span className="text-xs">{stockBSFStatus.icon}</span>
+                                  </div>
+                                </div>
+
+                                {/* San Luis */}
+                                <div className="flex items-center justify-between gap-3 bg-green-50 rounded-lg px-3 py-2 border border-green-200">
+                                  <div className="flex items-center gap-2">
+                                    <Building2 className="w-4 h-4 text-green-600" />
+                                    <span className="text-xs font-semibold text-green-800">San Luis</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-bold text-green-900">{product.stockSanLuis}</span>
+                                    <span className="text-xs">{stockSanLuisStatus.icon}</span>
+                                  </div>
+                                </div>
+                              </div>
                             </td>
+
                             <td className="px-6 py-4 whitespace-nowrap text-center">
                               <span className={`px-3 py-1 rounded-full text-xs font-medium border ${stockStatus.color}`}>
                                 {stockStatus.icon} {stockStatus.text}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
-                              S/ {product.precio.toFixed(2)}
+                              $ {product.precioNetoDolar.toFixed(2)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-600">
                               {product.unidad}
@@ -270,18 +308,13 @@ const ProductsTab = ({ codigoProducto, setCodigoProducto,
         </div>
       )}
 
-      {/* Modal de Detalle Completo */}
-      {/* <ProdDetailModal 
+      {/* Modal de Detalle con selector de almacén */}
+      <ProdDetailModal 
         product={selectedProduct} 
         isOpen={modalOpen} 
-        onClose={() => setModalOpen(false)} 
-      /> */}
-      <ProdDetailModal 
-  product={selectedProduct} 
-  isOpen={modalOpen} 
-  onClose={() => setModalOpen(false)}
-  onAddToQuotation={onAddToQuotation}
-/>
+        onClose={() => setModalOpen(false)}
+        onAddToQuotation={onAddToQuotation}
+      />
     </div>
   );
 };

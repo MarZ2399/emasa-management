@@ -44,7 +44,7 @@ export const initialProducts = [
     codigo: 'PROD-002', 
     nombre: 'Filtro de Aire Toyota', 
     categoria: 'Filtros', 
-    stock: 120, 
+    stock: 135, 
     precio: 35.00, 
     unidad: 'Unidad',
     proveedor: 'Sakura',
@@ -82,7 +82,7 @@ export const initialProducts = [
     codigo: 'PROD-003', 
     nombre: 'Batería 12V 65Ah', 
     categoria: 'Baterías', 
-    stock: 30, 
+    stock: 35, 
     precio: 320.00, 
     unidad: 'Unidad',
     proveedor: 'Etna',
@@ -120,7 +120,7 @@ export const initialProducts = [
     codigo: 'PROD-004', 
     nombre: 'Llanta 195/65 R15', 
     categoria: 'Llantas', 
-    stock: 60, 
+    stock: 68, 
     precio: 280.00, 
     unidad: 'Unidad',
     proveedor: 'Michelin',
@@ -158,7 +158,7 @@ export const initialProducts = [
     codigo: 'PROD-005', 
     nombre: 'Pastillas de Freno Delanteras', 
     categoria: 'Frenos', 
-    stock: 85, 
+    stock: 97, 
     precio: 95.00, 
     unidad: 'Juego',
     proveedor: 'Bendix',
@@ -196,7 +196,7 @@ export const initialProducts = [
     codigo: 'PROD-006', 
     nombre: 'Refrigerante Verde 50/50', 
     categoria: 'Líquidos', 
-    stock: 150, 
+    stock: 175, 
     precio: 42.00, 
     unidad: 'Galón',
     proveedor: 'Prestone',
@@ -234,7 +234,7 @@ export const initialProducts = [
     codigo: 'PROD-007', 
     nombre: 'Amortiguador Delantero', 
     categoria: 'Suspensión', 
-    stock: 25, 
+    stock: 28, 
     precio: 180.00, 
     unidad: 'Unidad',
     proveedor: 'Monroe',
@@ -272,7 +272,7 @@ export const initialProducts = [
     codigo: 'PROD-008', 
     nombre: 'Kit de Embrague Completo', 
     categoria: 'Transmisión', 
-    stock: 15, 
+    stock: 17, 
     precio: 450.00, 
     unidad: 'Kit',
     proveedor: 'Valeo',
@@ -310,7 +310,7 @@ export const initialProducts = [
     codigo: 'PROD-009', 
     nombre: 'Disco de Freno Ventilado', 
     categoria: 'Frenos', 
-    stock: 40, 
+    stock: 45, 
     precio: 120.00, 
     unidad: 'Par',
     proveedor: 'Brembo',
@@ -348,7 +348,7 @@ export const initialProducts = [
     codigo: 'PROD-010', 
     nombre: 'Bujías Iridium', 
     categoria: 'Encendido', 
-    stock: 200, 
+    stock: 250, 
     precio: 25.00, 
     unidad: 'Unidad',
     proveedor: 'NGK',
@@ -386,7 +386,7 @@ export const initialProducts = [
     codigo: 'PROD-011', 
     nombre: 'Correa de Distribución', 
     categoria: 'Transmisión', 
-    stock: 55, 
+    stock: 63, 
     precio: 85.00, 
     unidad: 'Unidad',
     proveedor: 'Gates',
@@ -424,7 +424,7 @@ export const initialProducts = [
     codigo: 'PROD-012', 
     nombre: 'Limpia Parabrisas 22"', 
     categoria: 'Accesorios', 
-    stock: 95, 
+    stock: 110, 
     precio: 35.00, 
     unidad: 'Par',
     proveedor: 'Bosch',
@@ -462,7 +462,7 @@ export const initialProducts = [
     codigo: 'PROD-013', 
     nombre: 'Aceite de Transmisión ATF', 
     categoria: 'Lubricantes', 
-    stock: 18, 
+    stock: 20, 
     precio: 95.00, 
     unidad: 'Litro',
     proveedor: 'Mobil',
@@ -500,7 +500,7 @@ export const initialProducts = [
     codigo: 'PROD-014', 
     nombre: 'Sensor de Oxígeno', 
     categoria: 'Sensores', 
-    stock: 22, 
+    stock: 24, 
     precio: 180.00, 
     unidad: 'Unidad',
     proveedor: 'Denso',
@@ -538,7 +538,7 @@ export const initialProducts = [
     codigo: 'PROD-015', 
     nombre: 'Bomba de Agua', 
     categoria: 'Refrigeración', 
-    stock: 35, 
+    stock: 40, 
     precio: 150.00, 
     unidad: 'Unidad',
     proveedor: 'GMB',
@@ -588,20 +588,76 @@ export const productCategories = [
   'Refrigeración'
 ];
 
+// ✅ Función para obtener estado de stock TOTAL
 export const getStockStatus = (stock) => {
-  if (stock <= 20) return { 
-    color: 'text-red-600 bg-red-50 border-red-200', 
-    text: 'Stock Bajo',
-    icon: '🚨'
-  };
-  if (stock <= 50) return { 
-    color: 'text-yellow-600 bg-yellow-50 border-yellow-200', 
-    text: 'Stock Medio',
-    icon: '⚠️'
-  };
+  if (stock === 0) {
+    return { 
+      color: 'text-red-600 bg-red-50 border-red-200', 
+      text: 'Sin Stock',
+      icon: '❌'
+    };
+  }
+  if (stock <= 20) {
+    return { 
+      color: 'text-red-600 bg-red-50 border-red-200', 
+      text: 'Stock Bajo',
+      icon: '🚨'
+    };
+  }
+  if (stock <= 50) {
+    return { 
+      color: 'text-yellow-600 bg-yellow-50 border-yellow-200', 
+      text: 'Stock Medio',
+      icon: '⚠️'
+    };
+  }
   return { 
     color: 'text-green-600 bg-green-50 border-green-200', 
     text: 'Stock Alto',
     icon: '✅'
   };
+};
+
+// ✅ Función para obtener estado de stock POR ALMACÉN
+export const getWarehouseStockStatus = (stock) => {
+  if (stock === 0) {
+    return {
+      text: 'Sin Stock',
+      color: 'bg-red-100 text-red-800 border-red-200',
+      icon: '❌'
+    };
+  } else if (stock > 0 && stock <= 10) {
+    return {
+      text: 'Stock Bajo',
+      color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      icon: '⚠️'
+    };
+  } else if (stock > 10 && stock <= 50) {
+    return {
+      text: 'Stock Medio',
+      color: 'bg-blue-100 text-blue-800 border-blue-200',
+      icon: '📦'
+    };
+  } else {
+    return {
+      text: 'Stock Alto',
+      color: 'bg-green-100 text-green-800 border-green-200',
+      icon: '✅'
+    };
+  }
+};
+
+// ✅ Función para obtener nombre del almacén
+export const getWarehouseName = (warehouseCode) => {
+  const warehouses = {
+    'BSF': 'Almacén BSF',
+    'SAN_LUIS': 'Almacén San Luis'
+  };
+  return warehouses[warehouseCode] || warehouseCode;
+};
+
+// ✅ Función para validar disponibilidad en almacén
+export const checkWarehouseAvailability = (product, warehouseCode, quantity) => {
+  const stock = warehouseCode === 'BSF' ? product.stockBSF : product.stockSanLuis;
+  return stock >= quantity;
 };
