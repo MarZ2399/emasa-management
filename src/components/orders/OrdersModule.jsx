@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Package, Plus, TrendingUp, Clock, CheckCircle, XCircle } from 'lucide-react';
 import OrdersList from './OrdersList';
 import { initialOrders, orderStatuses } from '../../data/ordersData';
+import SectionHeader from '../common/SectionHeader'; 
 
 const OrdersModule = () => {
   const [orders, setOrders] = useState(initialOrders);
@@ -35,17 +36,12 @@ const OrdersModule = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-            <Package className="w-8 h-8 text-[#2ecc70]" />
-            Gestión de Pedidos
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Administra y da seguimiento a todos los pedidos generados
-          </p>
-        </div>
-      </div>
+      <SectionHeader
+        icon={Package}
+        title="Gestión de Pedidos"
+        subtitle="Administra y da seguimiento a todos los pedidos generados"
+        showButton={false} // Si no necesitas botón
+      />
 
       {/* Tarjetas de Estadísticas */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">

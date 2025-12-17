@@ -1,13 +1,17 @@
 // src/components/layout/Sidebar.jsx
 import React from 'react';
-import { Phone, BarChart3, Package, LogOut, ChevronLeft } from 'lucide-react';
+import { Phone, BarChart3, Package, FileText, LogOut, ChevronLeft } from 'lucide-react'; // ✅ Agregar FileText
 import logoImage from "../../assets/logo-emasa1.png";
+
 
 const menuItems = [
   { icon: BarChart3, label: 'Seguimiento de Metas', module: 'dashboard' },
   { icon: Phone, label: 'Gestión de Cliente', module: 'calls' },
-  { icon: Package, label: 'Gestión de Pedidos', module: 'orders' }, // 🆕 NUEVO
+  { icon: FileText, label: 'Gestión de Cotización', module: 'quotations' }, 
+  { icon: Package, label: 'Gestión de Pedidos', module: 'orders' },
+  
 ];
+
 
 const Sidebar = ({ isOpen, onToggle, currentModule, onModuleChange }) => {
   return (
@@ -33,6 +37,7 @@ const Sidebar = ({ isOpen, onToggle, currentModule, onModuleChange }) => {
         </button>
       </div>
 
+
       {/* Label "MENU" - Solo visible cuando está expandido */}
       {isOpen && (
         <div className="px-6 py-3">
@@ -41,6 +46,7 @@ const Sidebar = ({ isOpen, onToggle, currentModule, onModuleChange }) => {
           </p>
         </div>
       )}
+
 
       {/* Menú de navegación */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
@@ -63,5 +69,6 @@ const Sidebar = ({ isOpen, onToggle, currentModule, onModuleChange }) => {
     </aside>
   );
 };
+
 
 export default Sidebar;

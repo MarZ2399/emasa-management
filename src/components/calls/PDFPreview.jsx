@@ -1,3 +1,4 @@
+// src/components/calls/PDFPreview.jsx
 import React from 'react';
 import { companyData } from '../../data/companyData';
 
@@ -9,6 +10,7 @@ const PDFPreview = React.forwardRef(
     igv,
     total,
     quotationNumber,
+    isVisible = false // ✅ NUEVA PROP
   }, ref) => {
     const IGV_RATE = 0.18;
 
@@ -16,7 +18,9 @@ const PDFPreview = React.forwardRef(
       return (
         <div
           ref={ref}
-          className="absolute left-[-9999px] top-0 w-[1100px] bg-white z-[-1] p-12 text-[22px] text-center text-gray-400"
+          className={`${
+            isVisible ? 'relative' : 'absolute left-[-9999px] top-0 z-[-1]'
+          } w-[1100px] bg-white p-12 text-[22px] text-center text-gray-400`}
         >
           Sin datos para generar PDF
         </div>
@@ -26,10 +30,13 @@ const PDFPreview = React.forwardRef(
     return (
       <div
         ref={ref}
-        className="absolute left-[-9999px] top-0 w-[1100px] bg-white z-[-1] p-8 font-sans"
+        className={`${
+          isVisible ? 'relative' : 'absolute left-[-9999px] top-0 z-[-1]'
+        } w-[1100px] bg-white p-8 font-sans`}
         id="pdf-preview"
       >
-         {/* CABECERA */}
+        {/* Resto del código exactamente igual... */}
+        {/* CABECERA */}
         <div className="flex justify-between items-start">
           <div>
             {companyData.logo && (
@@ -53,20 +60,19 @@ const PDFPreview = React.forwardRef(
             </div>
           </div>
           <div className="min-w-[250px] border-2 border-black rounded-xl px-4 py-2 bg-white flex flex-col items-center space-y-2">
-  <div className="w-full flex justify-center items-center pt-1">
-    <span className="font-bold text-lg text-black mr-2">R.U.C.</span>
-    <span className="font-extrabold text-lg text-black">{companyData.ruc}</span>
-  </div>
-  <div className="w-full flex justify-center items-center">
-    <span className="w-full text-center font-semibold text-[19px] text-black">
-      Cotización de Venta
-    </span>
-  </div>
-  <div className="w-full flex justify-center mt-0.5">
-    <span className="font-extrabold text-2xl text-black">{quotationNumber}</span>
-  </div>
-</div>
-
+            <div className="w-full flex justify-center items-center pt-1">
+              <span className="font-bold text-lg text-black mr-2">R.U.C.</span>
+              <span className="font-extrabold text-lg text-black">{companyData.ruc}</span>
+            </div>
+            <div className="w-full flex justify-center items-center">
+              <span className="w-full text-center font-semibold text-[19px] text-black">
+                Cotización de Venta
+              </span>
+            </div>
+            <div className="w-full flex justify-center mt-0.5">
+              <span className="font-extrabold text-2xl text-black">{quotationNumber}</span>
+            </div>
+          </div>
         </div>
 
         {/* SEPARADOR */}
@@ -104,7 +110,7 @@ const PDFPreview = React.forwardRef(
             </div>
             <div>
               <span className="font-bold">Moneda:</span>{" "}
-              <span>Dólares Americanos (USD)</span>
+              <span>Soles (S/)</span>
             </div>
             <div>
               <span className="font-bold">Forma de Pago:</span>{" "}
