@@ -169,7 +169,7 @@ const QuotationsModule = () => {
             <div>
               <p className="text-purple-600 text-sm font-medium">Valor Total</p>
               <p className="text-2xl font-bold text-purple-900 mt-1">
-                S/ {quotations.reduce((sum, q) => sum + q.total, 0).toFixed(2)}
+                {quotations.reduce((sum, q) => sum + q.total, 0).toFixed(2)}
               </p>
             </div>
             <DollarSign className="w-10 h-10 text-purple-600 opacity-50" />
@@ -244,7 +244,7 @@ const QuotationsModule = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-semibold text-green-600">
-                        S/ {quotation.total.toFixed(2)}
+                        {quotation.total.toFixed(2)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

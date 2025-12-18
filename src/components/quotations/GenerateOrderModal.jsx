@@ -26,7 +26,7 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
     ordenCompra: '',
     pagoTransporte: '',
     transporteZona: 'lima_callao',
-    tipoMoneda: 'PEN', 
+    tipoMoneda: 'USD', 
     formaPago: '',
     metodoPago: 'transferencia',
     tipoEntrega: 'despacho',
@@ -46,6 +46,13 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+
+   // ✅ Función para obtener la fecha de mañana
+  const getTomorrowDate = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  };
   // ✅ TODOS LOS useEffect ANTES DEL RETURN CONDICIONAL
   
   // useEffect para establecer valor por defecto al cambiar zona
@@ -108,19 +115,39 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
   const availableDistricts = distritosByProvincia[formData.provinciaDespacho] || [];
 
   const handleChange = (field, value) => {
+  // ✅ Si cambia el tipo de entrega, limpiar campos de dirección y contacto
+  if (field === 'tipoEntrega') {
+    setFormData(prev => ({
+      ...prev,
+      tipoEntrega: value,
+      direccionDespacho: '',
+      provinciaDespacho: 'Lima',
+      distritoDespacho: '',
+      agenciaDespacho: {
+        nombre: '',
+        dni: '',
+        telefono: ''
+      }
+    }));
+    
+    // También limpiar el selectedAddressId
+    setSelectedAddressId('');
+  } else {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
-    
-    if (errors[field]) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[field];
-        return newErrors;
-      });
-    }
-  };
+  }
+  
+  if (errors[field]) {
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[field];
+      return newErrors;
+    });
+  }
+};
+
 
   const handleTransportZoneChange = (zona) => {
     setFormData(prev => ({
@@ -131,27 +158,47 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
   };
 
   const handleAddressSelect = (addressId) => {
-    setSelectedAddressId(addressId);
-    
-    if (addressId === 'new') {
+  setSelectedAddressId(addressId);
+  
+  if (addressId === 'new') {
+    // ✅ Limpiar TODOS los campos cuando selecciona "nueva dirección"
+    setFormData(prev => ({
+      ...prev,
+      direccionDespacho: '',
+      provinciaDespacho: 'Lima',
+      distritoDespacho: '',
+      agenciaDespacho: {
+        nombre: '',
+        dni: '',
+        telefono: ''
+      }
+    }));
+  } else if (addressId) {
+    const address = clientAddresses.find(addr => addr.id === parseInt(addressId));
+    if (address) {
       setFormData(prev => ({
         ...prev,
-        direccionDespacho: '',
-        provinciaDespacho: 'Lima',
-        distritoDespacho: ''
+        direccionDespacho: address.direccion,
+        provinciaDespacho: address.provincia,
+        distritoDespacho: address.distrito
       }));
-    } else if (addressId) {
-      const address = clientAddresses.find(addr => addr.id === parseInt(addressId));
-      if (address) {
-        setFormData(prev => ({
-          ...prev,
-          direccionDespacho: address.direccion,
-          provinciaDespacho: address.provincia,
-          distritoDespacho: address.distrito
-        }));
-      }
     }
-  };
+  } else {
+    // ✅ Si deselecciona (vuelve a "-- Seleccionar dirección --"), limpiar todo
+    setFormData(prev => ({
+      ...prev,
+      direccionDespacho: '',
+      provinciaDespacho: 'Lima',
+      distritoDespacho: '',
+      agenciaDespacho: {
+        nombre: '',
+        dni: '',
+        telefono: ''
+      }
+    }));
+  }
+};
+
 
   const handleProvinciaChange = (provincia) => {
     setFormData(prev => ({
@@ -171,44 +218,51 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
   const validate = () => {
     const newErrors = {};
 
-    if (!formData.ordenCompra.trim()) {
-      newErrors.ordenCompra = 'N° de Orden de Compra es requerido';
-    }
+    // if (!formData.ordenCompra.trim()) {
+    //   newErrors.ordenCompra = 'N° de Orden de Compra es requerido';
+    // }
 
     if (!formData.fechaEntrega) {
-      newErrors.fechaEntrega = 'Fecha de entrega es requerida';
-    } else {
-      const selectedDate = new Date(formData.fechaEntrega);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      if (selectedDate < today) {
-        newErrors.fechaEntrega = 'La fecha debe ser posterior a hoy';
-      }
-    }
+  newErrors.fechaEntrega = 'Fecha de entrega es requerida';
+} else {
+  const selectedDate = new Date(formData.fechaEntrega);
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+  
+  if (selectedDate < tomorrow) {
+    newErrors.fechaEntrega = 'La fecha debe ser a partir de mañana';
+  }
+}
+
 
     if (!formData.pagoTransporte) {
       newErrors.pagoTransporte = 'Debe seleccionar responsable de transporte';
     }
 
     if (formData.tipoEntrega !== 'retiro') {
-      if (!formData.direccionDespacho.trim()) {
-        newErrors.direccionDespacho = 'Dirección de despacho es requerida';
-      }
-      if (!formData.distritoDespacho) {
-        newErrors.distritoDespacho = 'Distrito es requerido';
-      }
+  if (!formData.direccionDespacho.trim()) {
+    newErrors.direccionDespacho = 'Dirección de despacho es requerida';
+  }
+  if (!formData.distritoDespacho) {
+    newErrors.distritoDespacho = 'Distrito es requerido';
+  }
 
-      if (!formData.agenciaDespacho.nombre.trim()) {
-        newErrors.agenciaNombre = 'Nombre de contacto es requerido';
-      }
-      if (!formData.agenciaDespacho.dni.trim() || formData.agenciaDespacho.dni.length !== 8) {
-        newErrors.agenciaDni = 'DNI debe tener 8 dígitos';
-      }
-      if (!formData.agenciaDespacho.telefono.trim() || formData.agenciaDespacho.telefono.length !== 9) {
-        newErrors.agenciaTelefono = 'Teléfono debe tener 9 dígitos';
-      }
-    }
+  if (!formData.agenciaDespacho.nombre.trim()) {
+    newErrors.agenciaNombre = 'Nombre de contacto es requerido';
+  }
+  if (!formData.agenciaDespacho.dni.trim() || formData.agenciaDespacho.dni.length !== 8) {
+    newErrors.agenciaDni = 'DNI debe tener 8 dígitos';
+  }
+  if (!formData.agenciaDespacho.telefono.trim() || formData.agenciaDespacho.telefono.length !== 9) {
+    newErrors.agenciaTelefono = 'Teléfono debe tener 9 dígitos';
+  }
+}
+
+// ✅ Validación adicional para "despacho" (dirección registrada)
+if (formData.tipoEntrega === 'despacho' && !selectedAddressId) {
+  newErrors.direccionDespacho = 'Debe seleccionar una dirección registrada';
+}
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -299,7 +353,7 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
               </div>
               <div>
                 <span className="font-medium text-gray-700">Total Cotización:</span>
-                <span className="ml-2 text-gray-900 font-bold">S/ {quotation.total.toFixed(2)}</span>
+                <span className="ml-2 text-gray-900 font-bold">{quotation.total.toFixed(2)}</span>
               </div>
               <div>
                 <span className="font-medium text-gray-700">Asesor:</span>
@@ -318,7 +372,7 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
               {/* N° Orden de Compra */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  N° Orden de Compra <span className="text-red-500">*</span>
+                  N° Orden de Compra 
                 </label>
                 <input
                   type="text"
@@ -338,29 +392,31 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
               </div>
 
               {/* Fecha de Entrega */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fecha de Entrega <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="date"
-                    value={formData.fechaEntrega}
-                    onChange={(e) => handleChange('fechaEntrega', e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    className={`w-full pl-10 pr-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent transition ${
-                      errors.fechaEntrega ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                    }`}
-                  />
-                </div>
-                {errors.fechaEntrega && (
-                  <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {errors.fechaEntrega}
-                  </p>
-                )}
-              </div>
+             
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">
+    Fecha de Entrega <span className="text-red-500">*</span>
+  </label>
+  <div className="relative">
+    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+    <input
+      type="date"
+      value={formData.fechaEntrega}
+      onChange={(e) => handleChange('fechaEntrega', e.target.value)}
+      min={getTomorrowDate()} // ✅ CAMBIO: Fecha mínima es mañana
+      className={`w-full pl-10 pr-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent transition ${
+        errors.fechaEntrega ? 'border-red-500 bg-red-50' : 'border-gray-300'
+      }`}
+    />
+  </div>
+  {errors.fechaEntrega && (
+    <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+      <AlertCircle className="w-3 h-3" />
+      {errors.fechaEntrega}
+    </p>
+  )}
+</div>
+
 
               {/* Tipo de Moneda */}
               <div>
@@ -451,153 +507,240 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
           </div>
 
           {/* Sección 3: Entrega */}
-          <div className="border border-gray-200 rounded-lg p-5">
-            <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-gray-700" />
-              Datos de Entrega
-            </h3>
+{/* Sección 3: Entrega */}
+<div className="border border-gray-200 rounded-lg p-5">
+  <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+    <MapPin className="w-5 h-5 text-gray-700" />
+    Datos de Entrega
+  </h3>
 
-            {/* Tipo de Entrega */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo de Entrega
-              </label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {deliveryTypes.map(type => (
-                  <label
-                    key={type.value}
-                    className={`flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition ${
-                      formData.tipoEntrega === type.value
-                        ? 'border-[#2ecc70] bg-green-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="tipoEntrega"
-                      value={type.value}
-                      checked={formData.tipoEntrega === type.value}
-                      onChange={(e) => handleChange('tipoEntrega', e.target.value)}
-                      className="w-4 h-4 text-[#2ecc70] focus:ring-[#2ecc70]"
-                    />
-                    <span className="text-sm font-medium text-gray-900">{type.label}</span>
+  {/* Tipo de Entrega */}
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      Tipo de Entrega
+    </label>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {deliveryTypes.map(type => (
+        <label
+          key={type.value}
+          className={`flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition ${
+            formData.tipoEntrega === type.value
+              ? 'border-[#2ecc70] bg-green-50'
+              : 'border-gray-200 hover:border-gray-300'
+          }`}
+        >
+          <input
+            type="radio"
+            name="tipoEntrega"
+            value={type.value}
+            checked={formData.tipoEntrega === type.value}
+            onChange={(e) => handleChange('tipoEntrega', e.target.value)}
+            className="w-4 h-4 text-[#2ecc70] focus:ring-[#2ecc70]"
+          />
+          <span className="text-sm font-medium text-gray-900">{type.label}</span>
+        </label>
+      ))}
+    </div>
+  </div>
+
+  {/* ✅ CASO 1: RETIRO EN AGENCIA - Solo datos de contacto */}
+  {formData.tipoEntrega === 'retiro' && (
+    <div className="mt-4">
+      <ShippingAgencyForm
+        agencyData={formData.agenciaDespacho}
+        onChange={handleAgencyChange}
+        errors={{
+          nombre: errors.agenciaNombre,
+          dni: errors.agenciaDni,
+          telefono: errors.agenciaTelefono
+        }}
+      />
+    </div>
+  )}
+
+  {/* ✅ CASO 2: DESPACHO A DIRECCIÓN REGISTRADA - Con selector */}
+  {formData.tipoEntrega === 'despacho' && (
+    <>
+      {/* Selector de Dirección Registrada */}
+      {clientAddresses.length > 0 ? (
+        <>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Seleccionar Dirección Registrada <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={selectedAddressId}
+              onChange={(e) => handleAddressSelect(e.target.value)}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white"
+            >
+              <option value="">-- Seleccionar dirección --</option>
+              {clientAddresses.map(addr => (
+                <option key={addr.id} value={addr.id}>
+                  {addr.direccion} - {addr.distrito}, {addr.provincia}
+                  {addr.isDefault && ' (Principal)'}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Mostrar formulario con datos de la dirección seleccionada */}
+          {selectedAddressId && (
+            <div className="grid grid-cols-1 gap-4">
+              {/* Dirección - READONLY */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Dirección de Despacho <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={formData.direccionDespacho}
+                  readOnly
+                  rows={2}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Provincia - READONLY */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Provincia
                   </label>
-                ))}
+                  <select
+                    value={formData.provinciaDespacho}
+                    disabled
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed appearance-none"
+                  >
+                    <option value={formData.provinciaDespacho}>{formData.provinciaDespacho}</option>
+                  </select>
+                </div>
+
+                {/* Distrito - READONLY */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Distrito <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.distritoDespacho}
+                    disabled
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed appearance-none"
+                  >
+                    <option value={formData.distritoDespacho}>{formData.distritoDespacho}</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Datos de Contacto - EDITABLE */}
+              <div className="mt-4">
+                <ShippingAgencyForm
+                  agencyData={formData.agenciaDespacho}
+                  onChange={handleAgencyChange}
+                  errors={{
+                    nombre: errors.agenciaNombre,
+                    dni: errors.agenciaDni,
+                    telefono: errors.agenciaTelefono
+                  }}
+                />
               </div>
             </div>
+          )}
+        </>
+      ) : (
+        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+          ⚠️ No hay direcciones registradas para este cliente. Por favor selecciona "Despacho a Otra Dirección".
+        </div>
+      )}
+    </>
+  )}
 
-            {/* Campos de dirección - solo si NO es retiro */}
-            {formData.tipoEntrega !== 'retiro' && (
-              <>
-                {/* Selector de Dirección */}
-                {formData.tipoEntrega === 'despacho' && clientAddresses.length > 0 && (
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Seleccionar Dirección Registrada
-                    </label>
-                    <select
-                      value={selectedAddressId}
-                      onChange={(e) => handleAddressSelect(e.target.value)}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white"
-                    >
-                      <option value="">-- Seleccionar dirección --</option>
-                      {clientAddresses.map(addr => (
-                        <option key={addr.id} value={addr.id}>
-                          {addr.direccion} - {addr.distrito}, {addr.provincia}
-                          {addr.isDefault && ' (Principal)'}
-                        </option>
-                      ))}
-                      <option value="new">+ Nueva dirección</option>
-                    </select>
-                  </div>
-                )}
+  {/* ✅ CASO 3: DESPACHO A OTRA DIRECCIÓN - Formulario VACÍO */}
+  {formData.tipoEntrega === 'nueva_direccion' && (
+    <div className="grid grid-cols-1 gap-4">
+      {/* Dirección - VACÍA Y EDITABLE */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Dirección de Despacho <span className="text-red-500">*</span>
+        </label>
+        <textarea
+          value={formData.direccionDespacho}
+          onChange={(e) => handleChange('direccionDespacho', e.target.value)}
+          placeholder="Av. Ejemplo 123, Oficina 501..."
+          rows={2}
+          className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent resize-none ${
+            errors.direccionDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
+          }`}
+        />
+        {errors.direccionDespacho && (
+          <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+            <AlertCircle className="w-3 h-3" />
+            {errors.direccionDespacho}
+          </p>
+        )}
+      </div>
 
-                <div className="grid grid-cols-1 gap-4">
-                  {/* Dirección de Despacho */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Dirección de Despacho <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      value={formData.direccionDespacho}
-                      onChange={(e) => handleChange('direccionDespacho', e.target.value)}
-                      placeholder="Av. Ejemplo 123, Oficina 501..."
-                      rows={2}
-                      className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent resize-none ${
-                        errors.direccionDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                      }`}
-                    />
-                    {errors.direccionDespacho && (
-                      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />
-                        {errors.direccionDespacho}
-                      </p>
-                    )}
-                  </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Provincia - EDITABLE */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Provincia
+          </label>
+          <select
+            value={formData.provinciaDespacho}
+            onChange={(e) => handleProvinciaChange(e.target.value)}
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white"
+          >
+            {provincias.map(provincia => (
+              <option key={provincia} value={provincia}>
+                {provincia}
+              </option>
+            ))}
+          </select>
+        </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Provincia */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Provincia
-                      </label>
-                      <select
-                        value={formData.provinciaDespacho}
-                        onChange={(e) => handleProvinciaChange(e.target.value)}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white"
-                      >
-                        {provincias.map(provincia => (
-                          <option key={provincia} value={provincia}>
-                            {provincia}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+        {/* Distrito - VACÍO Y EDITABLE */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Distrito <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={formData.distritoDespacho}
+            onChange={(e) => handleChange('distritoDespacho', e.target.value)}
+            className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white ${
+              errors.distritoDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
+            }`}
+          >
+            <option value="">-- Seleccionar distrito --</option>
+            {availableDistricts.map(distrito => (
+              <option key={distrito} value={distrito}>
+                {distrito}
+              </option>
+            ))}
+          </select>
+          {errors.distritoDespacho && (
+            <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" />
+              {errors.distritoDespacho}
+            </p>
+          )}
+        </div>
+      </div>
 
-                    {/* Distrito */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Distrito <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={formData.distritoDespacho}
-                        onChange={(e) => handleChange('distritoDespacho', e.target.value)}
-                        className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white ${
-                          errors.distritoDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                        }`}
-                      >
-                        <option value="">-- Seleccionar distrito --</option>
-                        {availableDistricts.map(distrito => (
-                          <option key={distrito} value={distrito}>
-                            {distrito}
-                          </option>
-                        ))}
-                      </select>
-                      {errors.distritoDespacho && (
-                        <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3" />
-                          {errors.distritoDespacho}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
+      {/* Datos de Contacto - VACÍOS Y EDITABLES */}
+      <div className="mt-4">
+        <ShippingAgencyForm
+          agencyData={formData.agenciaDespacho}
+          onChange={handleAgencyChange}
+          errors={{
+            nombre: errors.agenciaNombre,
+            dni: errors.agenciaDni,
+            telefono: errors.agenciaTelefono
+          }}
+        />
+      </div>
+    </div>
+  )}
+</div>
 
-                {/* Datos de Agencia de Despacho */}
-                <div className="mt-4">
-                  <ShippingAgencyForm
-                    agencyData={formData.agenciaDespacho}
-                    onChange={handleAgencyChange}
-                    errors={{
-                      nombre: errors.agenciaNombre,
-                      dni: errors.agenciaDni,
-                      telefono: errors.agenciaTelefono
-                    }}
-                  />
-                </div>
-              </>
-            )}
-          </div>
+
 
           {/* Observaciones */}
           <div className="border border-gray-200 rounded-lg p-5">

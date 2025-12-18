@@ -326,10 +326,10 @@ const OrderDetails = ({ order, onClose, onUpdateStatus }) => {
                         {producto.cantidad}
                       </td>
                       <td className="px-4 py-3 text-sm text-right text-gray-900">
-                        {getCurrencySymbol()} {producto.precioUnitario.toFixed(2)}
+                         {producto.precioUnitario.toFixed(2)}
                       </td>
                       <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
-                        {getCurrencySymbol()} {producto.subtotal.toFixed(2)}
+                         {producto.subtotal.toFixed(2)}
                       </td>
                     </tr>
                   ))}
@@ -340,7 +340,7 @@ const OrderDetails = ({ order, onClose, onUpdateStatus }) => {
                       Subtotal:
                     </td>
                     <td className="px-4 py-2 text-right font-semibold text-gray-900">
-                      {getCurrencySymbol()} {order.subtotal.toFixed(2)}
+                      {order.subtotal.toFixed(2)}
                     </td>
                   </tr>
                   <tr>
@@ -348,7 +348,7 @@ const OrderDetails = ({ order, onClose, onUpdateStatus }) => {
                       IGV (18%):
                     </td>
                     <td className="px-4 py-2 text-right font-semibold text-gray-900">
-                      {getCurrencySymbol()} {order.igv.toFixed(2)}
+                       {order.igv.toFixed(2)}
                     </td>
                   </tr>
                   <tr>
@@ -356,7 +356,7 @@ const OrderDetails = ({ order, onClose, onUpdateStatus }) => {
                       TOTAL:
                     </td>
                     <td className="px-4 py-2 text-right font-bold text-green-600 text-lg">
-                      {getCurrencySymbol()} {order.total.toFixed(2)}
+                       {order.total.toFixed(2)}
                     </td>
                   </tr>
                 </tfoot>

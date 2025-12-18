@@ -206,7 +206,7 @@ const OrdersList = ({ orders, onUpdateStatus }) => {
                       <div className="flex items-center gap-1">
                         
                         <span className="font-semibold text-gray-900">
-                          S/ {order.total.toFixed(2)}
+                          {order.total.toFixed(2)}
                         </span>
                       </div>
                     </td>

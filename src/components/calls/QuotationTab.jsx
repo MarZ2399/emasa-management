@@ -1,6 +1,7 @@
 // src/components/calls/QuotationTab.jsx
 import React, { useRef, useState } from 'react';
-import { Trash2, ShoppingCart, DollarSign } from 'lucide-react';
+import { Trash2, ShoppingCart } from 'lucide-react';
+
 import toast from 'react-hot-toast';
 import { previewQuotationPDF, generateQuotationPDF } from '../../utils/pdfGenerator';
 import PDFPreview from './PDFPreview';
@@ -21,7 +22,7 @@ const QuotationTab = ({
   const [isRegistering, setIsRegistering] = useState(false);
   
   // ✅ Estado para tipo de moneda (USD por defecto)
-  const [currency, setCurrency] = useState('USD');
+const currency = 'USD';
   
   // Estados para el modal de pedido
   const [showOrderForm, setShowOrderForm] = useState(false);
@@ -186,7 +187,7 @@ const QuotationTab = ({
         </h2>
 
         {/* Selector de Moneda */}
-        <div className="flex items-center gap-3 bg-white rounded-lg shadow-md border border-gray-200 px-4 py-3">
+        {/* <div className="flex items-center gap-3 bg-white rounded-lg shadow-md border border-gray-200 px-4 py-3">
           <DollarSign className="w-5 h-5 text-green-600" />
           <div className="flex items-center gap-2">
             <label className="text-sm font-semibold text-gray-700">
@@ -201,7 +202,7 @@ const QuotationTab = ({
               <option value="PEN">🇵🇪 Soles (PEN)</option>
             </select>
           </div>
-        </div>
+        </div> */}
       </div>
 
       <div className="overflow-auto rounded-xl shadow-lg bg-white border">
@@ -211,14 +212,14 @@ const QuotationTab = ({
               <th style={{ width: 56 }} className="p-4 font-bold text-gray-700 text-center">Item</th>
               <th style={{ width: 120 }} className="p-4 font-bold text-gray-700 text-center">Código Mercadería</th>
               <th style={{ width: 210 }} className="p-4 font-bold text-gray-700 text-center">Descripción Mercadería</th>
-              <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">Precio Lista Unitario ({currencySymbol})</th>
+              <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">Precio Lista Unitario </th>
               <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">1er Dsco.</th>
               <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">5to Dsco.</th>
-              <th style={{ width: 140 }} className="p-4 font-bold text-gray-700 text-center">Precio Neto Unitario ({currencySymbol})</th>
+              <th style={{ width: 140 }} className="p-4 font-bold text-gray-700 text-center">Precio Neto Unitario </th>
               <th style={{ width: 70 }} className="p-4 font-bold text-gray-700 text-center">Cant.</th>
-              <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">Precio Neto Total ({currencySymbol})</th>
-              <th style={{ width: 100 }} className="p-4 font-bold text-gray-700 text-center">IGV ({currencySymbol})</th>
-              <th style={{ width: 120 }} className="p-4 font-bold text-gray-700 text-center">Importe Total ({currencySymbol})</th>
+              <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">Precio Neto Total </th>
+              <th style={{ width: 100 }} className="p-4 font-bold text-gray-700 text-center">IGV </th>
+              <th style={{ width: 120 }} className="p-4 font-bold text-gray-700 text-center">Importe Total </th>
               <th style={{ width: 56 }}></th>
             </tr>
           </thead>
@@ -239,7 +240,7 @@ const QuotationTab = ({
                     <td style={{ width: 56 }} className="p-4 text-center font-mono font-bold text-blue-800 bg-blue-50 rounded-l-lg">{String(idx + 1).padStart(3, '0')}</td>
                     <td style={{ width: 120 }} className="p-4 text-center font-semibold">{item.codigo}</td>
                     <td style={{ width: 210 }} className="p-4 text-left">{item.nombre}</td>
-                    <td style={{ width: 130 }} className="p-4 text-right text-gray-700">{currencySymbol} {item.precioLista?.toFixed(2)}</td>
+                    <td style={{ width: 130 }} className="p-4 text-right text-gray-700">{item.precioLista?.toFixed(2)}</td>
                     <td style={{ width: 90 }} className="p-4 text-right">
                       <input
                         type="text"
@@ -268,7 +269,7 @@ const QuotationTab = ({
                         className="w-16 bg-orange-50 border border-orange-200 rounded px-2 py-1 text-center font-semibold text-orange-700"
                       />%
                     </td>
-                    <td style={{ width: 140 }} className="p-4 text-right font-bold text-green-700">{currencySymbol} {item.precioNeto?.toFixed(2)}</td>
+                    <td style={{ width: 140 }} className="p-4 text-right font-bold text-green-700">{item.precioNeto?.toFixed(2)}</td>
                     <td style={{ width: 70 }} className="p-4 text-center">
                       <input
                         type="text"
@@ -282,9 +283,9 @@ const QuotationTab = ({
                         className="w-16 bg-blue-50 border border-blue-200 rounded px-2 py-1 text-center font-bold"
                       />
                     </td>
-                    <td style={{ width: 130 }} className="p-4 text-right text-blue-900 font-bold">{currencySymbol} {precioNetoTotal.toFixed(2)}</td>
-                    <td style={{ width: 100 }} className="p-4 text-right text-yellow-700">{currencySymbol} {igvTotal.toFixed(2)}</td>
-                    <td style={{ width: 120 }} className="p-4 text-right text-red-800 font-bold">{currencySymbol} {importeTotal.toFixed(2)}</td>
+                    <td style={{ width: 130 }} className="p-4 text-right text-blue-900 font-bold"> {precioNetoTotal.toFixed(2)}</td>
+                    <td style={{ width: 100 }} className="p-4 text-right text-yellow-700"> {igvTotal.toFixed(2)}</td>
+                    <td style={{ width: 120 }} className="p-4 text-right text-red-800 font-bold">{importeTotal.toFixed(2)}</td>
                     <td style={{ width: 56 }} className="p-4 text-center">
                       <button
                         onClick={() => removeItem(idx)}
@@ -307,15 +308,15 @@ const QuotationTab = ({
         <div className="space-y-2 max-w-xs w-full mr-4">
           <div className="bg-gray-50 rounded px-4 py-2 shadow text-sm flex items-center justify-between">
             <span className="font-bold text-gray-700">Subtotal:</span>
-            <span className="font-bold text-blue-800">{currencySymbol} {subtotal.toFixed(2)}</span>
+            <span className="font-bold text-blue-800">{subtotal.toFixed(2)}</span>
           </div>
           <div className="bg-gray-50 rounded px-4 py-2 shadow text-sm flex items-center justify-between">
             <span className="font-bold text-gray-700">IGV:</span>
-            <span className="font-bold text-yellow-700">{currencySymbol} {igv.toFixed(2)}</span>
+            <span className="font-bold text-yellow-700"> {igv.toFixed(2)}</span>
           </div>
           <div className="bg-gray-100 rounded px-4 py-2 shadow-lg border border-blue-200 text-sm flex items-center justify-between">
             <span className="font-bold text-gray-900">Total:</span>
-            <span className="font-extrabold text-blue-900">{currencySymbol} {total.toFixed(2)}</span>
+            <span className="font-extrabold text-blue-900">{total.toFixed(2)}</span>
           </div>
         </div>
       </div>

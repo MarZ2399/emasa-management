@@ -36,7 +36,7 @@ export const paymentMethods = [
 export const deliveryTypes = [
   { value: 'retiro', label: 'Retiro en Agencia' },
   { value: 'despacho', label: 'Despacho a Dirección Registrada' },
-  { value: 'otra_direccion', label: 'Despacho a Otra Dirección' }
+  { value: 'nueva_direccion', label: 'Despacho a Otra Dirección' }
 ];
 
 // Agencias de transporte para provincia

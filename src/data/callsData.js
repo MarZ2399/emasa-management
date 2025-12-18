@@ -130,7 +130,7 @@ export const initialCallRecords = [
     clave: '',
     contactadoNombre: 'Juan Carlos Pérez',
     observaciones: 'Primera llamada, no respondió',
-    proxLlamada: '2025-12-16T10:00' // ✅ Formato datetime-local
+    proxLlamada: '2025-12-26T10:00' // ✅ Formato datetime-local
   },
   {
     id: 2,
@@ -178,7 +178,7 @@ export const initialCallRecords = [
     clave: '',
     contactadoNombre: 'Juan Carlos Pérez',
     observaciones: 'Cliente recurrente, compra mensual',
-    proxLlamada: '2025-12-10T09:00'
+    proxLlamada: '2025-12-22T09:00'
   },
   {
     id: 5,
@@ -194,7 +194,7 @@ export const initialCallRecords = [
     clave: '',
     contactadoNombre: 'María Elena Torres',
     observaciones: 'Solicitó cotización para 50 unidades',
-    proxLlamada: '2025-12-16T14:00' // ✅ Crítica: hoy
+    proxLlamada: '2025-12-21T14:00' // ✅ Crítica: hoy
   },
   {
     id: 6,
@@ -210,7 +210,7 @@ export const initialCallRecords = [
     clave: '',
     contactadoNombre: 'Roberto Sánchez',
     observaciones: 'Envió cotización por correo',
-    proxLlamada: '2025-12-15T16:00' // ✅ Vencida (ayer)
+    proxLlamada: '2025-12-20T16:00' // ✅ Vencida (ayer)
   },
   {
     id: 7,
@@ -226,7 +226,7 @@ export const initialCallRecords = [
     clave: '',
     contactadoNombre: 'Juan Carlos Pérez',
     observaciones: 'Intentar nuevamente mañana',
-    proxLlamada: '2025-12-15T11:30'
+    proxLlamada: '2025-12-19T11:30'
   },
   {
     id: 8,
@@ -242,7 +242,7 @@ export const initialCallRecords = [
     clave: '',
     contactadoNombre: 'Luis Alberto Díaz',
     observaciones: 'Venta de repuestos por $800',
-    proxLlamada: '2025-12-16T10:00'
+    proxLlamada: '2025-12-19T10:00'
   },
   {
     id: 9,
@@ -258,7 +258,7 @@ export const initialCallRecords = [
     clave: '',
     contactadoNombre: 'Carmen Rosa Vargas',
     observaciones: 'Consulta sobre pago pendiente',
-    proxLlamada: '2025-12-16T13:00' // ✅ Urgente: hoy
+    proxLlamada: '2025-12-19T13:00' // ✅ Urgente: hoy
   }
 ];
 

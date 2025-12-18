@@ -84,7 +84,7 @@ const OrdersModule = () => {
         {/* Monto Total */}
         <div className="bg-gradient-to-br from-[#2ecc70] to-[#27ae60] text-white rounded-lg p-5 shadow-lg">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-2xl font-bold">S/</span>
+            {/* <span className="text-2xl font-bold">S/</span> */}
             <span className="text-2xl font-bold">
               {(stats.totalAmount / 1000).toFixed(1)}K
             </span>
