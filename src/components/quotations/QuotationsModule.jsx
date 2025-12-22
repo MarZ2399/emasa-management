@@ -1,6 +1,7 @@
 // src/components/quotations/QuotationsModule.jsx
 import React, { useState, useRef } from 'react';
-import { FileText, Search, Filter, Plus, Calendar, DollarSign, Package, Eye } from 'lucide-react';
+import { FileText, Search, Filter, Plus, Calendar, DollarSign, Package, Eye, Pencil } from 'lucide-react';
+import QuotationEditModal from './QuotationEditModal';
 import { initialQuotations } from '../../data/quotationsData';
 import QuotationStatusBadge from './QuotationStatusBadge';
 import GenerateOrderModal from './GenerateOrderModal';
@@ -15,6 +16,9 @@ const QuotationsModule = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedQuotation, setSelectedQuotation] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const [editingQuotation, setEditingQuotation] = useState(null);
+const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
   // Ref para los PDFs ocultos
   const pdfRefs = useRef({});
@@ -50,6 +54,15 @@ const QuotationsModule = () => {
     setIsModalOpen(false);
     setSelectedQuotation(null);
   };
+
+  const handleSaveEditedQuotation = (updatedQuotation) => {
+  setQuotations(prev =>
+    prev.map(q => (q.id === updatedQuotation.id ? updatedQuotation : q))
+  );
+  toast.success('Cotización actualizada exitosamente');
+  setIsEditModalOpen(false);
+  setEditingQuotation(null);
+};
 
   const openGenerateOrderModal = (quotation) => {
     if (quotation.estado === 'convertida') {
@@ -252,6 +265,17 @@ const QuotationsModule = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <div className="flex items-center justify-center gap-2">
+                        {/* Botón Editar */}
+<button
+  onClick={() => {
+    setEditingQuotation(quotation);
+    setIsEditModalOpen(true);
+  }}
+  className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 hover:scale-105 transition inline-flex items-center gap-2 text-sm font-bold shadow"
+  title="Editar cotización"
+>
+  <Pencil className="w-4 h-4" />
+</button>
                         {/* Botón Ver PDF */}
                         <button
                           onClick={() => handlePreviewPDF(quotation)}
@@ -309,6 +333,17 @@ const QuotationsModule = () => {
         }}
         onSave={handleGenerateOrder}
       />
+      <QuotationEditModal
+  isOpen={isEditModalOpen}
+  quotation={editingQuotation}
+  onClose={() => {
+    setIsEditModalOpen(false);
+    setEditingQuotation(null);
+  }}
+  onSave={handleSaveEditedQuotation}
+/>
+
+
     </div>
   );
 };

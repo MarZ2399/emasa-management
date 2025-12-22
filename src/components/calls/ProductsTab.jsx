@@ -134,7 +134,7 @@ const ProductsTab = ({
                         </div>
                       </th>
                       <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Estado</th>
-                      <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider">Precio</th>
+                      <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider">Precio ($ USD)</th>
                       <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Unidad</th>
                     </tr>
                   </thead>

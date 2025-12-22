@@ -134,7 +134,10 @@ const OrdersList = ({ orders, onUpdateStatus }) => {
                   </div>
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  OC
+                  N° Cotización
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  Orden Compra
                 </th>
                 <th 
                   onClick={() => handleSort('fechaPedido')}
@@ -159,7 +162,7 @@ const OrdersList = ({ orders, onUpdateStatus }) => {
                   className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition"
                 >
                   <div className="flex items-center gap-1">
-                    Total
+                    Total (USD)
                     <SortIcon field="total" />
                   </div>
                 </th>
@@ -186,6 +189,9 @@ const OrdersList = ({ orders, onUpdateStatus }) => {
                         <div className="font-medium text-gray-900">{order.clienteNombre}</div>
                         <div className="text-gray-500">RUC: {order.clienteRuc}</div>
                       </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      COT-{String(order.quotationId).padStart(4, '0')}
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-sm text-gray-900">{order.ordenCompra}</span>
