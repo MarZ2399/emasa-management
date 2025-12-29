@@ -195,7 +195,7 @@ const DashboardModule = ({ currentUser }) => {
         />
         
         <MetricCard
-          title="Ventas Cerradas"
+          title="Pedidos Cerrados"
           value={metrics.sales.value}
           target={metrics.sales.target}
           icon={ShoppingCart}

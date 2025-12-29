@@ -1,12 +1,14 @@
 // src/components/layout/MobileSidebar.jsx
 import React from 'react';
-import { Phone, BarChart3, LogOut, X } from 'lucide-react';
+import { Phone, BarChart3,FileText,Package, LogOut, X } from 'lucide-react';
 import logoImage from "../../assets/logo-emasa1.png";
 import { currentUser } from '../../data/userData';
 
 const menuItems = [
-  { icon: BarChart3, label: 'Seguimiento de Metas', module: 'dashboard' },
+   { icon: BarChart3, label: 'Seguimiento de Metas', module: 'dashboard' },
   { icon: Phone, label: 'Gestión de Cliente', module: 'calls' },
+  { icon: FileText, label: 'Gestión de Cotización', module: 'quotations' }, 
+  { icon: Package, label: 'Gestión de Pedidos', module: 'orders' },
 ];
 
 const MobileSidebar = ({ isOpen, onClose, currentModule, onModuleChange }) => {
