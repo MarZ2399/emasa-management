@@ -283,7 +283,6 @@ const [isEditModalOpen, setIsEditModalOpen] = useState(false);
                           title="Previsualizar PDF"
                         >
                           <Eye className="w-4 h-4" />
-                          <span className="hidden lg:inline">PDF</span>
                         </button>
 
                         {/* Botón Generar Pedido */}
@@ -295,9 +294,10 @@ const [isEditModalOpen, setIsEditModalOpen] = useState(false);
                               ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                               : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-md hover:shadow-lg'
                           }`}
+                          title="Generar Pedido"
                         >
                           <Package className="w-4 h-4" />
-                          <span className="hidden lg:inline">Generar Pedido</span>
+                          
                         </button>
                       </div>
                     </td>

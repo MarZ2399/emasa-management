@@ -84,9 +84,9 @@ export const initialOrders = [
     // Datos de pago y transporte
     pagoTransporte: "empresa",
     transporteZona: "lima_callao",
-    tipoMoneda: "PEN", // 🆕 Tipo de moneda
-    formaPago: "F30", // 🆕 Forma de pago
-    metodoPago: "transferencia", // Método de pago
+    tipoMoneda: "PEN",
+    formaPago: "F30",
+    metodoPago: "transferencia",
     
     // Datos de entrega
     tipoEntrega: "despacho",
@@ -94,6 +94,8 @@ export const initialOrders = [
     provinciaDespacho: "Lima",
     distritoDespacho: "San Isidro",
     observaciones: "Entregar en horario de oficina 9am-6pm",
+    observacionesCreditos: "Pago contra entrega. Factura a 30 días.",
+    observacionesLogistica: "Coordinar con recepción. Contacto: Juan Pérez (987654321)",
     
     // Agencia de despacho
     agenciaDespacho: {
@@ -102,7 +104,7 @@ export const initialOrders = [
       telefono: "987654321"
     },
     
-    // Productos (desde cotización)
+    // Productos
     productos: [
       {
         id: 1,
@@ -144,11 +146,11 @@ export const initialOrders = [
     status: 'in_production',
     
     // Datos de pago y transporte
-    pagoTransporte: "oltursa", // Agencia para provincia
+    pagoTransporte: "oltursa",
     transporteZona: "provincia",
-    tipoMoneda: "USD", // 🆕 En dólares
-    formaPago: "ADE", // 🆕 Adelantos pagos - contado
-    metodoPago: "deposito", // Método de pago
+    tipoMoneda: "USD",
+    formaPago: "ADE",
+    metodoPago: "deposito",
     
     // Datos de entrega
     tipoEntrega: "despacho",
@@ -156,6 +158,8 @@ export const initialOrders = [
     provinciaDespacho: "Arequipa",
     distritoDespacho: "Cercado",
     observaciones: "Coordinar con almacén antes de despachar",
+    observacionesCreditos: "Adelanto 50% antes de producción, saldo contra entrega.",
+    observacionesLogistica: "Envío por Oltursa a Arequipa. Contacto almacén: María Torres (912345678)",
     
     // Agencia de despacho
     agenciaDespacho: {
@@ -200,8 +204,8 @@ export const initialOrders = [
     // Datos de pago y transporte
     pagoTransporte: "empresa",
     transporteZona: "lima_callao",
-    tipoMoneda: "PEN", // Soles
-    formaPago: "F45", // Factura 45 días
+    tipoMoneda: "PEN",
+    formaPago: "F45",
     metodoPago: "transferencia",
     
     // Datos de entrega
@@ -210,6 +214,8 @@ export const initialOrders = [
     provinciaDespacho: "",
     distritoDespacho: "",
     observaciones: "Cliente retirará personalmente",
+    observacionesCreditos: "Factura a 45 días. Línea de crédito pre-aprobada.",
+    observacionesLogistica: "Retiro en planta. Avisar con 24h de anticipación.",
     
     // Sin agencia de despacho (retiro)
     agenciaDespacho: null,

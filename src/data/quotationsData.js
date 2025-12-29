@@ -8,7 +8,6 @@ export const initialQuotations = [
     ruc: '2060467759',
     asesor: 'Giancarlo Nicho',
     
-    // ✅ DATOS COMPLETOS DEL CLIENTE (para PDFPreview)
     selectedClient: {
       nombreCliente: 'Alta Tecnologia En Diesel E.I.R.L',
       ruc: '2060467759',
@@ -17,7 +16,6 @@ export const initialQuotations = [
       categoria: 'Cliente Premium'
     },
     
-    // ✅ PRODUCTOS CON ESTRUCTURA COMPLETA (para PDFPreview)
     productos: [
       {
         id: 1,
@@ -25,7 +23,7 @@ export const initialQuotations = [
         nombre: 'Tanque de Combustible 1000L',
         descripcion: 'Tanque de Combustible 1000L',
         cantidad: 2,
-        quantity: 2, // Alias para PDFPreview
+        quantity: 2,
         precioLista: 1800.00,
         precioUnitario: 1500.00,
         precioNeto: 1500.00,
@@ -57,7 +55,9 @@ export const initialQuotations = [
     igv: 693.90,
     total: 4548.90,
     estado: 'pendiente',
-    observaciones: ''
+    observaciones: '',
+    observacionesCreditos: '',
+    observacionesLogistica: ''
   },
   {
     id: 2,
@@ -98,7 +98,9 @@ export const initialQuotations = [
     igv: 405.00,
     total: 2655.00,
     estado: 'pendiente',
-    observaciones: ''
+    observaciones: '',
+    observacionesCreditos: '',
+    observacionesLogistica: ''
   },
   {
     id: 3,
@@ -139,7 +141,9 @@ export const initialQuotations = [
     igv: 1044.00,
     total: 6844.00,
     estado: 'convertida',
-    observaciones: 'Convertida a pedido ORD-2025-001'
+    observaciones: 'Convertida a pedido ORD-2025-001',
+    observacionesCreditos: 'Pago contra entrega',
+    observacionesLogistica: 'Entrega en almacén principal'
   }
 ];
 

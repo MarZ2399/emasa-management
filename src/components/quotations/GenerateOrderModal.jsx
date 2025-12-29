@@ -34,6 +34,8 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
     provinciaDespacho: 'Lima',
     distritoDespacho: '',
     observaciones: '',
+    observacionesCreditos: '',
+  observacionesLogistica: '',
     fechaEntrega: '',
     agenciaDespacho: {
       nombre: '',
@@ -743,19 +745,57 @@ if (formData.tipoEntrega === 'despacho' && !selectedAddressId) {
 
 
           {/* Observaciones */}
-          <div className="border border-gray-200 rounded-lg p-5">
-            <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-gray-700" />
-              Observaciones
-            </h3>
-            <textarea
-              value={formData.observaciones}
-              onChange={(e) => handleChange('observaciones', e.target.value)}
-              placeholder="Indicaciones especiales, horarios de entrega, etc..."
-              rows={3}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent resize-none"
-            />
-          </div>
+<div className="border border-gray-200 rounded-lg p-5 space-y-4">
+  <h3 className="font-bold text-gray-900 flex items-center gap-2">
+    <MessageSquare className="w-5 h-5 text-gray-700" />
+    Observaciones
+  </h3>
+
+  {/* Observaciones Generales */}
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+      Observaciones Generales
+    </label>
+    <textarea
+      value={formData.observaciones || ''}
+      onChange={(e) => handleChange('observaciones', e.target.value)}
+      placeholder="Indicaciones especiales, horarios de entrega, etc..."
+      rows={3}
+      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent resize-none text-sm"
+    />
+  </div>
+
+  {/* Observaciones de Créditos */}
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+      Observaciones de Créditos
+    </label>
+    <textarea
+      value={formData.observacionesCreditos || ''}
+      onChange={(e) => handleChange('observacionesCreditos', e.target.value)}
+      placeholder="Condiciones de pago, plazos, garantías..."
+      rows={2}
+      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+    />
+  </div>
+
+  {/* Observaciones de Logística */}
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+      Observaciones de Logística
+    </label>
+    <textarea
+      value={formData.observacionesLogistica || ''}
+      onChange={(e) => handleChange('observacionesLogistica', e.target.value)}
+      placeholder="Dirección de entrega, contacto, instrucciones de despacho..."
+      rows={2}
+      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none text-sm"
+    />
+  </div>
+</div>
+
+
+          
 
           {/* Botones de Acción */}
           <div className="flex justify-end gap-3 pt-4 border-t">

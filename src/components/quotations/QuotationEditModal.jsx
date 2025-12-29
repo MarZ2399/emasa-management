@@ -10,6 +10,7 @@ import {
   Calendar,
   Plus,
   Trash2,
+  MessageSquare,
 } from 'lucide-react';
 import ProductSelectorModal from '../products/ProductSelectorModal';
 
@@ -35,6 +36,9 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
       setFormData({
         ...quotation,
         productos: quotation.productos.map(p => ({ ...p })),
+         observaciones: quotation.observaciones || '',
+      observacionesCreditos: quotation.observacionesCreditos || '',
+      observacionesLogistica: quotation.observacionesLogistica || '',
       });
       setErrors({});
     }
@@ -316,19 +320,61 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
             </div>
 
             {/* Observaciones */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Observaciones
-              </label>
-              <textarea
-                rows={2}
-                value={formData.observaciones || ''}
-                onChange={e =>
-                  handleHeaderChange('observaciones', e.target.value)
-                }
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none text-sm"
-              />
-            </div>
+<div className="border border-gray-200 rounded-lg p-5 space-y-4">
+  <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+    <MessageSquare className="w-5 h-5 text-gray-700" />
+    Observaciones
+  </h3>
+
+  {/* Observaciones Generales */}
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+      Observaciones Generales
+    </label>
+    <textarea
+      rows={2}
+      value={formData.observaciones || ''}
+      onChange={e =>
+        handleHeaderChange('observaciones', e.target.value)
+      }
+      placeholder="Indicaciones especiales, horarios de entrega, etc..."
+      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none text-sm"
+    />
+  </div>
+
+  {/* Observaciones de Créditos */}
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+      Observaciones de Créditos
+    </label>
+    <textarea
+      rows={2}
+      value={formData.observacionesCreditos || ''}
+      onChange={e =>
+        handleHeaderChange('observacionesCreditos', e.target.value)
+      }
+      placeholder="Condiciones de pago, plazos, garantías..."
+      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+    />
+  </div>
+
+  {/* Observaciones de Logística */}
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+      Observaciones de Logística
+    </label>
+    <textarea
+      rows={2}
+      value={formData.observacionesLogistica || ''}
+      onChange={e =>
+        handleHeaderChange('observacionesLogistica', e.target.value)
+      }
+      placeholder="Dirección de entrega, contacto, instrucciones de despacho..."
+      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none text-sm"
+    />
+  </div>
+</div>
+
 
             {/* Productos */}
             <div className="border border-gray-200 rounded-lg">

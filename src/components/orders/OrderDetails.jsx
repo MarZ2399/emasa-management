@@ -365,17 +365,51 @@ const OrderDetails = ({ order, onClose, onUpdateStatus }) => {
           </div>
 
           {/* Observaciones */}
-          {order.observaciones && (
-            <div className="border border-gray-200 rounded-lg p-5">
-              <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-gray-700" />
-                Observaciones
-              </h3>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                {order.observaciones}
-              </p>
-            </div>
-          )}
+{(order.observaciones || order.observacionesCreditos || order.observacionesLogistica) && (
+  <div className="border border-gray-200 rounded-lg p-5 space-y-4">
+    <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+      <MessageSquare className="w-5 h-5 text-gray-700" />
+      Observaciones
+    </h3>
+
+    {/* Observaciones Generales */}
+    {order.observaciones && (
+      <div>
+        <h4 className="text-sm font-semibold text-gray-700 mb-1.5">
+          Observaciones Generales
+        </h4>
+        <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded-lg p-3 border border-gray-200">
+          {order.observaciones}
+        </p>
+      </div>
+    )}
+
+    {/* Observaciones de Créditos */}
+    {order.observacionesCreditos && (
+      <div>
+        <h4 className="text-sm font-semibold text-blue-700 mb-1.5">
+          Observaciones de Créditos
+        </h4>
+        <p className="text-sm text-gray-700 whitespace-pre-wrap bg-blue-50 rounded-lg p-3 border border-blue-200">
+          {order.observacionesCreditos}
+        </p>
+      </div>
+    )}
+
+    {/* Observaciones de Logística */}
+    {order.observacionesLogistica && (
+      <div>
+        <h4 className="text-sm font-semibold text-orange-700 mb-1.5">
+          Observaciones de Logística
+        </h4>
+        <p className="text-sm text-gray-700 whitespace-pre-wrap bg-orange-50 rounded-lg p-3 border border-orange-200">
+          {order.observacionesLogistica}
+        </p>
+      </div>
+    )}
+  </div>
+)}
+
 
           {/* Botón Cerrar */}
           <div className="flex justify-end pt-4 border-t">
