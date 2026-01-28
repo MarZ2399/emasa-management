@@ -1,23 +1,17 @@
-// src/components/layout/MobileSidebar.jsx
 import React from 'react';
-import { Phone, BarChart3,FileText,Package, LogOut, X } from 'lucide-react';
+import { NavLink } from 'react-router-dom'; // <--- IMPORTANTE
+import { Phone, BarChart3, FileText, Package, X } from 'lucide-react';
 import logoImage from "../../assets/logo-emasa1.png";
-import { currentUser } from '../../data/userData';
 
 const menuItems = [
-   { icon: BarChart3, label: 'Seguimiento de Metas', module: 'dashboard' },
-  { icon: Phone, label: 'Gestión de Cliente', module: 'calls' },
-  { icon: FileText, label: 'Gestión de Cotización', module: 'quotations' }, 
-  { icon: Package, label: 'Gestión de Pedidos', module: 'orders' },
+  { icon: BarChart3, label: 'Seguimiento de Metas', path: '/dashboard' },
+  { icon: Phone, label: 'Gestión de Cliente', path: '/ventas/clientes' },
+  { icon: FileText, label: 'Gestión de Cotización', path: '/ventas/cotizaciones' }, 
+  { icon: Package, label: 'Gestión de Pedidos', path: '/ventas/pedidos' },
 ];
 
-const MobileSidebar = ({ isOpen, onClose, currentModule, onModuleChange }) => {
+const MobileSidebar = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
-
-  const handleModuleChange = (module) => {
-    onModuleChange(module);
-    onClose(); // Cierra el sidebar al seleccionar
-  };
 
   return (
     <>
@@ -47,22 +41,23 @@ const MobileSidebar = ({ isOpen, onClose, currentModule, onModuleChange }) => {
         {/* Menu Navigation */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {menuItems.map((item, index) => (
-            <button
+            <NavLink
               key={index}
-              onClick={() => handleModuleChange(item.module)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                currentModule === item.module
+              to={item.path}
+              onClick={onClose} // Cierra el menú al navegar
+              className={({ isActive }) => `
+                w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all
+                ${isActive 
                   ? 'bg-white text-green-700 shadow-lg' 
                   : 'hover:bg-green-800 text-white'
-              }`}
+                }
+              `}
             >
               <item.icon className="w-5 h-5 flex-shrink-0" />
               <span className="font-medium">{item.label}</span>
-            </button>
+            </NavLink>
           ))}
         </nav>
-
-        
       </aside>
     </>
   );

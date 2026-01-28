@@ -1,10 +1,11 @@
-// src/components/layout/header/UserDropdown.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, User, Settings, HelpCircle, LogOut } from 'lucide-react';
+import { useAuth } from '../../../hooks/useAuth';
 
 const UserDropdown = ({ user, isMobile = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const { logout } = useAuth();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -18,11 +19,33 @@ const UserDropdown = ({ user, isMobile = false }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const handleLogout = async () => {
+    await logout();
+    setIsOpen(false);
+  };
+
   const menuItems = [
-    { icon: User, label: 'Editar Usuario', onClick: () => console.log('Edit profile') },
-    { icon: Settings, label: 'Ajustes de Cuenta', onClick: () => console.log('Settings') },
-    { icon: HelpCircle, label: 'Soporte', onClick: () => console.log('Support') },
-    { icon: LogOut, label: 'Cerrar Sesión', onClick: () => console.log('Logout'), danger: true }
+    { 
+      icon: User, 
+      label: 'Editar Usuario', 
+      onClick: () => console.log('Edit profile') 
+    },
+    { 
+      icon: Settings, 
+      label: 'Ajustes de Cuenta', 
+      onClick: () => console.log('Settings') 
+    },
+    { 
+      icon: HelpCircle, 
+      label: 'Soporte', 
+      onClick: () => console.log('Support') 
+    },
+    { 
+      icon: LogOut, 
+      label: 'Cerrar Sesión', 
+      onClick: handleLogout, 
+      danger: true 
+    }
   ];
 
   return (
@@ -39,7 +62,7 @@ const UserDropdown = ({ user, isMobile = false }) => {
           isMobile ? 'w-9 h-9' : 'w-10 h-10'
         }`}>
           <img
-            src={user.foto}
+            src={user.foto || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.nombreCompleto)}
             alt={user.nombreCompleto}
             className="w-full h-full object-cover bg-white"
           />

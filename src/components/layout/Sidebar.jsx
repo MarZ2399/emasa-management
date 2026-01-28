@@ -1,19 +1,20 @@
-// src/components/layout/Sidebar.jsx
 import React from 'react';
-import { Phone, BarChart3, Package, FileText, LogOut, ChevronLeft } from 'lucide-react'; // ✅ Agregar FileText
+import { NavLink } from 'react-router-dom';
+// 1. Agregamos 'Users' para diferenciar Clientes de Llamadas
+import { Phone, BarChart3, Package, FileText, ChevronLeft, Users } from 'lucide-react';
 import logoImage from "../../assets/logo-emasa1.png";
 
-
 const menuItems = [
-  { icon: BarChart3, label: 'Seguimiento de Metas', module: 'dashboard' },
-  { icon: Phone, label: 'Gestión de Cliente', module: 'calls' },
-  { icon: FileText, label: 'Gestión de Cotización', module: 'quotations' }, 
-  { icon: Package, label: 'Gestión de Pedidos', module: 'orders' },
-  
+  { icon: BarChart3, label: 'Seguimiento de Metas', path: '/dashboard' },
+  // 2. Usamos Users para la cartera de clientes
+  { icon: Users,     label: 'Maestro de Clientes',  path: '/ventas/clientes' }, 
+  // 3. Recuperamos el módulo de Llamadas con la ruta que definimos en App.jsx
+  { icon: Phone,     label: 'Gestión de Televentas', path: '/llamadas' },        
+  { icon: FileText,  label: 'Gestión de Cotización', path: '/ventas/cotizaciones' }, 
+  { icon: Package,   label: 'Gestión de Pedidos',    path: '/ventas/pedidos' },
 ];
 
-
-const Sidebar = ({ isOpen, onToggle, currentModule, onModuleChange }) => {
+const Sidebar = ({ isOpen, onToggle }) => {
   return (
     <aside className={`hidden lg:flex flex-col bg-gradient-to-b from-[#2ecc70] to-[#334a5e] text-white transition-all duration-300 ${isOpen ? 'w-64' : 'w-20'}`}>
       
@@ -37,8 +38,7 @@ const Sidebar = ({ isOpen, onToggle, currentModule, onModuleChange }) => {
         </button>
       </div>
 
-
-      {/* Label "MENU" - Solo visible cuando está expandido */}
+      {/* Label "MENU" */}
       {isOpen && (
         <div className="px-6 py-3">
           <p className="text-xs font-semibold text-white/60 uppercase tracking-wider">
@@ -47,28 +47,29 @@ const Sidebar = ({ isOpen, onToggle, currentModule, onModuleChange }) => {
         </div>
       )}
 
-
       {/* Menú de navegación */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {menuItems.map((item, index) => (
-          <button
+          <NavLink
             key={index}
-            onClick={() => onModuleChange(item.module)}
-            className={`w-full flex items-center gap-3 rounded-lg transition-all ${
-              currentModule === item.module
+            to={item.path}
+            className={({ isActive }) => `
+              w-full flex items-center gap-3 rounded-lg transition-all
+              ${isOpen ? 'px-4 py-3' : 'px-3 py-3 justify-center'}
+              ${isActive 
                 ? 'bg-white text-green-700 shadow-lg' 
                 : 'hover:bg-green-800 text-white'
-            } ${isOpen ? 'px-4 py-3' : 'px-3 py-3 justify-center'}`}
+              }
+            `}
             title={!isOpen ? item.label : ''}
           >
             <item.icon className={`flex-shrink-0 ${isOpen ? 'w-5 h-5' : 'w-6 h-6'}`} />
             {isOpen && <span className="font-medium">{item.label}</span>}
-          </button>
+          </NavLink>
         ))}
       </nav>
     </aside>
   );
 };
-
 
 export default Sidebar;

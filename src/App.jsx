@@ -1,72 +1,33 @@
-// src/App.jsx
 import React, { useState } from 'react';
 import { Toaster } from 'react-hot-toast';
+import { Routes, Route, Navigate } from 'react-router-dom';
+
+// Context
+import { AuthProvider } from './context/AuthContext';
+
+// Auth
+import LoginForm from './components/auth/LoginForm';
+import ProtectedRoute from './components/common/ProtectedRoute';
+
+// Layouts
 import MainLayout from './components/layout/MainLayout';
-import ClientsModule from './components/clients/ClientsModule';
-import CallsModule from './components/calls/CallsModule';
+
+// Modules
 import DashboardModule from './components/dashboard/DashboardModule';
+import ClientsModule from './components/clients/ClientsModule';
 import ProductsModule from './components/products/ProductsModule';
 import OrdersModule from './components/orders/OrdersModule';
-import QuotationsModule from './components/quotations/QuotationsModule'; // ✅ Ya está importado
+import QuotationsModule from './components/quotations/QuotationsModule';
+import CallsModule from './components/calls/CallsModule';
 import CallReminders from './components/calls/CallReminders';
+
+// Data Mock
 import { initialCallRecords } from './data/callsData';
 
-
 const App = () => {
-  const [currentModule, setCurrentModule] = useState('dashboard');
-  const [showReminderPanel, setShowReminderPanel] = useState(false);
-
-
-  const renderModule = () => {
-    switch (currentModule) {
-      case 'clients':
-        return <ClientsModule />;
-      case 'calls':
-        return <CallsModule />;
-      case 'products':
-        return <ProductsModule />;
-      case 'dashboard':
-        return <DashboardModule />;
-      case 'orders':
-        return <OrdersModule />;
-      case 'quotations': // ✅ NUEVO CASE
-        return <QuotationsModule />;
-      case 'reports':
-        return (
-          <div className="max-w-7xl mx-auto">
-            <div className="bg-white rounded-lg shadow-md p-12 text-center">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">Reportes</h2>
-              <p className="text-gray-600">Módulo en desarrollo</p>
-            </div>
-          </div>
-        );
-      case 'stats':
-        return (
-          <div className="max-w-7xl mx-auto">
-            <div className="bg-white rounded-lg shadow-md p-12 text-center">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">Estadísticas</h2>
-              <p className="text-gray-600">Módulo en desarrollo</p>
-            </div>
-          </div>
-        );
-      case 'settings':
-        return (
-          <div className="max-w-7xl mx-auto">
-            <div className="bg-white rounded-lg shadow-md p-12 text-center">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">Configuración</h2>
-              <p className="text-gray-600">Módulo en desarrollo</p>
-            </div>
-          </div>
-        );
-      default:
-        return <CallsModule />;
-    }
-  };
-
-
   return (
-    <>
-      {/* Toaster para notificaciones */}
+    <AuthProvider>
+      {/* Toaster con configuración personalizada */}
       <Toaster 
         position="top-right"
         reverseOrder={false}
@@ -104,17 +65,113 @@ const App = () => {
         }}
       />
 
+      <Routes>
+        {/* Ruta Pública - Login */}
+        <Route path="/login" element={<LoginForm />} />
 
-      <MainLayout 
-        currentModule={currentModule} 
-        onModuleChange={setCurrentModule}
-        onOpenReminders={() => setShowReminderPanel(true)}
-      >
-        {renderModule()}
+        {/* Rutas Protegidas */}
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              {/* ✅ MainLayoutWrapper envuelve todo el contenido autenticado */}
+              <MainLayoutWrapper />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </AuthProvider>
+  );
+};
+
+// ✅ Componente interno que maneja el estado de CallReminders
+const MainLayoutWrapper = () => {
+  const [showReminderPanel, setShowReminderPanel] = useState(false);
+
+  return (
+    <>
+      <MainLayout onOpenReminders={() => setShowReminderPanel(true)}>
+        <Routes>
+          {/* Dashboard */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<DashboardModule />} />
+
+          {/* Gestión Comercial */}
+          <Route path="/ventas/clientes" element={<ClientsModule />} />
+          <Route path="/ventas/productos" element={<ProductsModule />} />
+          <Route path="/ventas/cotizaciones" element={<QuotationsModule />} />
+          <Route path="/ventas/pedidos" element={<OrdersModule />} />
+
+          {/* Llamadas */}
+          <Route path="/llamadas" element={<CallsModule />} />
+
+          {/* Administración */}
+          <Route 
+            path="/admin/config" 
+            element={
+              <div className="max-w-7xl mx-auto">
+                <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-4">Configuración</h2>
+                  <p className="text-gray-600">Módulo en desarrollo</p>
+                </div>
+              </div>
+            } 
+          />
+          
+          <Route 
+            path="/admin/usuarios" 
+            element={
+              <div className="max-w-7xl mx-auto">
+                <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-4">Gestión de Usuarios</h2>
+                  <p className="text-gray-600">Módulo en desarrollo</p>
+                </div>
+              </div>
+            } 
+          />
+
+          {/* Reportes */}
+          <Route 
+            path="/reportes" 
+            element={
+              <div className="max-w-7xl mx-auto">
+                <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-4">Reportes</h2>
+                  <p className="text-gray-600">Módulo en desarrollo</p>
+                </div>
+              </div>
+            } 
+          />
+
+          {/* Estadísticas */}
+          <Route 
+            path="/estadisticas" 
+            element={
+              <div className="max-w-7xl mx-auto">
+                <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-4">Estadísticas</h2>
+                  <p className="text-gray-600">Módulo en desarrollo</p>
+                </div>
+              </div>
+            } 
+          />
+
+          {/* 404 */}
+          <Route 
+            path="*" 
+            element={
+              <div className="max-w-7xl mx-auto">
+                <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                  <h2 className="text-2xl font-bold text-red-600 mb-4">404 - No encontrado</h2>
+                  <p className="text-gray-600">El módulo solicitado no existe</p>
+                </div>
+              </div>
+            } 
+          />
+        </Routes>
       </MainLayout>
 
-
-      {/* Panel de recordatorios de llamadas */}
+      {/* ✅ CallReminders solo se renderiza cuando el usuario está autenticado */}
       <CallReminders
         callRecords={initialCallRecords}
         isOpen={showReminderPanel}
@@ -123,6 +180,5 @@ const App = () => {
     </>
   );
 };
-
 
 export default App;

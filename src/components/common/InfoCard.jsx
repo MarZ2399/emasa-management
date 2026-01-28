@@ -17,34 +17,35 @@ const InfoCard = ({ title, subtitle, icon, color, data }) => {
 
   return (
     <div className={`border ${selectedColor.border} rounded-lg overflow-hidden h-full`}>
-      <div className={`${selectedColor.header} text-white px-4 py-3 flex items-center justify-between`}>
-        <h3 className="font-bold flex items-center gap-2">
+      {/* Header más compacto */}
+      <div className={`${selectedColor.header} text-white px-3 py-2 flex items-center justify-between`}>
+        <h3 className="font-bold text-sm flex items-center gap-2">
           {icon}
           {title}
         </h3>
         {subtitle && (
-          <span className="text-xs bg-white bg-opacity-20 px-3 py-1 rounded-full">
+          <span className="text-xs bg-white bg-opacity-20 px-2 py-0.5 rounded-full">
             {subtitle}
           </span>
         )}
       </div>
 
-      <div className="p-4">
+      <div className="p-3">
         {isContactCard ? (
-          // Layout ESPECIAL para contactos: 3 columnas con fields verticales
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          // Layout ESPECIAL para contactos: 3 columnas compactas
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {data.map((contact, index) => (
               <div
                 key={index}
-                className="bg-gray-50 rounded-lg p-4 border border-gray-200 space-y-3"
+                className="bg-gray-50 rounded-lg p-3 border border-gray-200 space-y-2"
               >
-                {/* Título del contacto */}
-                <div className="font-bold text-[#334a5e] text-base mb-3 pb-2 border-b border-gray-300">
+                {/* Título del contacto más compacto */}
+                <div className="font-bold text-[#334a5e] text-sm pb-1.5 border-b border-gray-300">
                   {contact.title || `Contacto ${index + 1}`}
                 </div>
 
                 {/* Correo */}
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   <div className={`${selectedColor.label} px-2 py-1 rounded text-xs font-semibold`}>
                     Correo
                   </div>
@@ -54,7 +55,7 @@ const InfoCard = ({ title, subtitle, icon, color, data }) => {
                 </div>
 
                 {/* Teléfono */}
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   <div className={`${selectedColor.label} px-2 py-1 rounded text-xs font-semibold`}>
                     Teléfono
                   </div>
@@ -64,7 +65,7 @@ const InfoCard = ({ title, subtitle, icon, color, data }) => {
                 </div>
 
                 {/* Nombre */}
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   <div className={`${selectedColor.label} px-2 py-1 rounded text-xs font-semibold`}>
                     Nombre Completo
                   </div>
@@ -74,7 +75,7 @@ const InfoCard = ({ title, subtitle, icon, color, data }) => {
                 </div>
 
                 {/* Cumpleaños */}
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   <div className={`${selectedColor.label} px-2 py-1 rounded text-xs font-semibold`}>
                     Cumpleaños
                   </div>
@@ -86,19 +87,19 @@ const InfoCard = ({ title, subtitle, icon, color, data }) => {
             ))}
           </div>
         ) : (
-          // Layout NORMAL (dos columnas: label | valor)
-          <div className="space-y-2">
+          // Layout NORMAL: 3 columnas x 1 fila
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {data.map((item, index) => (
-              <div key={index} className="grid grid-cols-3 gap-2 text-sm">
+              <div key={index} className="space-y-0.5">
                 <div
-                  className={`${selectedColor.label} px-3 py-2 rounded font-semibold ${
+                  className={`${selectedColor.label} px-2.5 py-1.5 rounded font-semibold text-xs ${
                     item.highlight === 'red' ? 'text-red-700' : ''
                   }`}
                 >
                   {item.label}
                 </div>
                 <div
-                  className={`col-span-2 px-3 py-2 bg-gray-50 rounded break-words ${
+                  className={`px-2.5 py-1.5 bg-gray-50 rounded break-words text-xs ${
                     item.highlight === 'red' ? 'font-semibold text-red-700' : ''
                   }`}
                 >
