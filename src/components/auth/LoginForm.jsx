@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { Lock, Mail, Eye, EyeOff } from 'lucide-react';
 import logoImage from "../../assets/logo-emasa1.png";
@@ -203,9 +203,12 @@ const LoginForm = () => {
                 <label className="block text-sm font-medium text-gray-700">
                   Contraseña
                 </label>
-                <a href="#" className="text-sm font-medium text-green-600 hover:text-green-700">
-                  ¿Olvidaste tu contraseña?
-                </a>
+                <Link 
+      to="/forgot-password" 
+      className="text-sm font-medium text-green-600 hover:text-green-700"
+    >
+      ¿Olvidaste tu contraseña?
+    </Link>
               </div>
               <div className="relative">
                 <input

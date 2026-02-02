@@ -184,8 +184,8 @@ const ClientSearchPanel = ({ onClientSelect, resetTrigger }) => {
             title="Datos Ecommerce y Ventas"
             color="blue"
             data={[
-              { label: 'Usuario', value: clientData.usuario },
-              { label: 'Clave', value: clientData.clave },
+              // { label: 'Usuario', value: clientData.usuario },
+              // { label: 'Clave', value: clientData.clave },
               { label: 'Core Principal', value: clientData.corePrincipal },
               { label: 'Promedio Vtas 2025', value: clientData.promedioVtas2025 },
               { label: 'Meses con Vtas 2025', value: clientData.mesesConVtas2025 },

@@ -7,6 +7,8 @@ import { AuthProvider } from './context/AuthContext';
 
 // Auth
 import LoginForm from './components/auth/LoginForm';
+import ForgotPassword from './components/auth/ForgotPassword';  // ← NUEVO
+import ResetPassword from './components/auth/ResetPassword';    // ← NUEVO
 import ProtectedRoute from './components/common/ProtectedRoute';
 
 // Layouts
@@ -66,10 +68,21 @@ const App = () => {
       />
 
       <Routes>
-        {/* Ruta Pública - Login */}
+        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        {/* RUTAS PÚBLICAS */}
+        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        
+        {/* Login */}
         <Route path="/login" element={<LoginForm />} />
+        
+        {/* Recuperación de contraseña */}
+        <Route path="/forgot-password" element={<ForgotPassword />} />  {/* ← NUEVO */}
+        <Route path="/reset-password" element={<ResetPassword />} />    {/* ← NUEVO */}
 
-        {/* Rutas Protegidas */}
+        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        {/* RUTAS PROTEGIDAS */}
+        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        
         <Route
           path="/*"
           element={

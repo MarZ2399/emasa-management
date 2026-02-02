@@ -25,21 +25,21 @@ const UserDropdown = ({ user, isMobile = false }) => {
   };
 
   const menuItems = [
-    { 
-      icon: User, 
-      label: 'Editar Usuario', 
-      onClick: () => console.log('Edit profile') 
-    },
-    { 
-      icon: Settings, 
-      label: 'Ajustes de Cuenta', 
-      onClick: () => console.log('Settings') 
-    },
-    { 
-      icon: HelpCircle, 
-      label: 'Soporte', 
-      onClick: () => console.log('Support') 
-    },
+    // { 
+    //   icon: User, 
+    //   label: 'Editar Usuario', 
+    //   onClick: () => console.log('Edit profile') 
+    // },
+    // { 
+    //   icon: Settings, 
+    //   label: 'Ajustes de Cuenta', 
+    //   onClick: () => console.log('Settings') 
+    // },
+    // { 
+    //   icon: HelpCircle, 
+    //   label: 'Soporte', 
+    //   onClick: () => console.log('Support') 
+    // },
     { 
       icon: LogOut, 
       label: 'Cerrar Sesión', 
