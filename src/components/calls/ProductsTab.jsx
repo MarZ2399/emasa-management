@@ -11,7 +11,8 @@ const ProductsTab = ({
   setNombreProducto,
   hasSearched, 
   setHasSearched,
-  onAddToQuotation 
+  onAddToQuotation,
+  clienteRuc 
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -78,9 +79,9 @@ const ProductsTab = ({
               
               // ✅ Stock por almacén (mapear desde el array de stock)
               stock: item.stock.reduce((sum, s) => sum + (s.stock || 0), 0),
-              stockBSF: item.stock.find(s => s.almacencod?.includes('BSF'))?.stock || 0,
-              stockSanLuis: item.stock.find(s => s.almacencod?.includes('SAN'))?.stock || 0,
-              almacenes: item.stock, // Guardar todos los almacenes
+              // stockBSF: item.stock.find(s => s.almacencod?.includes('BSF'))?.stock || 0,
+              // stockSanLuis: item.stock.find(s => s.almacencod?.includes('SAN'))?.stock || 0,
+              almacenes: item.stock.filter(s => s.stock > 0 || true), // Guardar todos los almacenes
               
               // Datos adicionales
               equivalencia01: item.producto.equivalencia01?.trim(),
@@ -453,7 +454,8 @@ const ProductsTab = ({
 
       {/* Modal de Detalle */}
       <ProdDetailModal 
-        product={selectedProduct} 
+        product={selectedProduct}
+        clienteRuc={clienteRuc} 
         isOpen={modalOpen} 
         onClose={() => setModalOpen(false)}
         onAddToQuotation={onAddToQuotation}

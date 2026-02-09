@@ -645,22 +645,62 @@ const CallsModule = () => {
           )}
           
           {/* Tab: Consulta de Productos */}
-          {activeTab === 'products' && (
-            <div className="p-6">
-              <ProductsTab
-                codigoProducto={codigoProducto}
-                setCodigoProducto={setCodigoProducto}
-                nombreProducto={nombreProducto}
-                setNombreProducto={setNombreProducto}
-                hasSearched={hasSearched}
-                setHasSearched={setHasSearched}
-                onAddToQuotation={prodData => {
-                  setQuotationItems(items => [...items, prodData]);
-                  setActiveTab('quotations');
-                }}
-              />
+          {/* Tab: Consulta de Productos - ACTUALIZADO */}
+{activeTab === 'products' && (
+  <div className="p-6">
+    {!selectedClient ? (
+      <div className="text-center py-12">
+        <div className="w-16 h-16 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-4">
+          <Search className="w-8 h-8 text-yellow-400" />
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          Selecciona un cliente primero
+        </h3>
+        <p className="text-gray-600">
+          Para consultar precios de productos, debes seleccionar un cliente en el panel superior
+        </p>
+        <button
+          onClick={() => setActiveTab('calls')}
+          className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+        >
+          Ir a Búsqueda de Cliente
+        </button>
+      </div>
+    ) : (
+      <>
+        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
+              <span className="text-white text-lg">✓</span>
             </div>
-          )}
+            <div>
+              <p className="text-sm font-semibold text-green-900">
+                Cliente seleccionado: {selectedClient.nombreCliente}
+              </p>
+              <p className="text-xs text-green-700">
+                RUC: {selectedClient.ruc}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <ProductsTab
+          codigoProducto={codigoProducto}
+          setCodigoProducto={setCodigoProducto}
+          nombreProducto={nombreProducto}
+          setNombreProducto={setNombreProducto}
+          hasSearched={hasSearched}
+          setHasSearched={setHasSearched}
+          clienteRuc={selectedClient.ruc} // ✅ PROP AGREGADO
+          onAddToQuotation={prodData => {
+            setQuotationItems(items => [...items, prodData]);
+            setActiveTab('quotations');
+          }}
+        />
+      </>
+    )}
+  </div>
+)}
 
           {/* Tab: Cotizaciones */}
           {activeTab === 'quotations' && (

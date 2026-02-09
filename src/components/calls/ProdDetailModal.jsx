@@ -1,12 +1,13 @@
 // src/components/calls/ProdDetailModal.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { Building2, AlertCircle, ShoppingCart } from 'lucide-react';
-import { getWarehouseStockStatus } from '../../data/productsData';
+import { Building2, AlertCircle, ShoppingCart, Loader2 } from 'lucide-react';
+import { precioService } from '../../services/precioService';
 import toast from 'react-hot-toast';
 
 const ProdDetailModal = ({
   product,
+  clienteRuc,
   isOpen,
   onClose,
   onAddToQuotation
@@ -15,30 +16,171 @@ const ProdDetailModal = ({
 
   // Estados para los inputs editables
   const [quantity, setQuantity] = useState(1);
-  const [discount1] = useState(product.descuento1 || 0); // ✅ Solo lectura
-  const [discount5, setDiscount5] = useState(product.descuento5 || 0); // ✅ Editable
+  const [discount1, setDiscount1] = useState(0);
+  const [discount5, setDiscount5] = useState(0);
   const [selectedWarehouse, setSelectedWarehouse] = useState('');
+  
+  // Estados para datos de precios del SP
+  const [preciosData, setPreciosData] = useState(null);
+  const [loadingPrecios, setLoadingPrecios] = useState(false);
+  const [errorPrecios, setErrorPrecios] = useState(null);
 
-  // Obtener estados de stock por almacén
-  const stockBSFStatus = getWarehouseStockStatus(product.stockBSF);
-  const stockSanLuisStatus = getWarehouseStockStatus(product.stockSanLuis);
+  // Ref para controlar si ya se hizo la carga inicial
+  const initialLoadDone = useRef(false);
+  const debounceTimer = useRef(null);
 
-  // Cálculo del precio total con descuentos
- const precioNetoDolar = product.precioNetoDolar; // 68.00
-const precioConDescuento =
-  precioNetoDolar *
-  ((100 - discount1) / 100) *
-  ((100 - discount5) / 100);
+  // ✅ CARGAR PRECIOS SOLO AL ABRIR EL MODAL (una vez)
+  useEffect(() => {
+    if (isOpen && product && clienteRuc && !initialLoadDone.current) {
+      console.log('🎯 Modal abierto - Cargando precios iniciales');
+      fetchPrecios(1);
+      initialLoadDone.current = true;
+    }
+
+    // Reset cuando se cierra el modal
+    if (!isOpen) {
+      initialLoadDone.current = false;
+      setPreciosData(null);
+      setQuantity(1);
+      setDiscount1(0);
+      setDiscount5(0);
+      setSelectedWarehouse('');
+    }
+  }, [isOpen, product?.codigo, clienteRuc]);
+
+  /**
+   * ✅ Función para obtener precios del SP
+   */
+  const fetchPrecios = async (cant) => {
+    if (!clienteRuc || !product?.codigo) {
+      setErrorPrecios('Faltan datos para consultar precios');
+      return;
+    }
+
+    // Validar que la cantidad sea válida
+    if (!cant || cant <= 0) {
+      console.warn('⚠️ Cantidad inválida:', cant);
+      return;
+    }
+
+    try {
+      setLoadingPrecios(true);
+      setErrorPrecios(null);
+
+      console.log('📞 Consultando precios:', {
+        ruc: clienteRuc,
+        codigo: product.codigo.trim(),
+        cantidad: cant
+      });
+
+      const response = await precioService.obtenerPrecio(
+        clienteRuc,
+        product.codigo.trim(),
+        cant
+      );
+
+      console.log('📦 Respuesta del servicio:', response);
+
+      if (response.success && response.data) {
+        setPreciosData(response.data);
+        
+        // ✅ Actualizar descuentos desde el SP
+        setDiscount1(response.data.descuentos?.de01 || 0);
+        setDiscount5(response.data.descuentos?.de05 || 0);
+
+        console.log('✅ Precios obtenidos:', response.data);
+      } else {
+        setErrorPrecios(response.msgerror || response.error || 'No se pudieron obtener los precios');
+        console.error('❌ Error en respuesta:', response);
+      }
+
+    } catch (error) {
+      console.error('❌ Error al obtener precios:', error);
+      setErrorPrecios('Error al consultar precios del servidor');
+      toast.error('No se pudieron cargar los precios', { position: 'top-right' });
+    } finally {
+      setLoadingPrecios(false);
+    }
+  };
+
+  /**
+   * Función para obtener el estado del stock
+   */
+  const getWarehouseStockStatus = (stock) => {
+    if (stock === 0) {
+      return {
+        text: 'Sin Stock',
+        color: 'bg-red-100 text-red-700 border-red-300',
+        icon: '❌'
+      };
+    } else if (stock < 10) {
+      return {
+        text: 'Stock Bajo',
+        color: 'bg-yellow-100 text-yellow-700 border-yellow-300',
+        icon: '⚠️'
+      };
+    } else {
+      return {
+        text: 'Disponible',
+        color: 'bg-green-100 text-green-700 border-green-300',
+        icon: '✅'
+      };
+    }
+  };
+
+  // Cálculo del precio usando datos del SP o fallback
+  const precioNetoDolar = preciosData?.importes?.dolp || product.precioNetoDolar || 0;
+  const precioTotal = preciosData?.importes?.dola || (precioNetoDolar * quantity);
 
   // Validar stock disponible según almacén seleccionado
   const getAvailableStock = () => {
-    if (selectedWarehouse === 'BSF') return product.stockBSF;
-    if (selectedWarehouse === 'SAN_LUIS') return product.stockSanLuis;
-    return 0;
+    if (!selectedWarehouse || !product.almacenes) return 0;
+    
+    const almacen = product.almacenes.find(a => a.almacencod === selectedWarehouse);
+    return almacen?.stock || 0;
   };
 
   const availableStock = getAvailableStock();
   const canAdd = selectedWarehouse && quantity > 0 && quantity <= availableStock;
+
+  /**
+   * ✅ Manejar cambio de cantidad CON DEBOUNCE
+   */
+  const handleQuantityChange = (value) => {
+    const cleanValue = value.replace(/\D/g, "");
+    
+    if (cleanValue === "") {
+      setQuantity("");
+      return;
+    }
+
+    const numValue = parseInt(cleanValue);
+    
+    // Validar contra stock disponible
+    if (selectedWarehouse && numValue > availableStock) {
+      setQuantity(availableStock);
+      debounceFetchPrecios(availableStock);
+    } else {
+      setQuantity(numValue);
+      debounceFetchPrecios(numValue);
+    }
+  };
+
+  /**
+   * ✅ Debounce para no llamar al SP en cada tecla
+   */
+  const debounceFetchPrecios = (cant) => {
+    // Limpiar el timer anterior
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    // Crear nuevo timer
+    debounceTimer.current = setTimeout(() => {
+      console.log('⏱️ Debounce terminado - Consultando precios para cantidad:', cant);
+      fetchPrecios(cant);
+    }, 800); // Esperar 800ms después de que el usuario deje de escribir
+  };
 
   const handleAddToQuotation = () => {
     if (!selectedWarehouse) {
@@ -47,7 +189,7 @@ const precioConDescuento =
     }
 
     if (quantity > availableStock) {
-      toast.error(`Stock insuficiente en ${selectedWarehouse === 'BSF' ? 'BSF' : 'San Luis'}`, {
+      toast.error('Stock insuficiente en el almacén seleccionado', {
         position: 'top-right'
       });
       return;
@@ -58,26 +200,42 @@ const precioConDescuento =
       return;
     }
 
+    const almacenSeleccionado = product.almacenes?.find(a => a.almacencod === selectedWarehouse);
+
     onAddToQuotation({
       ...product,
       quantity,
       discount1,
-      precioLista: product.precioListaDolar, // ✅ Precio lista en dólares
-    precioNeto: precioConDescuento, // ✅ Precio neto con descuentos en dólares
-    precioCotizar: precioConDescuento,
-    warehouse: selectedWarehouse,
-    warehouseName: selectedWarehouse === 'BSF' ? 'BSF' : 'San Luis'
+      discount5,
+      precioLista: preciosData?.importes?.ldol || product.precioListaDolar || product.precioNetoDolar,
+      precioNeto: precioNetoDolar,
+      precioCotizar: precioTotal,
+      preciosDetalle: preciosData,
+      warehouse: selectedWarehouse,
+      warehouseName: almacenSeleccionado?.almacendes?.trim() || selectedWarehouse
     });
 
-    toast.success(`Producto agregado desde almacén ${selectedWarehouse === 'BSF' ? 'BSF' : 'San Luis'}`, {
+    toast.success(`Producto agregado desde almacén ${almacenSeleccionado?.almacendes?.trim() || selectedWarehouse}`, {
       position: 'top-right'
     });
 
+    // Reset
     setQuantity(1);
-    setDiscount5(product.descuento5 || 0);
+    setDiscount5(0);
     setSelectedWarehouse('');
+    setPreciosData(null);
+    initialLoadDone.current = false;
     onClose();
   };
+
+  // ✅ Cleanup del debounce
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, []);
 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
@@ -85,20 +243,36 @@ const precioConDescuento =
 
         {/* Header con botón de agregar */}
         <div className="flex items-center justify-between p-4 border-b bg-white sticky top-0 z-10">
-          <h2 className="text-2xl font-bold text-gray-800">{product.nombre}</h2>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800">{product.nombre}</h2>
+            <p className="text-sm text-gray-600">Código: {product.codigo}</p>
+            {/* ✅ Mostrar RUC para debug */}
+            {clienteRuc && (
+              <p className="text-xs text-gray-500">Cliente RUC: {clienteRuc}</p>
+            )}
+          </div>
           <div className="flex gap-2">
             <button
               onClick={handleAddToQuotation}
-              disabled={!canAdd}
+              disabled={!canAdd || loadingPrecios}
               className={`px-4 py-2 rounded font-bold transition flex items-center gap-2 ${
-                canAdd
+                canAdd && !loadingPrecios
                   ? 'bg-[#334a5e] hover:bg-[#2c3e50] text-white'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
               title={!canAdd ? 'Selecciona un almacén y verifica el stock' : 'Agregar producto'}
             >
-              <ShoppingCart className="w-5 h-5" />
-              Agregar producto
+              {loadingPrecios ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Calculando...
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="w-5 h-5" />
+                  Agregar producto
+                </>
+              )}
             </button>
             <button
               onClick={onClose}
@@ -118,106 +292,155 @@ const precioConDescuento =
               {/* COLUMNA IZQUIERDA */}
               <div className="space-y-6">
 
+                {/* INDICADOR DE CARGA/ERROR DE PRECIOS */}
+                {loadingPrecios && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3 animate-pulse">
+                    <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                    <span className="text-sm text-blue-800 font-medium">
+                      Consultando precios para cantidad: {quantity}...
+                    </span>
+                  </div>
+                )}
+
+                {errorPrecios && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-600" />
+                    <div className="flex-1">
+                      <span className="text-sm text-red-800 font-medium block">{errorPrecios}</span>
+                      <button 
+                        onClick={() => fetchPrecios(quantity)}
+                        className="text-xs text-red-600 underline mt-1"
+                      >
+                        Reintentar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ✅ MOSTRAR CUANDO LOS PRECIOS SE CARGARON */}
+                {preciosData && !loadingPrecios && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+                    <span className="text-green-600 text-2xl">✓</span>
+                    <span className="text-sm text-green-800 font-medium">
+                      Precios cargados correctamente desde el SP
+                    </span>
+                  </div>
+                )}
+
                 {/* BÚSQUEDA */}
                 <div className="bg-white rounded-lg shadow-md overflow-hidden">
                   <div className="bg-[#334a5e] text-white p-4">
-                    <h3 className="font-bold text-lg">BÚSQUEDA</h3>
+                    <h3 className="font-bold text-lg">INFORMACIÓN DEL PRODUCTO</h3>
                   </div>
                   <div className="p-6">
                     <div className="space-y-3">
                       {[
                         { label: 'Producto', value: product.nombre },
-                        { label: 'Código:', value: product.codigo },
-                        { label: 'Top Venta', value: product.topVenta || 'N/A' },
-                        { label: 'Observación', value: product.observaciones || 'Sin observaciones' },
-                        { label: 'Cód. Reemplazo', value: product.codReemplazo || 'Sin dato' },
-                        { label: 'Caja Master', value: product.cajaMaster || 'Sin dato' },
-                        { label: 'Línea - Core', value: product.proveedor || 'N/A' }
+                        { label: 'Código', value: product.codigo },
+                        { label: 'Cliente RUC', value: clienteRuc || '⚠️ No seleccionado' },
+                        { label: 'Categoría', value: product.categoria || 'N/A' },
+                        { label: 'Marca', value: product.proveedor || 'N/A' },
+                        { label: 'Equivalencia 01', value: product.equivalencia01 || 'N/A' },
+                        { label: 'Equivalencia 02', value: product.equivalencia02 || 'N/A' },
+                        { label: 'Core', value: product.core || 'N/A' }
                       ].map((item, i) => (
                         <div key={i} className="grid grid-cols-[200px_1fr] gap-4">
                           <div className="bg-gray-100 px-4 py-2 font-semibold text-gray-700">{item.label}</div>
-                          <div className="px-4 py-2">{item.value}</div>
+                          <div className={`px-4 py-2 ${!clienteRuc && item.label === 'Cliente RUC' ? 'text-red-600 font-bold' : ''}`}>
+                            {item.value}
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
                 </div>
 
-                {/* ✅ SELECTOR DE ALMACÉN + CANTIDAD + DESCUENTOS */}
+                {/* SELECTOR DE ALMACÉN + CANTIDAD + DESCUENTOS */}
                 <div className="bg-white rounded-lg shadow-md overflow-hidden border-2 border-blue-200">
                   <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-4">
                     <h3 className="font-bold text-lg flex items-center gap-2">
                       <Building2 className="w-6 h-6" />
-                      SELECCIONAR ALMACÉN
+                      SELECCIONAR ALMACÉN Y CANTIDAD
                     </h3>
                   </div>
                   <div className="p-6 space-y-4">
                     
-                    {/* SELECCIÓN DE ALMACENES */}
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* Almacén BSF */}
-                      <button
-                        onClick={() => setSelectedWarehouse('BSF')}
-                        disabled={product.stockBSF === 0}
-                        className={`p-4 rounded-lg border-2 transition-all ${
-                          selectedWarehouse === 'BSF'
-                            ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-300'
-                            : 'border-gray-300 hover:border-blue-300'
-                        } ${
-                          product.stockBSF === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <Building2 className="w-5 h-5 text-blue-600" />
-                            <span className="font-bold text-gray-900">BSF</span>
-                          </div>
-                          {selectedWarehouse === 'BSF' && (
-                            <span className="text-blue-600 text-xl">✓</span>
-                          )}
-                        </div>
-                        <div className="text-left mb-2">
-                          <span className="text-3xl font-bold text-blue-600">{product.stockBSF}</span>
-                          <span className="text-sm text-gray-600 ml-1">unidades</span>
-                        </div>
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium border ${stockBSFStatus.color}`}>
-                          {stockBSFStatus.icon} {stockBSFStatus.text}
-                        </span>
-                      </button>
+                    {/* SELECCIÓN DE ALMACENES - Dinámico */}
+                    {product.almacenes && product.almacenes.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {product.almacenes.map((almacen, idx) => {
+                          const stockStatus = getWarehouseStockStatus(almacen.stock);
+                          const isSelected = selectedWarehouse === almacen.almacencod;
+                          const almacenNombre = almacen.almacendes?.trim() || almacen.almacencod?.trim();
+                          
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => setSelectedWarehouse(almacen.almacencod)}
+                              disabled={almacen.stock === 0}
+                              className={`p-4 rounded-lg border-2 transition-all text-left ${
+                                isSelected
+                                  ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-300'
+                                  : 'border-gray-300 hover:border-blue-300'
+                              } ${
+                                almacen.stock === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                              }`}
+                            >
+                              {/* Header del almacén */}
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                  <Building2 className={`w-5 h-5 ${isSelected ? 'text-blue-600' : 'text-gray-600'}`} />
+                                  <div>
+                                    <span className="font-bold text-gray-900 text-sm block">
+                                      {almacenNombre}
+                                    </span>
+                                    <span className="text-xs text-gray-500">
+                                      {almacen.almacencod?.trim()}
+                                    </span>
+                                  </div>
+                                </div>
+                                {isSelected && (
+                                  <span className="text-blue-600 text-2xl">✓</span>
+                                )}
+                              </div>
 
-                      {/* Almacén San Luis */}
-                      <button
-                        onClick={() => setSelectedWarehouse('SAN_LUIS')}
-                        disabled={product.stockSanLuis === 0}
-                        className={`p-4 rounded-lg border-2 transition-all ${
-                          selectedWarehouse === 'SAN_LUIS'
-                            ? 'border-green-500 bg-green-50 ring-2 ring-green-300'
-                            : 'border-gray-300 hover:border-green-300'
-                        } ${
-                          product.stockSanLuis === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <Building2 className="w-5 h-5 text-green-600" />
-                            <span className="font-bold text-gray-900">San Luis</span>
-                          </div>
-                          {selectedWarehouse === 'SAN_LUIS' && (
-                            <span className="text-green-600 text-xl">✓</span>
-                          )}
-                        </div>
-                        <div className="text-left mb-2">
-                          <span className="text-3xl font-bold text-green-600">{product.stockSanLuis}</span>
-                          <span className="text-sm text-gray-600 ml-1">unidades</span>
-                        </div>
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium border ${stockSanLuisStatus.color}`}>
-                          {stockSanLuisStatus.icon} {stockSanLuisStatus.text}
-                        </span>
-                      </button>
-                    </div>
+                              {/* Stock */}
+                              <div className="text-left mb-2">
+                                <span className={`text-3xl font-bold ${
+                                  almacen.stock === 0 ? 'text-gray-400' : 
+                                  almacen.stock < 10 ? 'text-yellow-600' : 
+                                  'text-green-600'
+                                }`}>
+                                  {almacen.stock}
+                                </span>
+                                <span className="text-sm text-gray-600 ml-1">unidades</span>
+                              </div>
+
+                              {/* Badge de estado */}
+                              <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium border ${stockStatus.color}`}>
+                                {stockStatus.icon} {stockStatus.text}
+                              </span>
+
+                              {/* Mostrar reserva si existe */}
+                              {almacen.reserva > 0 && (
+                                <div className="mt-2 text-xs text-orange-600">
+                                  ⚠️ Reservado: {almacen.reserva}
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <AlertCircle className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                        <p className="font-medium">No hay almacenes disponibles</p>
+                        <p className="text-sm">Este producto no tiene stock en ningún almacén</p>
+                      </div>
+                    )}
 
                     {/* Mensaje informativo */}
-                    {!selectedWarehouse && (
+                    {!selectedWarehouse && product.almacenes && product.almacenes.length > 0 && (
                       <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center gap-2">
                         <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
                         <span className="text-sm text-yellow-800 font-medium">
@@ -226,58 +449,56 @@ const precioConDescuento =
                       </div>
                     )}
 
+                    {/* Info del almacén seleccionado */}
                     {selectedWarehouse && (
                       <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <p className="text-sm font-medium text-blue-900">
-                          📍 Almacén seleccionado: <span className="font-bold">{selectedWarehouse === 'BSF' ? 'BSF' : 'San Luis'}</span>
+                          📍 Almacén seleccionado: <span className="font-bold">
+                            {product.almacenes?.find(a => a.almacencod === selectedWarehouse)?.almacendes?.trim() || selectedWarehouse}
+                          </span>
                         </p>
                         <p className="text-sm text-blue-700 mt-1">
                           Stock disponible: <span className="font-bold">{availableStock}</span> unidades
                         </p>
+                        {product.almacenes?.find(a => a.almacencod === selectedWarehouse)?.reserva > 0 && (
+                          <p className="text-sm text-orange-700 mt-1">
+                            ⚠️ Reservado: <span className="font-bold">
+                              {product.almacenes?.find(a => a.almacencod === selectedWarehouse)?.reserva}
+                            </span> unidades
+                          </p>
+                        )}
                       </div>
                     )}
 
-                    {/* ✅ CANTIDAD */}
+                    {/* CANTIDAD */}
                     <div className="bg-green-100 border-2 border-green-300 p-4 rounded-lg">
                       <div className="flex items-center justify-between">
                         <label className="font-bold text-green-800 text-base" htmlFor="inp-qty">
                           Cantidad:
                         </label>
                         <input
-  id="inp-qty"
-  type="text"
-  inputMode="numeric"
-  pattern="[0-9]*"
-  value={quantity}
-  onChange={e => {
-    const value = e.target.value.replace(/\D/g, ""); // Solo números
-    
-    if (value === "") {
-      setQuantity(""); // Permitir campo vacío temporalmente
-    } else {
-      const numValue = parseInt(value);
-      
-      // Validar contra stock disponible
-      if (selectedWarehouse && numValue > availableStock) {
-        setQuantity(availableStock);
-      } else {
-        setQuantity(numValue);
-      }
-    }
-  }}
-  onBlur={() => {
-    // Solo cuando pierde el foco, si está vacío o es 0, establecer 1
-    if (!quantity || quantity === "" || quantity === 0) {
-      setQuantity(1);
-    }
-  }}
-  disabled={!selectedWarehouse}
-  className="text-right font-bold text-green-800 text-lg w-24 bg-white rounded-lg px-3 py-2 outline-none border-2 border-green-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
-/>
+                          id="inp-qty"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={quantity}
+                          onChange={e => handleQuantityChange(e.target.value)}
+                          onBlur={() => {
+                            if (!quantity || quantity === "" || quantity === 0) {
+                              setQuantity(1);
+                              fetchPrecios(1);
+                            }
+                          }}
+                          disabled={!selectedWarehouse}
+                          className="text-right font-bold text-green-800 text-lg w-24 bg-white rounded-lg px-3 py-2 outline-none border-2 border-green-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        />
                       </div>
+                      <p className="text-xs text-green-700 mt-2">
+                        💡 Los precios se actualizarán automáticamente
+                      </p>
                     </div>
 
-                    {/* ✅ VALIDACIÓN DE STOCK */}
+                    {/* VALIDACIÓN DE STOCK */}
                     {selectedWarehouse && quantity > availableStock && (
                       <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
                         <AlertCircle className="w-5 h-5 text-red-600" />
@@ -287,15 +508,18 @@ const precioConDescuento =
                       </div>
                     )}
 
-                    {/* ✅ DESCUENTOS */}
+                    {/* DESCUENTOS */}
                     <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 p-4 rounded-lg space-y-3">
-                      {/* 1er Descuento - READONLY */}
+                      {/* 1er Descuento - READONLY (desde SP) */}
                       <div className="flex justify-between items-center">
-                        <label className="text-sm font-bold text-indigo-800">1er Dsctó</label>
+                        <label className="text-sm font-bold text-indigo-800">
+                          1er Dsctó (DE01)
+                          {preciosData && <span className="ml-1 text-xs text-gray-500">(desde SP)</span>}
+                        </label>
                         <div className="flex items-center gap-2">
                           <input
                             type="text"
-                            value={discount1}
+                            value={(discount1 || 0).toFixed(2)}
                             readOnly
                             className="w-20 text-right bg-gray-200 border border-gray-400 rounded-lg px-3 py-1.5 font-semibold text-gray-700 cursor-not-allowed"
                           />
@@ -306,268 +530,230 @@ const precioConDescuento =
                       {/* 5to Descuento - EDITABLE */}
                       <div className="flex justify-between items-center">
                         <label className="text-sm font-bold text-purple-800" htmlFor="inp-dscto5">
-                          5to Dsctó
+                          5to Dsctó (DE05)
+                          {preciosData && <span className="ml-1 text-xs text-gray-500">(editable)</span>}
                         </label>
                         <div className="flex items-center gap-2">
                           <input
-      id="inp-dscto5"
-      type="text"
-      inputMode="numeric"
-      pattern="[0-9]*"
-      value={discount5}
-      onChange={e => {
-        const value = e.target.value.replace(/\D/g, ""); // Solo números
-        
-        if (value === "") {
-          setDiscount5(""); // Permitir campo vacío temporalmente
-        } else {
-          const numValue = parseInt(value);
-          
-          // Limitar a máximo 100
-          if (numValue > 100) {
-            setDiscount5(100);
-          } else {
-            setDiscount5(numValue);
-          }
-        }
-      }}
-      onBlur={() => {
-        // Al salir del campo, si está vacío establecer en 0
-        if (discount5 === "" || discount5 === null || discount5 === undefined) {
-          setDiscount5(0);
-        }
-      }}
-      className="w-20 text-right bg-white border-2 border-purple-300 rounded-lg px-3 py-1.5 font-semibold text-purple-800 outline-none focus:ring-2 focus:ring-purple-500"
-    />
+                            id="inp-dscto5"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={discount5}
+                            onChange={e => {
+                              const value = e.target.value.replace(/\D/g, "");
+                              
+                              if (value === "") {
+                                setDiscount5("");
+                              } else {
+                                const numValue = parseInt(value);
+                                if (numValue > 100) {
+                                  setDiscount5(100);
+                                } else {
+                                  setDiscount5(numValue);
+                                }
+                              }
+                            }}
+                            onBlur={() => {
+                              if (discount5 === "" || discount5 === null || discount5 === undefined) {
+                                setDiscount5(preciosData?.descuentos?.de05 || 0);
+                              }
+                            }}
+                            className="w-20 text-right bg-white border-2 border-purple-300 rounded-lg px-3 py-1.5 font-semibold text-purple-800 outline-none focus:ring-2 focus:ring-purple-500"
+                          />
                           <span className="font-bold text-purple-800">%</span>
                         </div>
                       </div>
+
+                      {/* Mostrar otros descuentos del SP */}
+                      {preciosData && (
+                        <div className="pt-3 border-t border-indigo-200 space-y-2 text-xs text-indigo-700">
+                          <div className="flex justify-between">
+                            <span>2do Descuento (DE02):</span>
+                            <span className="font-semibold">{(preciosData.descuentos?.de02 || 0).toFixed(2)}%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>3er Descuento (DE03):</span>
+                            <span className="font-semibold">{(preciosData.descuentos?.de03 || 0).toFixed(2)}%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>4to Descuento (DE04):</span>
+                            <span className="font-semibold">{(preciosData.descuentos?.de04 || 0).toFixed(2)}%</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Mostrar importes del SP */}
+                      {preciosData && (
+                        <div className="mt-3 pt-3 border-t border-indigo-200">
+                          <div className="text-xs text-indigo-900 space-y-1">
+                            <div className="flex justify-between">
+                              <span>Precio Lista (LDOL):</span>
+                              <span className="font-bold">$ {(preciosData.importes?.ldol || 0).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Precio con Descuentos (DOLA):</span>
+                              <span className="font-bold text-green-700">$ {(preciosData.importes?.dola || 0).toFixed(2)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    {/* ✅ PRECIO FINAL CON DESCUENTOS */}
+                    {/* PRECIO FINAL CON DESCUENTOS */}
                     <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 rounded-lg text-white">
-  <div className="flex justify-between items-center">
-    <span className="font-bold text-base">Precio con descuentos x {quantity}:</span>
-    <span className="font-extrabold text-xl">$ {(precioConDescuento * quantity).toFixed(2)}</span>
-  </div>
-</div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-sm">Precio unitario:</span>
+                          <span className="font-bold text-lg">$ {(precioNetoDolar || 0).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-t border-blue-400 pt-2">
+                          <span className="font-bold text-base">Total x {quantity}:</span>
+                          <span className="font-extrabold text-2xl">$ {(precioTotal || 0).toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* ✅ PRECIOS - CONTENEDOR SEPARADO */}
+                {/* PRECIOS - Datos del SP */}
                 <div className="bg-white rounded-lg shadow-md overflow-hidden">
                   <div className="bg-black text-white p-4">
-                    <h3 className="font-bold text-lg">PRECIOS</h3>
+                    <h3 className="font-bold text-lg">PRECIOS (desde SP)</h3>
                   </div>
                   <div className="p-6 space-y-3">
-                    <div className="flex justify-between">
-                      <span className="font-bold">Precio Lista:</span>
-                      <span className="text-right">$ {(product.precioListaDolar || product.precio * 1.3).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="font-bold">Precio Neto:</span>
-                      <span className="text-right">$ {product.precioNetoDolar.toFixed(2)}</span>
-                    </div>
+                    {preciosData ? (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="font-bold">Precio Lista (LDOL):</span>
+                          <span className="text-right">$ {(preciosData.importes?.ldol || 0).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-bold">Precio Unitario (DOLP):</span>
+                          <span className="text-right">$ {(preciosData.importes?.dolp || 0).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-bold">Total (DOLA):</span>
+                          <span className="text-right font-extrabold text-green-600">$ {(preciosData.importes?.dola || 0).toFixed(2)}</span>
+                        </div>
+                        <div className="border-t pt-3">
+                          <div className="flex justify-between text-sm">
+                            <span>Precio en Soles (SOLP):</span>
+                            <span>S/ {(preciosData.importes?.solp || 0).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span>Total en Soles (SOLE):</span>
+                            <span>S/ {(preciosData.importes?.sole || 0).toFixed(2)}</span>
+                          </div>
+                        </div>
+                        <div className="bg-gray-100 p-3 rounded">
+                          <div className="flex justify-between text-sm">
+                            <span className="font-bold">Flag Status:</span>
+                            <span className={`font-bold ${preciosData.flag === 'OK' ? 'text-green-600' : 'text-red-600'}`}>
+                              {preciosData.flag || 'N/A'}
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center text-gray-500 py-8">
+                        {loadingPrecios ? (
+                          <div className="flex flex-col items-center gap-2">
+                            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                            <p className="text-sm">Cargando precios...</p>
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="font-medium">Esperando datos del SP</p>
+                            <p className="text-sm mt-1">Los precios se cargarán automáticamente</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* PRECIO REGULAR DÓLARES */}
-                <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                  <div className="bg-black text-white p-4">
-                    <h3 className="font-bold text-lg">PRECIO REGULAR DÓLARES</h3>
+                {/* COSTOS (usando datos del SP) */}
+                {preciosData && preciosData.costos && (
+                  <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div className="bg-black text-white p-4">
+                      <h3 className="font-bold text-lg">COSTOS (desde SP)</h3>
+                    </div>
+                    <div className="p-6 space-y-3">
+                      <div className="flex justify-between">
+                        <span>CPU Soles (CPUS):</span>
+                        <span className="text-right">S/ {(preciosData.costos?.cpuSoles || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>CPU Dólares (CPUD):</span>
+                        <span className="text-right">$ {(preciosData.costos?.cpuDolares || 0).toFixed(2)}</span>
+                      </div>
+                      {preciosData.costos?.cpuDolares > 0 && precioNetoDolar > 0 && (
+                        <div className="bg-green-100 p-3 rounded">
+                          <div className="flex justify-between">
+                            <span className="font-bold text-green-800">Margen Calculado:</span>
+                            <span className="font-bold text-green-800">
+                              {(((precioNetoDolar - preciosData.costos.cpuDolares) / preciosData.costos.cpuDolares) * 100).toFixed(2)}%
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="p-6 space-y-3 text-sm">
-                    <div className="flex justify-between">
-                      <span>Precio Neto:</span>
-                      <span>$ {product.precioNetoDolar.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Precio Unitario:</span>
-                      <span>$ {(product.precioNetoDolar * 1.15).toFixed(2)} dólares incluido IGV</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Descuento (2%):</span>
-                      <span>$ {product.descuentoDolar.toFixed(2)}</span>
-                    </div>
-                    <div className="border-t pt-3 flex justify-between font-bold">
-                      <span>Nuevo Total (-2% Dcto):</span>
-                      <span>$ {(product.precioNetoDolar * 1.15 - product.descuentoDolar).toFixed(2)} dólares incluido IGV</span>
-                    </div>
-                  </div>
-                </div>
+                )}
 
-                {/* PRECIO REGULAR SOLES */}
-                <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                  <div className="bg-black text-white p-4">
-                    <h3 className="font-bold text-lg">PRECIO REGULAR SOLES</h3>
-                  </div>
-                  <div className="p-6 space-y-3 text-sm">
-                    <div className="flex justify-between">
-                      <span>Precio Neto:</span>
-                      <span>S/ {product.precioNeto.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Precio Ideal:</span>
-                      <span>S/ {(product.precioNeto * 1.15).toFixed(2)} soles incluido IGV</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Descuento (2%):</span>
-                      <span>S/ {(product.precioNeto * 0.02).toFixed(2)}</span>
-                    </div>
-                    <div className="border-t pt-3 flex justify-between font-bold">
-                      <span>Nuevo Total (-2% Dcto):</span>
-                      <span>S/ {(product.precioNeto * 1.15 * 0.98).toFixed(2)} soles incluido IGV</span>
-                    </div>
-                  </div>
-                </div>
               </div>
 
               {/* COLUMNA DERECHA */}
               <div className="space-y-6">
 
-                {/* STOCK */}
+                {/* STOCK POR ALMACÉN */}
                 <div className="bg-white rounded-lg shadow-md overflow-hidden">
                   <div className="bg-black text-white p-4 flex justify-between items-center">
-                    <h3 className="font-bold text-lg">STOCK</h3>
+                    <h3 className="font-bold text-lg">STOCK POR ALMACÉN</h3>
                     <span className="text-sm">{new Date().toLocaleString('es-PE')}</span>
                   </div>
                   <div className="p-6 space-y-3">
-                    <div className="flex justify-between border-b pb-2">
-                      <span>Stock BSF</span>
-                      <span className="font-bold">{product.stockBSF}</span>
-                    </div>
-                    <div className="flex justify-between border-b pb-2">
-                      <span>Stock San Luis</span>
-                      <span className="font-bold">{product.stockSanLuis}</span>
-                    </div>
-                    <div className="flex justify-between border-b pb-2">
-                      <span className="font-bold">No Conforme</span>
-                      <span className="font-bold text-red-600">{product.noConforme}</span>
-                    </div>
-                    <div className="flex justify-between border-b pb-2">
-                      <span>Stock GOSS</span>
-                      <span className="font-bold">{product.stockGOSS}</span>
-                    </div>
-                    <div className="flex justify-between pb-2">
-                      <span className="font-bold">Stock Tránsito</span>
-                      <span className="font-bold">{product.stockTransito}</span>
-                    </div>
+                    {product.almacenes && product.almacenes.length > 0 ? (
+                      <>
+                        {product.almacenes.map((almacen, idx) => {
+                          const status = getWarehouseStockStatus(almacen.stock);
+                          return (
+                            <div key={idx} className="flex justify-between items-center border-b pb-2">
+                              <div>
+                                <span className="font-semibold text-gray-900">
+                                  {almacen.almacendes?.trim() || almacen.almacencod}
+                                </span>
+                                <span className="text-xs text-gray-500 block">
+                                  {almacen.almacencod?.trim()}
+                                </span>
+                              </div>
+                              <div className="text-right">
+                                <span className="font-bold text-lg">{almacen.stock}</span>
+                                <span className="text-xs ml-1">{status.icon}</span>
+                                {almacen.reserva > 0 && (
+                                  <div className="text-xs text-orange-600">
+                                    Reserva: {almacen.reserva}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
 
-                    <div className="bg-yellow-100 p-3 rounded mt-4">
-                      <div className="flex justify-between mb-2">
-                        <span className="font-bold text-yellow-800">Fase Embarque</span>
-                        <span className="text-right text-yellow-800">{product.faseEmbarque}</span>
-                      </div>
-                    </div>
-
-                    <div className="bg-pink-100 p-3 rounded">
-                      <div className="flex justify-between mb-2">
-                        <span className="font-bold">Fase Llegada</span>
-                        <span>{product.faseLlegada}</span>
-                      </div>
-                    </div>
-
-                    <div className="bg-pink-100 p-3 rounded">
-                      <div className="flex justify-between mb-2">
-                        <span className="font-bold">Fecha Llegada</span>
-                        <span>{product.fechaLlegada}</span>
-                      </div>
-                    </div>
-
-                    <div className="bg-pink-100 p-3 rounded">
-                      <div className="flex justify-between">
-                        <span className="font-bold">Cantidad Llegada</span>
-                        <span className="font-bold">{product.cantidadLlegada}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* MARGEN */}
-                <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                  <div className="bg-black text-white p-4">
-                    <h3 className="font-bold text-lg">MARGEN</h3>
-                  </div>
-                  <div className="p-6 space-y-3">
-                    <div className="flex justify-between">
-                      <span>CPU (S/.)</span>
-                      <span className="text-right">S/ {product.cpuDolar.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Total Venta Neta (S/.)</span>
-                      <span className="text-right">S/ {product.ventaNetaDolar.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Ganancia (S/.)</span>
-                      <span className="text-right">{product.gananciaDolar.toFixed(2)}</span>
-                    </div>
-                    <div className="bg-green-100 p-3 rounded">
-                      <div className="flex justify-between">
-                        <span className="font-bold text-green-800">Margen (%)</span>
-                        <span className="font-bold text-green-800">{product.margenPorcentaje}%</span>
-                      </div>
-                    </div>
-                    <div className="bg-green-100 p-3 rounded">
-                      <div className="flex justify-between">
-                        <span className="text-xs">Indicar P. Oferta Neto (US$)</span>
-                        <span className="text-xs text-right">(%) Dcto. otorgado</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* PRECIO ECOMMERCE O BOLETÍN */}
-                <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                  <div className="bg-black text-white p-4">
-                    <h3 className="font-bold text-lg">PRECIO ECOMMERCE o BOLETÍN</h3>
-                  </div>
-                  <div className="p-6 space-y-3 text-sm">
-                    <div className="flex justify-between">
-                      <span>Precio Neto:</span>
-                      <span>$ {product.precioEcommerceDolar.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Precio Oferta x unidad:</span>
-                      <span>$ {product.precioOfertaDolar.toFixed(2)} dólares incluido IGV</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Precio Dcto incluido:</span>
-                      <span>$ {product.precioOfertaDecuento.toFixed(2)} dólares incluido IGV</span>
-                    </div>
-                    <div className="border-t pt-3 flex justify-between font-bold">
-                      <span>Total Cotización soles:</span>
-                      <span>S/ {(product.precioOfertaDecuento * 3.85).toFixed(2)} soles incluido IGV</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* CONDICIONES DE LA OFERTA */}
-                <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                  <div className="bg-black text-white p-4">
-                    <h3 className="font-bold text-lg">CONDICIONES DE LA OFERTA</h3>
-                  </div>
-                  <div className="p-6 space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="font-bold">Cantidad Mínima Compra:</span>
-                      <span>1</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="font-bold">Vigencia De La Oferta</span>
-                      <span>03-30 Nov</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="font-bold">Nombre Evento u Oferta</span>
-                      <span>{product.categoria}</span>
-                    </div>
-                    <div className="mt-4 pt-4 border-t space-y-2">
-                      <p className="font-bold">Observaciones:</p>
-                      <ul className="space-y-1 text-xs">
-                        <li>• Por compra menor a USD 5.000</li>
-                        <li>• Por compra entre USD 5.000 y 9.999</li>
-                        <li>• Por compra entre USD 10.000 y 19.999</li>
-                        <li>• Por compra superior a USD 20.000</li>
-                      </ul>
-                    </div>
+                        {/* Stock total */}
+                        <div className="bg-blue-50 p-3 rounded mt-4">
+                          <div className="flex justify-between">
+                            <span className="font-bold text-blue-900">Stock Total:</span>
+                            <span className="font-bold text-blue-900 text-xl">
+                              {product.stock || 0}
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-center text-gray-500">Sin información de stock</p>
+                    )}
                   </div>
                 </div>
 
