@@ -1,3 +1,4 @@
+// src/components/common/SectionHeader.jsx
 import { Search } from 'lucide-react';
 
 const SectionHeader = ({ 
@@ -23,7 +24,8 @@ const SectionHeader = ({
           </div>
           <div>
             <h1 className="text-3xl md:text-3xl font-bold">{title}</h1>
-            <p className="text-blue-100 text-sm md:text-base mt-1">{subtitle}</p>
+            {/* ✅ CAMBIO: <p> por <div> */}
+            <div className="text-blue-100 text-sm md:text-base mt-1">{subtitle}</div>
           </div>
         </div>
 

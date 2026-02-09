@@ -266,14 +266,15 @@ const OrdersList = ({ orders, onUpdateStatus }) => {
                   <span className="text-gray-500">OC:</span>
                   <p className="font-medium text-gray-900">{order.ordenCompra}</p>
                 </div>
-                <td className="px-4 py-3">
-  <div className="flex items-center gap-1">
-    <DollarSign className="w-4 h-4 text-green-600" />
-    <span className="font-semibold text-gray-900">
-      {order.tipoMoneda === 'USD' ? '$' : 'S/'} {order.total.toFixed(2)}
-    </span>
-  </div>
-</td>
+                
+                <div>
+  <span className="text-gray-500">Total:</span>
+  <p className="font-semibold text-green-600 flex items-center gap-1">
+    <DollarSign className="w-4 h-4" />
+    {order.tipoMoneda === 'USD' ? '$' : 'S/'} {order.total.toFixed(2)}
+  </p>
+</div>
+
 
 // Y en la versión mobile:
 <div>
