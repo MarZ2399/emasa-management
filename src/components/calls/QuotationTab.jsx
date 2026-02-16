@@ -1,7 +1,6 @@
 // src/components/calls/QuotationTab.jsx
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Trash2, ShoppingCart } from 'lucide-react';
-
 import toast from 'react-hot-toast';
 import { previewQuotationPDF, generateQuotationPDF } from '../../utils/pdfGenerator';
 import PDFPreview from './PDFPreview';
@@ -21,8 +20,7 @@ const QuotationTab = ({
   const [quotationNumber, setQuotationNumber] = useState(getCurrentQuotationNumber());
   const [isRegistering, setIsRegistering] = useState(false);
   
-  // ✅ Estado para tipo de moneda (USD por defecto)
-const currency = 'USD';
+  const currency = 'USD';
   
   // Estados para el modal de pedido
   const [showOrderForm, setShowOrderForm] = useState(false);
@@ -32,20 +30,79 @@ const currency = 'USD';
   const currencySymbol = currency === 'USD' ? '$' : 'S/';
   const currencyLabel = currency === 'USD' ? 'Dólares Americanos (USD)' : 'Soles (PEN)';
 
-  // Edita campo en un item y recalcula
+  /**
+   * ✅ FUNCIÓN PARA NORMALIZAR Y CALCULAR PRECIO NETO
+   * Se ejecuta cada vez que se agregan o modifican productos
+   */
+  const normalizeAndCalculate = (item) => {
+    // Normalizar valores
+    const precioLista = Number(item.precioLista) || 0;
+    const discount1 = Number(item.discount1) || 0;
+    const discount5 = Number(item.discount5) || 0;
+    const quantity = Number(item.quantity) || 1;
+
+    // Validar rangos de descuentos
+    const validDiscount1 = Math.max(0, Math.min(100, discount1));
+    const validDiscount5 = Math.max(0, Math.min(100, discount5));
+
+    // ✅ Calcular precio neto con descuentos en cascada
+    const precioConDescuento1 = precioLista * ((100 - validDiscount1) / 100);
+    const precioNeto = precioConDescuento1 * ((100 - validDiscount5) / 100);
+
+    return {
+      ...item,
+      precioLista,
+      discount1: validDiscount1,
+      discount5: validDiscount5,
+      quantity,
+      precioNeto: Number(precioNeto.toFixed(2))
+    };
+  };
+
+  /**
+   * ✅ EFECTO PARA NORMALIZAR ITEMS CUANDO LLEGAN POR PRIMERA VEZ
+   * Se ejecuta cada vez que quotationItems cambia desde el exterior
+   */
+  useEffect(() => {
+    if (quotationItems && quotationItems.length > 0) {
+      const normalizedItems = quotationItems.map(item => normalizeAndCalculate(item));
+      
+      // Solo actualizar si hay cambios reales
+      const hasChanges = normalizedItems.some((normalized, idx) => {
+        const original = quotationItems[idx];
+        return (
+          normalized.precioNeto !== original.precioNeto ||
+          normalized.discount1 !== original.discount1 ||
+          normalized.discount5 !== original.discount5
+        );
+      });
+
+      if (hasChanges) {
+        console.log('✅ Normalizando productos al llegar al tab de cotización');
+        setQuotationItems(normalizedItems);
+      }
+    }
+  }, [quotationItems.length]); // Solo cuando cambia la cantidad de items
+
+  /**
+   * ✅ FUNCIÓN MEJORADA PARA EDITAR CAMPOS
+   * Recalcula automáticamente el precio neto
+   */
   const handleEdit = (idx, field, value) => {
-    setQuotationItems(items => items.map((item, i) =>
-      i !== idx
-        ? item
-        : {
-            ...item,
-            [field]: field.includes('discount') ? Number(value) : Number(value),
-            precioNeto:
-              item.precioLista *
-              ((100 - (field === 'discount1' ? Number(value) : item.discount1)) / 100) *
-              ((100 - (field === 'discount5' ? Number(value) : item.discount5 || 0)) / 100)
-          }
-    ));
+    setQuotationItems(items => 
+      items.map((item, i) => {
+        if (i !== idx) return item;
+
+        // Crear item actualizado con el nuevo valor
+        const updatedItem = {
+          ...item,
+          [field]: value === "" ? 0 : Number(value)
+        };
+
+        // Normalizar y recalcular
+        return normalizeAndCalculate(updatedItem);
+      })
+    );
   };
 
   const removeItem = idx => {
@@ -93,7 +150,13 @@ const currency = 'USD';
     }
   };
 
-  const subtotal = (quotationItems ?? []).reduce((sum, p) => sum + p.precioNeto * p.quantity, 0);
+  // ✅ Calcular totales con validación
+  const subtotal = (quotationItems ?? []).reduce((sum, p) => {
+    const precioNeto = Number(p.precioNeto) || 0;
+    const quantity = Number(p.quantity) || 0;
+    return sum + (precioNeto * quantity);
+  }, 0);
+  
   const igv = subtotal * IGV_RATE;
   const total = subtotal + igv;
 
@@ -140,7 +203,7 @@ const currency = 'USD';
       fecha: new Date().toISOString(),
       vigencia: '30 días',
       estado: 'Aprobada',
-      tipoMoneda: currency // ✅ Incluir tipo de moneda
+      tipoMoneda: currency
     };
 
     setQuotationForOrder(quotationData);
@@ -177,32 +240,14 @@ const currency = 'USD';
         total={total}
         selectedClient={selectedClient}
         quotationNumber={quotationNumber}
-        currency={currency} // ✅ Pasar moneda al PDF
+        currency={currency}
       />
 
-      {/* ✅ Header con título y selector de moneda */}
+      {/* Header con título */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <h2 className="text-3xl font-extrabold tracking-tight text-gray-800">
           Cotización
         </h2>
-
-        {/* Selector de Moneda */}
-        {/* <div className="flex items-center gap-3 bg-white rounded-lg shadow-md border border-gray-200 px-4 py-3">
-          <DollarSign className="w-5 h-5 text-green-600" />
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-semibold text-gray-700">
-              Moneda:
-            </label>
-            <select
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg px-4 py-2 font-bold text-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 cursor-pointer"
-            >
-              <option value="USD">🇺🇸 Dólares (USD)</option>
-              <option value="PEN">🇵🇪 Soles (PEN)</option>
-            </select>
-          </div>
-        </div> */}
       </div>
 
       <div className="overflow-auto rounded-xl shadow-lg bg-white border">
@@ -212,14 +257,14 @@ const currency = 'USD';
               <th style={{ width: 56 }} className="p-4 font-bold text-gray-700 text-center">Item</th>
               <th style={{ width: 120 }} className="p-4 font-bold text-gray-700 text-center">Código Mercadería</th>
               <th style={{ width: 210 }} className="p-4 font-bold text-gray-700 text-center">Descripción Mercadería</th>
-              <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">Precio Lista Unitario </th>
+              <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">Precio Lista Unitario ({currencySymbol})</th>
               <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">1er Dsco.</th>
               <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">5to Dsco.</th>
-              <th style={{ width: 140 }} className="p-4 font-bold text-gray-700 text-center">Precio Neto Unitario </th>
+              <th style={{ width: 140 }} className="p-4 font-bold text-gray-700 text-center">Precio Neto Unitario ({currencySymbol})</th>
               <th style={{ width: 70 }} className="p-4 font-bold text-gray-700 text-center">Cant.</th>
-              <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">Precio Neto Total </th>
-              <th style={{ width: 100 }} className="p-4 font-bold text-gray-700 text-center">IGV </th>
-              <th style={{ width: 120 }} className="p-4 font-bold text-gray-700 text-center">Importe Total </th>
+              <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">Precio Neto Total ({currencySymbol})</th>
+              <th style={{ width: 100 }} className="p-4 font-bold text-gray-700 text-center">IGV ({currencySymbol})</th>
+              <th style={{ width: 120 }} className="p-4 font-bold text-gray-700 text-center">Importe Total ({currencySymbol})</th>
               <th style={{ width: 56 }}></th>
             </tr>
           </thead>
@@ -232,60 +277,92 @@ const currency = 'USD';
               </tr>
             ) : (
               (quotationItems ?? []).map((item, idx) => {
-                const precioNetoTotal = item.precioNeto * item.quantity;
+                const precioNetoTotal = (item.precioNeto || 0) * (item.quantity || 0);
                 const igvTotal = precioNetoTotal * IGV_RATE;
                 const importeTotal = precioNetoTotal + igvTotal;
+                
                 return (
                   <tr key={idx} className="hover:bg-gray-50 transition">
-                    <td style={{ width: 56 }} className="p-4 text-center font-mono font-bold text-blue-800 bg-blue-50 rounded-l-lg">{String(idx + 1).padStart(3, '0')}</td>
+                    <td style={{ width: 56 }} className="p-4 text-center font-mono font-bold text-blue-800 bg-blue-50 rounded-l-lg">
+                      {String(idx + 1).padStart(3, '0')}
+                    </td>
                     <td style={{ width: 120 }} className="p-4 text-center font-semibold">{item.codigo}</td>
                     <td style={{ width: 210 }} className="p-4 text-left">{item.nombre}</td>
-                    <td style={{ width: 130 }} className="p-4 text-right text-gray-700">{item.precioLista?.toFixed(2)}</td>
-                    <td style={{ width: 90 }} className="p-4 text-right">
+                    <td style={{ width: 130 }} className="p-4 text-right text-gray-700">
+                      {currencySymbol} {(item.precioLista || 0).toFixed(2)}
+                    </td>
+                    <td style={{ width: 130 }} className="p-4 text-right">
                       <input
                         type="text"
                         inputMode="numeric"
                         pattern="[0-9]*"
-                        value={item.discount1}
+                        value={item.discount1 || 0}
                         onChange={e => {
                           let value = e.target.value.replace(/\D/g, "");
-                          if (value !== "" && (parseInt(value) < 0 || parseInt(value) > 100)) value = "100";
+                          if (value === "") value = "0";
+                          if (parseInt(value) > 100) value = "100";
                           handleEdit(idx, 'discount1', value);
                         }}
+                        onBlur={e => {
+                          if (e.target.value === "" || e.target.value === null) {
+                            handleEdit(idx, 'discount1', 0);
+                          }
+                        }}
                         className="w-16 bg-indigo-50 border border-indigo-200 rounded px-2 py-1 text-center font-semibold text-indigo-700"
-                      />%
+                      />
+                      <span className="ml-1">%</span>
                     </td>
-                    <td style={{ width: 90 }} className="p-4 text-right">
+                    <td style={{ width: 130 }} className="p-4 text-right">
                       <input
                         type="text"
                         inputMode="numeric"
                         pattern="[0-9]*"
-                        value={item.discount5 || ""}
+                        value={item.discount5 || 0}
                         onChange={e => {
                           let value = e.target.value.replace(/\D/g, "");
-                          if (value !== "" && (parseInt(value) < 0 || parseInt(value) > 100)) value = "100";
+                          if (value === "") value = "0";
+                          if (parseInt(value) > 100) value = "100";
                           handleEdit(idx, 'discount5', value);
                         }}
+                        onBlur={e => {
+                          if (e.target.value === "" || e.target.value === null) {
+                            handleEdit(idx, 'discount5', 0);
+                          }
+                        }}
                         className="w-16 bg-orange-50 border border-orange-200 rounded px-2 py-1 text-center font-semibold text-orange-700"
-                      />%
+                      />
+                      <span className="ml-1">%</span>
                     </td>
-                    <td style={{ width: 140 }} className="p-4 text-right font-bold text-green-700">{item.precioNeto?.toFixed(2)}</td>
+                    <td style={{ width: 140 }} className="p-4 text-right font-bold text-green-700">
+                      {currencySymbol} {(item.precioNeto || 0).toFixed(2)}
+                    </td>
                     <td style={{ width: 70 }} className="p-4 text-center">
                       <input
                         type="text"
                         inputMode="numeric"
                         pattern="[0-9]*"
-                        value={item.quantity}
+                        value={item.quantity || 1}
                         onChange={e => {
                           const value = e.target.value.replace(/\D/g, "");
-                          handleEdit(idx, 'quantity', value);
+                          handleEdit(idx, 'quantity', value || 1);
+                        }}
+                        onBlur={e => {
+                          if (e.target.value === "" || parseInt(e.target.value) === 0) {
+                            handleEdit(idx, 'quantity', 1);
+                          }
                         }}
                         className="w-16 bg-blue-50 border border-blue-200 rounded px-2 py-1 text-center font-bold"
                       />
                     </td>
-                    <td style={{ width: 130 }} className="p-4 text-right text-blue-900 font-bold"> {precioNetoTotal.toFixed(2)}</td>
-                    <td style={{ width: 100 }} className="p-4 text-right text-yellow-700"> {igvTotal.toFixed(2)}</td>
-                    <td style={{ width: 120 }} className="p-4 text-right text-red-800 font-bold">{importeTotal.toFixed(2)}</td>
+                    <td style={{ width: 130 }} className="p-4 text-right text-blue-900 font-bold">
+                      {currencySymbol} {precioNetoTotal.toFixed(2)}
+                    </td>
+                    <td style={{ width: 100 }} className="p-4 text-right text-yellow-700">
+                      {currencySymbol} {igvTotal.toFixed(2)}
+                    </td>
+                    <td style={{ width: 120 }} className="p-4 text-right text-red-800 font-bold">
+                      {currencySymbol} {importeTotal.toFixed(2)}
+                    </td>
                     <td style={{ width: 56 }} className="p-4 text-center">
                       <button
                         onClick={() => removeItem(idx)}
@@ -308,15 +385,15 @@ const currency = 'USD';
         <div className="space-y-2 max-w-xs w-full mr-4">
           <div className="bg-gray-50 rounded px-4 py-2 shadow text-sm flex items-center justify-between">
             <span className="font-bold text-gray-700">Subtotal:</span>
-            <span className="font-bold text-blue-800">{subtotal.toFixed(2)}</span>
+            <span className="font-bold text-blue-800">{currencySymbol} {subtotal.toFixed(2)}</span>
           </div>
           <div className="bg-gray-50 rounded px-4 py-2 shadow text-sm flex items-center justify-between">
-            <span className="font-bold text-gray-700">IGV:</span>
-            <span className="font-bold text-yellow-700"> {igv.toFixed(2)}</span>
+            <span className="font-bold text-gray-700">IGV (18%):</span>
+            <span className="font-bold text-yellow-700">{currencySymbol} {igv.toFixed(2)}</span>
           </div>
           <div className="bg-gray-100 rounded px-4 py-2 shadow-lg border border-blue-200 text-sm flex items-center justify-between">
             <span className="font-bold text-gray-900">Total:</span>
-            <span className="font-extrabold text-blue-900">{total.toFixed(2)}</span>
+            <span className="font-extrabold text-blue-900">{currencySymbol} {total.toFixed(2)}</span>
           </div>
         </div>
       </div>
