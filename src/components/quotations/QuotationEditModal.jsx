@@ -429,6 +429,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                 <table className="min-w-full text-xs">
                   <thead className="bg-gray-100">
                     <tr>
+                       <th className="px-3 py-2 text-center font-semibold text-gray-700 w-8">#</th> 
                       <th className="px-3 py-2 text-left font-semibold text-gray-700">Código</th>
                       <th className="px-3 py-2 text-left font-semibold text-gray-700">Descripción</th>
                       <th className="px-3 py-2 text-right font-semibold text-gray-700">Precio Lista</th>
@@ -446,6 +447,10 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                       const rowSubtotal = (p.precioNeto || 0) * qty;
                       return (
                         <tr key={p.id || index}>
+                                <td className="px-3 py-2 text-center text-gray-500 font-semibold">
+                                   {index + 1}
+                                </td>
+
                           <td className="px-3 py-2">
                             <input
                               type="text"

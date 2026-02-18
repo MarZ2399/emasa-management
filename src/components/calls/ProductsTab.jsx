@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Search, Package, AlertCircle, Eye, Building2, Loader2 } from 'lucide-react';
 import { productService } from '../../services/productService';
 import ProdDetailModal from './ProdDetailModal';
+import Tooltip from '../common/Tooltip';
 
 const ProductsTab = ({ 
   codigoProducto, 
@@ -271,7 +272,7 @@ const ProductsTab = ({
                 <table className="w-full min-w-[1100px]">
                   <thead className="bg-[#334a5e] text-white">
                     <tr>
-                      <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Acciones</th>
+                      
                       <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Código</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Producto</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Categoría</th>
@@ -285,6 +286,7 @@ const ProductsTab = ({
                       <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Estado</th>
                       <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider">Precio ($ USD)</th>
                       <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Unidad</th>
+                      <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 bg-white">
@@ -295,15 +297,7 @@ const ProductsTab = ({
                       
                       return (
                         <tr key={product.id} className="hover:bg-gray-50 transition">
-                          <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <button
-                              onClick={() => handleOpenModal(product)}
-                              className="text-blue-600 hover:text-blue-800 transition"
-                              title="Ver detalle"
-                            >
-                              <Eye className="w-5 h-5" />
-                            </button>
-                          </td>
+                           
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {product.codigo}
                           </td>
@@ -357,6 +351,18 @@ const ProductsTab = ({
                           <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-600">
                             {product.unidad}
                           </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+            <div className="flex items-center justify-center gap-2">
+              <Tooltip text="Ver detalle">
+                <button
+                  onClick={() => handleOpenModal(product)}
+                  className="px-3 py-2 bg-[#334a5e] text-white rounded-lg hover:bg-green-700 hover:scale-105 transition inline-flex items-center text-sm font-bold shadow"
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
+              </Tooltip>
+            </div>
+          </td>
                         </tr>
                       );
                     })}
