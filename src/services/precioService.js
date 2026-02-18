@@ -83,3 +83,10 @@ export const precioService = {
     }
   }
 };
+
+// ✅ Export adicional para compatibilidad con ProductSelectorModal
+export const getPrecio = async ({ Clie, Prod, Cant = 1 }) => {
+  return await precioService.obtenerPrecio(Clie, Prod, Cant);
+};
+
+export default precioService;

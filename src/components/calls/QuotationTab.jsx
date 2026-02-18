@@ -1,11 +1,10 @@
 // src/components/calls/QuotationTab.jsx
 import React, { useRef, useState, useEffect } from 'react';
-import { Trash2, ShoppingCart } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { previewQuotationPDF, generateQuotationPDF } from '../../utils/pdfGenerator';
 import PDFPreview from './PDFPreview';
-import OrderForm from '../orders/OrderForm';
-import { getNextQuotationNumber, getCurrentQuotationNumber } from '../../data/quotationCounter';
+import quotationService from '../../services/quotationService';
 
 const IGV_RATE = 0.18;
 
@@ -17,18 +16,32 @@ const QuotationTab = ({
   onRegistrationComplete 
 }) => {
   const pdfRef = useRef(null);
-  const [quotationNumber, setQuotationNumber] = useState(getCurrentQuotationNumber());
+  const [quotationNumber, setQuotationNumber] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   
   const currency = 'USD';
   
-  // Estados para el modal de pedido
-  const [showOrderForm, setShowOrderForm] = useState(false);
-  const [quotationForOrder, setQuotationForOrder] = useState(null);
-
   // Símbolos de moneda
   const currencySymbol = currency === 'USD' ? '$' : 'S/';
   const currencyLabel = currency === 'USD' ? 'Dólares Americanos (USD)' : 'Soles (PEN)';
+
+  // ✅ Obtener siguiente correlativo al cargar el componente
+  useEffect(() => {
+    const fetchNextCorrelative = async () => {
+      try {
+        const response = await quotationService.getNextCorrelative();
+        if (response.success) {
+          setQuotationNumber(response.data.correlative);
+        }
+      } catch (error) {
+        console.error('Error al obtener correlativo:', error);
+        const year = new Date().getFullYear();
+        setQuotationNumber(`COT-${year}-TEMP`);
+      }
+    };
+
+    fetchNextCorrelative();
+  }, []);
 
   /**
    * ✅ FUNCIÓN PARA NORMALIZAR Y CALCULAR PRECIO NETO
@@ -82,7 +95,7 @@ const QuotationTab = ({
         setQuotationItems(normalizedItems);
       }
     }
-  }, [quotationItems.length]); // Solo cuando cambia la cantidad de items
+  }, [quotationItems.length]);
 
   /**
    * ✅ FUNCIÓN MEJORADA PARA EDITAR CAMPOS
@@ -110,41 +123,87 @@ const QuotationTab = ({
     toast.error('Producto eliminado de la cotización', { position: 'top-right' });
   };
 
+  /**
+   * ✅ REGISTRAR COTIZACIÓN EN EL BACKEND
+   */
   const handleRegister = async () => {
     if (quotationItems.length === 0) {
       toast.error('No hay productos en la cotización', { position: 'top-right' });
       return;
     }
 
+    if (!selectedClient || !selectedClient.ruc) {
+      toast.error('Debe seleccionar un cliente válido', { position: 'top-right' });
+      return;
+    }
+
     setIsRegistering(true);
 
     try {
-      // Genera y descarga el PDF
-      if (pdfRef.current) {
-        await generateQuotationPDF(
-          pdfRef.current, 
-          `cotizacion_${quotationNumber}.pdf`
-        );
+      // 🔹 PREPARAR PAYLOAD USANDO EL SERVICIO
+      const payload = quotationService.prepareQuotationPayload(
+        quotationItems,
+        selectedClient,
+        currency,
+        subtotal,
+        igv,
+        total,
+        quotationNumber
+      );
+
+      console.log('📤 Enviando cotización:', payload);
+
+      // 🔹 REGISTRAR EN EL BACKEND
+      const response = await quotationService.registerQuotation(
+        payload.cabecera,
+        payload.detalles
+      );
+
+      if (response.success) {
+        toast.success(`Cotización ${response.data.correlativo_cotiza} registrada exitosamente`, {
+          position: 'top-right',
+          duration: 4000
+        });
+
+        // 🔹 GENERAR PDF
+        if (pdfRef.current) {
+          await generateQuotationPDF(
+            pdfRef.current,
+            `cotizacion_${response.data.correlativo_cotiza}.pdf`
+          );
+        }
+
+        // 🔹 OBTENER SIGUIENTE CORRELATIVO
+        const nextResponse = await quotationService.getNextCorrelative();
+        if (nextResponse.success) {
+          setQuotationNumber(nextResponse.data.correlative);
+        }
+
+        // 🔹 LIMPIAR FORMULARIO
+        setQuotationItems([]);
+
+        if (onRegistrationComplete) {
+          onRegistrationComplete();
+        }
       }
 
-      // Incrementa el contador
-      const nextNumber = getNextQuotationNumber();
-      setQuotationNumber(nextNumber);
-      
-      toast.success('Cotización registrada y descargada correctamente', { 
-        position: 'top-right',
-        duration: 4000
-      });
-      
-      // Limpia la cotización
-      setQuotationItems([]);
-      
-      if (onRegistrationComplete) {
-        onRegistrationComplete();
-      }
     } catch (error) {
-      toast.error('Error al generar la cotización', { position: 'top-right' });
-      console.error(error);
+      console.error('❌ Error al registrar cotización:', error);
+      
+      if (error.response?.data?.details) {
+        // Mostrar errores de validación
+        const errores = Array.isArray(error.response.data.details) 
+          ? error.response.data.details 
+          : [error.response.data.details];
+        
+        errores.forEach(err => {
+          toast.error(err, { position: 'top-right', duration: 5000 });
+        });
+      } else {
+        toast.error(error.response?.data?.error || 'Error al registrar la cotización', {
+          position: 'top-right'
+        });
+      }
     } finally {
       setIsRegistering(false);
     }
@@ -170,63 +229,8 @@ const QuotationTab = ({
   // Handler para PDF descarga
   const handleDownloadPDF = async () => {
     if (!pdfRef.current) return;
-    await generateQuotationPDF(pdfRef.current, `cotizacion_${new Date().toISOString().split('T')[0]}.pdf`);
+    await generateQuotationPDF(pdfRef.current, `cotizacion_${quotationNumber}.pdf`);
     toast.success('PDF descargado', { position: 'top-right' });
-  };
-
-  // Handler para generar pedido
-  const handleGenerateOrder = () => {
-    if (quotationItems.length === 0) {
-      toast.error('No hay productos en la cotización', { position: 'top-right' });
-      return;
-    }
-
-    // Preparar datos de la cotización para el pedido
-    const quotationData = {
-      id: Date.now(),
-      numeroCotizacion: quotationNumber,
-      clienteId: selectedClient?.id || 1,
-      clienteNombre: selectedClient?.nombreCliente || 'Cliente',
-      clienteRuc: selectedClient?.ruc || '00000000000',
-      productos: quotationItems.map((item, idx) => ({
-        id: idx + 1,
-        codigo: item.codigo,
-        descripcion: item.nombre,
-        cantidad: item.quantity,
-        precioUnitario: item.precioNeto,
-        subtotal: item.precioNeto * item.quantity
-      })),
-      subtotal: subtotal,
-      igv: igv,
-      total: total,
-      asesor: selectedClient?.vendedor || '-',
-      fecha: new Date().toISOString(),
-      vigencia: '30 días',
-      estado: 'Aprobada',
-      tipoMoneda: currency
-    };
-
-    setQuotationForOrder(quotationData);
-    setShowOrderForm(true);
-  };
-
-  // Handler para guardar pedido
-  const handleSaveOrder = (orderData) => {
-    console.log('Nuevo pedido generado:', orderData);
-    
-    const existingOrders = JSON.parse(localStorage.getItem('orders') || '[]');
-    const newOrder = {
-      ...orderData,
-      id: existingOrders.length + 1,
-      createdAt: new Date().toISOString()
-    };
-    existingOrders.push(newOrder);
-    localStorage.setItem('orders', JSON.stringify(existingOrders));
-
-    toast.success(`Pedido ${orderData.numeroPedido} generado exitosamente`, {
-      position: 'top-right',
-      duration: 4000
-    });
   };
 
   return (
@@ -243,13 +247,20 @@ const QuotationTab = ({
         currency={currency}
       />
 
-      {/* Header con título */}
+      {/* Header con título y número de cotización */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <h2 className="text-3xl font-extrabold tracking-tight text-gray-800">
           Cotización
         </h2>
+        {quotationNumber && (
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-lg px-4 py-2">
+            <span className="text-sm font-semibold text-gray-600">Nro. Cotización:</span>
+            <span className="ml-2 text-lg font-bold text-blue-700">{quotationNumber}</span>
+          </div>
+        )}
       </div>
 
+      {/* Tabla de productos */}
       <div className="overflow-auto rounded-xl shadow-lg bg-white border">
         <table className="min-w-full divide-y divide-gray-200 text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
           <thead className="bg-gray-100 sticky top-0 z-10">
@@ -426,9 +437,9 @@ const QuotationTab = ({
           
           <button
             onClick={handleRegister}
-            disabled={quotationItems.length === 0 || isRegistering}
+            disabled={quotationItems.length === 0 || isRegistering || !quotationNumber}
             className={`bg-green-600 text-white font-bold px-4 py-2 rounded-lg shadow hover:scale-105 transition text-sm flex items-center gap-2
-            ${quotationItems.length === 0 || isRegistering ? 'opacity-60 cursor-not-allowed' : ''}`}
+            ${quotationItems.length === 0 || isRegistering || !quotationNumber ? 'opacity-60 cursor-not-allowed' : ''}`}
           >
             {isRegistering ? (
               <>
@@ -436,7 +447,7 @@ const QuotationTab = ({
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Generando...
+                Registrando...
               </>
             ) : (
               'Registrar Cotización'

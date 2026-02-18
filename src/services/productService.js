@@ -4,20 +4,27 @@ import api from './api';
 export const productService = {
   /**
    * Buscar productos por código (parcial o completo)
-   * @param {string} codigo - Código del producto
-   * @returns {Promise<Object>} - { success, data: [...], msgerror }
    */
   searchByCodigo: async (codigo) => {
     try {
+      if (!codigo || codigo.trim() === '') {
+        return {
+          success: true,
+          data: [],
+          msgerror: null
+        };
+      }
+
       const { data } = await api.get('/products/search', {
-        params: { codigo }
+        params: { codigo: codigo.trim() }
       });
+      
       return data;
     } catch (error) {
-      console.error('Error en searchByCodigo:', error);
+      console.error('❌ Error en searchByCodigo:', error);
       return {
         success: false,
-        data: null,
+        data: [],
         msgerror: error.response?.data?.msgerror || error.message
       };
     }
@@ -25,20 +32,27 @@ export const productService = {
 
   /**
    * Buscar productos por nombre
-   * @param {string} nombre - Nombre del producto
-   * @returns {Promise<Object>} - { success, data: [...], msgerror }
    */
   searchByName: async (nombre) => {
     try {
+      if (!nombre || nombre.trim() === '') {
+        return {
+          success: true,
+          data: [],
+          msgerror: null
+        };
+      }
+
       const { data } = await api.get('/products', {
-        params: { Nom: nombre }
+        params: { Nom: nombre.trim() }
       });
+      
       return data;
     } catch (error) {
-      console.error('Error en searchByName:', error);
+      console.error('❌ Error en searchByName:', error);
       return {
         success: false,
-        data: null,
+        data: [],
         msgerror: error.response?.data?.msgerror || error.message
       };
     }
@@ -46,15 +60,21 @@ export const productService = {
 
   /**
    * Obtener producto específico por código exacto
-   * @param {string} codigo - Código exacto del producto
-   * @returns {Promise<Object>} - { success, data: { producto, stock }, msgerror }
    */
   getProductByCod: async (codigo) => {
     try {
-      const { data } = await api.get(`/products/cod/${codigo}`);
+      if (!codigo || codigo.trim() === '') {
+        return {
+          success: false,
+          data: null,
+          msgerror: 'Código requerido'
+        };
+      }
+
+      const { data } = await api.get(`/products/cod/${codigo.trim()}`);
       return data;
     } catch (error) {
-      console.error('Error en getProductByCod:', error);
+      console.error('❌ Error en getProductByCod:', error);
       return {
         success: false,
         data: null,
@@ -63,3 +83,35 @@ export const productService = {
     }
   }
 };
+
+/**
+ * ✅ Export para ProductSelectorModal
+ */
+export const searchProducts = async (searchTerm = '') => {
+  try {
+    if (!searchTerm || searchTerm.trim() === '') {
+      return {
+        success: true,
+        data: [],
+        msgerror: null
+      };
+    }
+
+    const result = await productService.searchByCodigo(searchTerm.trim());
+    
+    return {
+      success: result.success !== false,
+      data: result.data || [],
+      msgerror: result.msgerror || null
+    };
+  } catch (error) {
+    console.error('❌ Error en searchProducts:', error);
+    return {
+      success: false,
+      data: [],
+      msgerror: error.message
+    };
+  }
+};
+
+export default productService;

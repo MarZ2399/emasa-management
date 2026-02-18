@@ -17,7 +17,6 @@ import MainLayout from './components/layout/MainLayout';
 // Modules
 import DashboardModule from './components/dashboard/DashboardModule';
 import ClientsModule from './components/clients/ClientsModule';
-import ProductsModule from './components/products/ProductsModule';
 import OrdersModule from './components/orders/OrdersModule';
 import QuotationsModule from './components/quotations/QuotationsModule';
 import CallsModule from './components/calls/CallsModule';
@@ -111,7 +110,6 @@ const MainLayoutWrapper = () => {
 
           {/* Gestión Comercial */}
           <Route path="/ventas/clientes" element={<ClientsModule />} />
-          <Route path="/ventas/productos" element={<ProductsModule />} />
           <Route path="/ventas/cotizaciones" element={<QuotationsModule />} />
           <Route path="/ventas/pedidos" element={<OrdersModule />} />
 

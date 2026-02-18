@@ -21,7 +21,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
   const [errors, setErrors] = useState({});
   const [isProductSelectorOpen, setIsProductSelectorOpen] = useState(false);
 
-  // Bloquear scroll al abrir
+  // Bloquear scroll
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -36,9 +36,9 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
       setFormData({
         ...quotation,
         productos: quotation.productos.map(p => ({ ...p })),
-         observaciones: quotation.observaciones || '',
-      observacionesCreditos: quotation.observacionesCreditos || '',
-      observacionesLogistica: quotation.observacionesLogistica || '',
+        observaciones: quotation.observaciones || '',
+        observacionesCreditos: quotation.observacionesCreditos || '',
+        observacionesLogistica: quotation.observacionesLogistica || '',
       });
       setErrors({});
     }
@@ -46,7 +46,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
 
   if (!isOpen || !formData) return null;
 
-  // Helpers
+  // ✅ Actualizar totales
   const updateTotals = updatedProducts => {
     const subtotal = updatedProducts.reduce(
       (sum, p) => sum + (p.precioNeto || 0) * (p.quantity || p.cantidad || 0),
@@ -88,31 +88,38 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
         const qty = value === '' ? 0 : Number(value);
         product.cantidad = qty;
         product.quantity = qty;
-      } else if (
-        field === 'precioLista' ||
-        field === 'precioUnitario' ||
-        field === 'precioNeto'
-      ) {
+      } else if (field === 'precioLista' || field === 'precioUnitario' || field === 'precioNeto') {
         product[field] = value === '' ? 0 : Number(value);
-      } else if (field === 'discount1' || field === 'discount5') {
+      } else if (field.startsWith('discount')) {
         const num = value === '' ? 0 : Number(value);
         product[field] = num;
+        
         if (field === 'discount1') product.descuento = num;
         if (field === 'discount5') product.descuento5to = num;
       } else {
         product[field] = value;
       }
 
-      const basePrice = product.precioLista || product.precioUnitario || 0;
-      const d1 = product.discount1 || 0;
-      const d5 = product.discount5 || 0;
+      // ✅ Recalcular precio neto cuando cambian descuentos
+      if (field === 'precioLista' || field.startsWith('discount')) {
+        const basePrice = product.precioLista || product.precioUnitario || 0;
+        const d1 = product.discount1 || 0;
+        const d2 = product.discount2 || 0;
+        const d3 = product.discount3 || 0;
+        const d4 = product.discount4 || 0;
+        const d5 = product.discount5 || 0;
 
-      const precioConDescuentos =
-        basePrice *
-        ((100 - d1) / 100) *
-        ((100 - d5) / 100);
+        let precioConDescuentos = basePrice;
+        
+        if (d1 > 0) precioConDescuentos = precioConDescuentos * ((100 - d1) / 100);
+        if (d2 > 0) precioConDescuentos = precioConDescuentos * ((100 - d2) / 100);
+        if (d3 > 0) precioConDescuentos = precioConDescuentos * ((100 - d3) / 100);
+        if (d4 > 0) precioConDescuentos = precioConDescuentos * ((100 - d4) / 100);
+        if (d5 > 0) precioConDescuentos = precioConDescuentos * ((100 - d5) / 100);
 
-      product.precioNeto = Number(precioConDescuentos.toFixed(2));
+        product.precioNeto = Number(precioConDescuentos.toFixed(2));
+        product.precioUnitario = product.precioNeto;
+      }
 
       products[index] = product;
       updateTotals(products);
@@ -124,14 +131,17 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
     setIsProductSelectorOpen(true);
   };
 
+  // ✅ Manejar producto seleccionado
   const handleSelectProductForQuotation = product => {
+    console.log('📦 Producto seleccionado del modal:', product);
+    
     setFormData(prev => {
-      const nextId =
-        (prev.productos[prev.productos.length - 1]?.id || 0) + 1;
-
+      const nextId = (prev.productos[prev.productos.length - 1]?.id || 0) + 1;
       const qtyDefault = 1;
-      const precioLista = product.precioLista ?? product.precio ?? 0;
-      const precioNeto = product.precioNeto ?? product.precio ?? 0;
+
+      const precioLista = product.precioLista || 0;
+      const precioNeto = product.precioNeto || 0;
+      const subtotal = Number((precioNeto * qtyDefault).toFixed(2));
 
       const newProduct = {
         id: nextId,
@@ -140,19 +150,44 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
         descripcion: product.nombre,
         cantidad: qtyDefault,
         quantity: qtyDefault,
-        precioLista,
+        
+        precioLista: precioLista,
         precioUnitario: precioNeto,
-        precioNeto,
-        discount1: product.descuento1 ?? product.descuento ?? 0,
-        discount5: product.descuento2 ?? 0,
-        descuento: product.descuento1 ?? product.descuento ?? 0,
-        descuento5to: product.descuento2 ?? 0,
-        subtotal: Number((precioNeto * qtyDefault).toFixed(2)),
+        precioNeto: precioNeto,
+        
+        discount1: product.discount1 || 0,
+        discount2: product.discount2 || 0,
+        discount3: product.discount3 || 0,
+        discount4: product.discount4 || 0,
+        discount5: product.discount5 || 0,
+        
+        descuento: product.discount1 || 0,
+        descuento5to: product.discount5 || 0,
+        
+        subtotal: subtotal,
       };
 
+      console.log('✅ Producto agregado a la tabla:', newProduct);
+
       const products = [...prev.productos, newProduct];
-      updateTotals(products);
-      return { ...prev, productos: products };
+      
+      // Recalcular totales
+      const subtotalTotal = products.reduce(
+        (sum, p) => sum + (p.precioNeto || 0) * (p.quantity || p.cantidad || 0),
+        0
+      );
+      const igv = subtotalTotal * IGV_RATE;
+      const total = subtotalTotal + igv;
+
+      console.log('💰 Totales recalculados:', { subtotalTotal, igv, total });
+
+      return { 
+        ...prev, 
+        productos: products,
+        subtotal: subtotalTotal,
+        igv: igv,
+        total: total
+      };
     });
   };
 
@@ -203,6 +238,14 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
     onSave(payload);
   };
 
+  // Cliente para pasar al ProductSelectorModal
+  const selectedClient = formData.cliente && formData.ruc ? {
+    nombreCliente: formData.cliente,
+    nombre: formData.cliente,
+    ruc: formData.ruc,
+    vendedor: formData.asesor,
+  } : null;
+
   const modalContent = (
     <>
       <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
@@ -211,7 +254,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
           onClick={e => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-emerald-500 to-green-600 text-white">
+          <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-emerald-500 to-green-600 text-white sticky top-0 z-10">
             <div className="flex items-center gap-3">
               <FileText className="w-6 h-6" />
               <div>
@@ -219,7 +262,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                   Editar Cotización #{formData.numeroCotizacion}
                 </h2>
                 <p className="text-xs text-emerald-100">
-                  Modifica los datos generales y la lista de productos
+                  Modifica los datos y productos
                 </p>
               </div>
             </div>
@@ -320,61 +363,51 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
             </div>
 
             {/* Observaciones */}
-<div className="border border-gray-200 rounded-lg p-5 space-y-4">
-  <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-    <MessageSquare className="w-5 h-5 text-gray-700" />
-    Observaciones
-  </h3>
+            <div className="border border-gray-200 rounded-lg p-5 space-y-4">
+              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-gray-700" />
+                Observaciones
+              </h3>
 
-  {/* Observaciones Generales */}
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-      Observaciones Generales
-    </label>
-    <textarea
-      rows={2}
-      value={formData.observaciones || ''}
-      onChange={e =>
-        handleHeaderChange('observaciones', e.target.value)
-      }
-      placeholder="Indicaciones especiales, horarios de entrega, etc..."
-      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none text-sm"
-    />
-  </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Observaciones Generales
+                </label>
+                <textarea
+                  rows={2}
+                  value={formData.observaciones || ''}
+                  onChange={e => handleHeaderChange('observaciones', e.target.value)}
+                  placeholder="Indicaciones especiales..."
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none text-sm"
+                />
+              </div>
 
-  {/* Observaciones de Créditos */}
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-      Observaciones de Créditos
-    </label>
-    <textarea
-      rows={2}
-      value={formData.observacionesCreditos || ''}
-      onChange={e =>
-        handleHeaderChange('observacionesCreditos', e.target.value)
-      }
-      placeholder="Condiciones de pago, plazos, garantías..."
-      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
-    />
-  </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Observaciones de Créditos
+                </label>
+                <textarea
+                  rows={2}
+                  value={formData.observacionesCreditos || ''}
+                  onChange={e => handleHeaderChange('observacionesCreditos', e.target.value)}
+                  placeholder="Condiciones de pago..."
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                />
+              </div>
 
-  {/* Observaciones de Logística */}
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-      Observaciones de Logística
-    </label>
-    <textarea
-      rows={2}
-      value={formData.observacionesLogistica || ''}
-      onChange={e =>
-        handleHeaderChange('observacionesLogistica', e.target.value)
-      }
-      placeholder="Dirección de entrega, contacto, instrucciones de despacho..."
-      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none text-sm"
-    />
-  </div>
-</div>
-
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Observaciones de Logística
+                </label>
+                <textarea
+                  rows={2}
+                  value={formData.observacionesLogistica || ''}
+                  onChange={e => handleHeaderChange('observacionesLogistica', e.target.value)}
+                  placeholder="Dirección de entrega..."
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none text-sm"
+                />
+              </div>
+            </div>
 
             {/* Productos */}
             <div className="border border-gray-200 rounded-lg">
@@ -385,7 +418,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                 <button
                   type="button"
                   onClick={handleAddProduct}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition"
                 >
                   <Plus className="w-4 h-4" />
                   Agregar producto
@@ -396,30 +429,14 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                 <table className="min-w-full text-xs">
                   <thead className="bg-gray-100">
                     <tr>
-                      <th className="px-3 py-2 text-left font-semibold text-gray-700">
-                        Código
-                      </th>
-                      <th className="px-3 py-2 text-left font-semibold text-gray-700">
-                        Descripción
-                      </th>
-                      <th className="px-3 py-2 text-right font-semibold text-gray-700">
-                        Precio Lista
-                      </th>
-                      <th className="px-3 py-2 text-right font-semibold text-gray-700">
-                        Dscto 1 (%)
-                      </th>
-                      <th className="px-3 py-2 text-right font-semibold text-gray-700">
-                        Dscto 5 (%)
-                      </th>
-                      <th className="px-3 py-2 text-right font-semibold text-gray-700">
-                        Precio Neto
-                      </th>
-                      <th className="px-3 py-2 text-right font-semibold text-gray-700">
-                        Cant.
-                      </th>
-                      <th className="px-3 py-2 text-right font-semibold text-gray-700">
-                        Subtotal
-                      </th>
+                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Código</th>
+                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Descripción</th>
+                      <th className="px-3 py-2 text-right font-semibold text-gray-700">Precio Lista</th>
+                      <th className="px-3 py-2 text-right font-semibold text-gray-700">Dscto 1 (%)</th>
+                      <th className="px-3 py-2 text-right font-semibold text-gray-700">Dscto 5 (%)</th>
+                      <th className="px-3 py-2 text-right font-semibold text-gray-700">Precio Neto</th>
+                      <th className="px-3 py-2 text-right font-semibold text-gray-700">Cant.</th>
+                      <th className="px-3 py-2 text-right font-semibold text-gray-700">Subtotal</th>
                       <th className="px-3 py-2" />
                     </tr>
                   </thead>
@@ -433,31 +450,23 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                             <input
                               type="text"
                               value={p.codigo}
-                              onChange={e =>
-                                handleProductChange(index, 'codigo', e.target.value)
-                              }
-                              className="w-full px-2 py-1 border border-gray-300 rounded"
+                              onChange={e => handleProductChange(index, 'codigo', e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
                             />
                           </td>
                           <td className="px-3 py-2">
                             <input
                               type="text"
                               value={p.nombre}
-                              onChange={e =>
-                                handleProductChange(index, 'nombre', e.target.value)
-                              }
-                              className="w-full px-2 py-1 border border-gray-300 rounded"
+                              onChange={e => handleProductChange(index, 'nombre', e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
                             />
                           </td>
                           <td className="px-3 py-2 text-right">
                             <input
                               type="text"
                               inputMode="decimal"
-                              value={
-                                p.precioLista === 0 || p.precioLista === null
-                                  ? ''
-                                  : String(p.precioLista)
-                              }
+                              value={p.precioLista === 0 || p.precioLista === null ? '' : String(p.precioLista)}
                               onChange={e => {
                                 let raw = e.target.value.replace(',', '.');
                                 if (raw === '') {
@@ -467,18 +476,14 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                                 if (!/^\d*\.?\d*$/.test(raw)) return;
                                 handleProductChange(index, 'precioLista', raw);
                               }}
-                              className="w-24 px-2 py-1 border border-gray-300 rounded text-right"
+                              className="w-24 px-2 py-1 border border-gray-300 rounded text-right text-xs"
                             />
                           </td>
                           <td className="px-3 py-2 text-right">
                             <input
                               type="text"
                               inputMode="decimal"
-                              value={
-                                p.discount1 === 0 || p.discount1 === null
-                                  ? ''
-                                  : String(p.discount1)
-                              }
+                              value={p.discount1 === 0 || p.discount1 === null ? '' : String(p.discount1)}
                               onChange={e => {
                                 let raw = e.target.value.replace(',', '.');
                                 if (raw === '') {
@@ -488,18 +493,14 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                                 if (!/^\d*\.?\d*$/.test(raw)) return;
                                 handleProductChange(index, 'discount1', raw);
                               }}
-                              className="w-20 px-2 py-1 border border-gray-300 rounded text-right"
+                              className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-xs"
                             />
                           </td>
                           <td className="px-3 py-2 text-right">
                             <input
                               type="text"
                               inputMode="decimal"
-                              value={
-                                p.discount5 === 0 || p.discount5 === null
-                                  ? ''
-                                  : String(p.discount5)
-                              }
+                              value={p.discount5 === 0 || p.discount5 === null ? '' : String(p.discount5)}
                               onChange={e => {
                                 let raw = e.target.value.replace(',', '.');
                                 if (raw === '') {
@@ -509,18 +510,14 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                                 if (!/^\d*\.?\d*$/.test(raw)) return;
                                 handleProductChange(index, 'discount5', raw);
                               }}
-                              className="w-20 px-2 py-1 border border-gray-300 rounded text-right"
+                              className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-xs"
                             />
                           </td>
                           <td className="px-3 py-2 text-right">
                             <input
                               type="text"
                               inputMode="decimal"
-                              value={
-                                p.precioNeto === 0 || p.precioNeto === null
-                                  ? ''
-                                  : String(p.precioNeto)
-                              }
+                              value={p.precioNeto === 0 || p.precioNeto === null ? '' : String(p.precioNeto)}
                               onChange={e => {
                                 let raw = e.target.value.replace(',', '.');
                                 if (raw === '') {
@@ -530,7 +527,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                                 if (!/^\d*\.?\d*$/.test(raw)) return;
                                 handleProductChange(index, 'precioNeto', raw);
                               }}
-                              className="w-24 px-2 py-1 border border-gray-300 rounded text-right"
+                              className="w-24 px-2 py-1 border border-gray-300 rounded text-right text-xs"
                             />
                           </td>
                           <td className="px-3 py-2 text-right">
@@ -547,17 +544,17 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                                 if (!/^\d*$/.test(raw)) return;
                                 handleProductChange(index, 'quantity', raw);
                               }}
-                              className="w-16 px-2 py-1 border border-gray-300 rounded text-right"
+                              className="w-16 px-2 py-1 border border-gray-300 rounded text-right text-xs"
                             />
                           </td>
                           <td className="px-3 py-2 text-right text-gray-800 font-semibold">
-                            {rowSubtotal.toFixed(2)}
+                            ${rowSubtotal.toFixed(2)}
                           </td>
                           <td className="px-3 py-2 text-center">
                             <button
                               type="button"
                               onClick={() => handleRemoveProduct(index)}
-                              className="p-1 rounded text-red-600 hover:bg-red-50"
+                              className="p-1 rounded text-red-600 hover:bg-red-50 transition"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -578,25 +575,25 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
 
             {/* Totales */}
             <div className="flex justify-end">
-              <div className="space-y-1 w-full max-w-xs">
+              <div className="space-y-1 w-full max-w-xs bg-gray-50 rounded-lg p-4 border border-gray-200">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium text-gray-700">Subtotal:</span>
                   <span className="font-semibold text-gray-900">
-                    {formData.subtotal?.toFixed(2)}
+                    ${formData.subtotal?.toFixed(2)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium text-gray-700">
-                    IGV ({IGV_RATE * 100}%):
+                    IGV ({(IGV_RATE * 100).toFixed(0)}%):
                   </span>
                   <span className="font-semibold text-gray-900">
-                    {formData.igv?.toFixed(2)}
+                    ${formData.igv?.toFixed(2)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-sm border-t pt-1 mt-1">
+                <div className="flex items-center justify-between text-base border-t pt-2 mt-2">
                   <span className="font-bold text-gray-900">Total:</span>
-                  <span className="font-extrabold text-emerald-700">
-                    {formData.total?.toFixed(2)}
+                  <span className="font-extrabold text-emerald-700 text-lg">
+                    ${formData.total?.toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -607,13 +604,13 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition font-medium"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="px-4 py-2.5 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 shadow-md hover:shadow-lg"
+                className="px-4 py-2.5 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 shadow-md hover:shadow-lg transition"
               >
                 Guardar cambios
               </button>
@@ -622,11 +619,13 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
         </div>
       </div>
 
-      {/* Selector de productos reutilizable */}
+      {/* Modal de productos */}
       <ProductSelectorModal
         isOpen={isProductSelectorOpen}
         onClose={() => setIsProductSelectorOpen(false)}
         onSelect={handleSelectProductForQuotation}
+        selectedClient={selectedClient}
+        title="Agregar Producto a la Cotización"
       />
     </>
   );
