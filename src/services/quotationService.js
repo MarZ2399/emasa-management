@@ -87,29 +87,33 @@ export const cancelQuotation = async (id) => {
 // ============================================================
 
 export const formatDateToYYYYMMDD = (date = new Date()) => {
-  let dateObj;
-
+  // ✅ Si es string "2026-02-23" o "2026-02-23T..." → extraer directo sin new Date()
   if (typeof date === 'string') {
-    dateObj = new Date(date);
-  } else if (date instanceof Date) {
-    dateObj = date;
-  } else if (typeof date === 'number') {
-    return date;
-  } else {
-    dateObj = new Date();
+    const clean = date.split('T')[0];
+    if (clean.includes('-')) {
+      const [year, month, day] = clean.split('-');
+      return parseInt(`${year}${month}${day}`);
+    }
   }
+
+  // ✅ Si ya es número entero → devolver tal cual
+  if (typeof date === 'number') return date;
+
+  // ✅ Si es instancia Date (ej: new Date()) → usar getFullYear/getMonth/getDate
+  const dateObj = date instanceof Date ? date : new Date();
 
   if (isNaN(dateObj.getTime())) {
     console.warn('⚠️ Fecha inválida, usando fecha actual');
-    dateObj = new Date();
+    return parseInt(new Date().toLocaleDateString('sv-SE').replace(/-/g, ''));
   }
 
-  const year = dateObj.getFullYear();
+  const year  = dateObj.getFullYear();
   const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-  const day = String(dateObj.getDate()).padStart(2, '0');
+  const day   = String(dateObj.getDate()).padStart(2, '0');
 
   return parseInt(`${year}${month}${day}`);
 };
+
 
 export const formatDateToInputValue = (date) => {
   if (!date) return '';
@@ -239,6 +243,7 @@ export const prepareQuotationPayload = (
       codigd: (item.codigo || '').substring(0, 20),
       qaprbd: quantity,
       regd: numeroCorrelativo,
+       nom_prod: (item.nombre || item.descripcion || '').substring(0, 150),
       dprun_usd: esUSD ? precioLista : 0,
       dides_usd: esUSD ? descuentoTotal : 0,
       dinet_usd: esUSD ? precioNetoTotal : 0,
@@ -336,7 +341,8 @@ export const prepareUpdatePayload = (formData, correlativo = null) => {
       itemd: idx + 1,
       codigd: (item.codigo || '').substring(0, 20),
       qaprbd: cantidad,
-      regd: numeroCorrelativo,          // ✅ ahora siempre se envía
+      regd: numeroCorrelativo,  
+      nom_prod: (item.nombre || item.descripcion || '').substring(0, 150),       
       dprun_usd: esUSD ? precioLista : 0,
       dides_usd: esUSD ? descuentoTotal : 0,
       dinet_usd: esUSD ? precioNetoTotal : 0,

@@ -66,6 +66,23 @@ const QuotationsModule = () => {
   return `${day}/${month}/${year}`;
 };
 
+const parseFecha = (fechaRaw) => {
+  if (!fechaRaw) return new Date().toISOString().split('T')[0];
+
+  // Si ya viene como string ISO "2026-02-23T05:00:00.000Z"
+  if (typeof fechaRaw === 'string' && fechaRaw.includes('T')) {
+    return fechaRaw.split('T')[0]; // ✅ toma solo "2026-02-23", sin timezone
+  }
+
+  // Si viene como string ISO sin T "2026-02-23"
+  if (typeof fechaRaw === 'string' && fechaRaw.includes('-')) {
+    return fechaRaw; // ✅ ya está bien
+  }
+
+  // Si viene como entero 20260223
+  return formatDateFromInt(fechaRaw);
+};
+
   // ── Fetch ─────────────────────────────────────────────────────
   const fetchQuotations = async () => {
     try {
@@ -73,10 +90,13 @@ const QuotationsModule = () => {
       const response = await quotationService.listQuotations({ limit: 500, offset: 0 });
 
       if (response.success) {
+        console.log('🔍 Primera cotización RAW:', response.data[0]);         // ← AQUÍ
+      console.log('🔍 fechac RAW:', response.data[0]?.fechac);             // ← AQUÍ
+      console.log('🔍 typeof fechac:', typeof response.data[0]?.fechac);   // ← AQUÍ
         const transformed = response.data.map(q => ({
           id:               q.id_cotizac,
           numeroCotizacion: q.correlativo_cotiza,
-          fecha:            formatDateFromInt(q.fechac),
+          fecha:            parseFecha(q.fechac),
           cliente:          q.cliente_nombre,
           ruc:              q.cliente_ruc,
           asesor:           q.vendedor || 'N/A',
@@ -125,8 +145,8 @@ const QuotationsModule = () => {
           return {
             id:          idx + 1,
             codigo:      d.codigd,
-            nombre:      d.nombre_producto || 'Producto sin nombre',
-            descripcion: d.nombre_producto || 'Producto sin nombre',
+            nombre:      d.nom_prod || d.nombre_producto || 'Producto sin nombre',
+            descripcion: d.nom_prod || d.nombre_producto || 'Producto sin nombre',
             precioLista,
             precioUnitario: precioNetoUnitario,
             precioNeto:     precioNetoUnitario,
@@ -250,7 +270,7 @@ const QuotationsModule = () => {
         const productos = detalles.map((d, idx) => ({
           id:          idx + 1,
           codigo:      d.codigd,
-          nombre:      d.nombre_producto || 'Producto sin nombre',
+          nombre:      d.nom_prod || d.nombre_producto || 'Producto sin nombre',
           precioLista: parseFloat(d.dprun_usd || d.dpruns || 0),
           precioNeto:  parseFloat((parseFloat(d.dinet_usd || d.dinets || 0) / (d.qaprbd || 1)).toFixed(2)),
           quantity:    d.qaprbd || 0,
