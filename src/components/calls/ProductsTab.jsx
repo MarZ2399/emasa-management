@@ -8,23 +8,16 @@ import Tooltip from '../common/Tooltip';
 import { AuthContext } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
+
 const PriceCell = ({ qa, children }) => {
   if (qa?.loading) return <Loader2 className="w-4 h-4 animate-spin text-blue-400 mx-auto" />;
   if (qa?.error)   return <span className="text-xs text-red-400" title={qa.error}>—</span>;
   return children;
 };
 
-// ─────────────────────────────────────────
-// ✅ HELPER — valida que el producto tenga al menos un almacén
-// con nombre conocido Y stock > 0
-// Reglas:
-//   1. product.almacenes debe existir y tener al menos 1 elemento
-//   2. Al menos 1 almacén debe tener nombre (almacendes o almacencod no vacío)
-//   3. Al menos 1 almacén con nombre debe tener stock > 0
-// ─────────────────────────────────────────
+
 const hasValidStock = (product) => {
   if (!product.almacenes || product.almacenes.length === 0) return false;
-
   return product.almacenes.some(a => {
     const tieneNombre = !!(a.almacendes?.trim() || a.almacencod?.trim());
     const tieneStock  = (a.stock || 0) > 0;
@@ -32,23 +25,20 @@ const hasValidStock = (product) => {
   });
 };
 
-// Retorna el motivo si no puede agregar (para el tooltip)
+
 const getStockBlockReason = (product) => {
   if (!product.almacenes || product.almacenes.length === 0)
     return 'Sin almacén configurado';
-
   const conNombre = product.almacenes.filter(
     a => a.almacendes?.trim() || a.almacencod?.trim()
   );
-
   if (conNombre.length === 0)
     return 'Sin almacén identificado';
-
   if (conNombre.every(a => (a.stock || 0) === 0))
     return 'Sin stock disponible';
-
-  return null; // ok
+  return null;
 };
+
 
 const ProductsTab = ({
   codigoProducto,
@@ -60,25 +50,25 @@ const ProductsTab = ({
   onAddToQuotation,
   clienteRuc,
   quotationItems,
-  autoSearchTrigger 
+  autoSearchTrigger
 }) => {
-  const [modalOpen, setModalOpen] = useState(false);
+  const [modalOpen, setModalOpen]       = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [productsPerPage] = useState(10);
-  const [productos, setProductos] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage]   = useState(1);
+  const [productsPerPage]               = useState(10);
+  const [productos, setProductos]       = useState([]);
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState(null);
 
   const { user } = useContext(AuthContext);
   const codAlmacen = user?.empresa?.cod_almacen || null;
 
-  // Auto-búsqueda cuando viene desde PurchaseHistoryTab
+  // ── Auto-búsqueda desde PurchaseHistoryTab ───────────────────────────────────
   useEffect(() => {
     if (autoSearchTrigger > 0 && codigoProducto?.trim()) {
       handleSearch();
     }
-  }, [autoSearchTrigger]); 
+  }, [autoSearchTrigger]);
 
   const indexOfLastProduct  = currentPage * productsPerPage;
   const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
@@ -86,16 +76,14 @@ const ProductsTab = ({
   const totalPages          = Math.ceil(productos.length / productsPerPage);
   const handlePageChange    = (pageNumber) => setCurrentPage(pageNumber);
 
-  
-  //Calculo de montos descuentos y totales
+  // ── Cálculo de precios ────────────────────────────────────────────────────────
   const calcPrecios = (preciosData, discount5, quantity) => {
-    const ldol  = preciosData?.importes?.ldol || 0;
-    const de01  = (preciosData?.descuentos?.de01 || 0) / 100;
-    const de05  = (Number(discount5) || 0) / 100;
-    const unit  = ldol * (1 - de01) * (1 - de05);
-    const total = unit * (Number(quantity) || 1);
-    return { precioUnit: unit, precioTotal: total };
-  };
+  const dola  = preciosData?.importes?.dola || 0;   // ← precio neto con de01 ya aplicado
+  const de05  = (Number(discount5) || 0) / 100;
+  const unit  = dola * (1 - de05);
+  const total = unit * (Number(quantity) || 1);
+  return { precioUnit: unit, precioTotal: total };
+};
 
   const updateProductQuick = (codigo, quickData) => {
     setProductos(prev =>
@@ -107,6 +95,7 @@ const ProductsTab = ({
     );
   };
 
+  // ── Fetch precios por fila ────────────────────────────────────────────────────
   const fetchPreciosRow = async (producto) => {
     try {
       const response = await precioService.obtenerPrecio(
@@ -116,12 +105,17 @@ const ProductsTab = ({
       );
 
       if (response.success && response.data) {
+        const flag = response.data.flag?.trim();
+
+        // ✅ discount5 inicial según flag
+        const discount5Inicial = '';
+
         updateProductQuick(producto.codigo, {
           loading:     false,
           error:       null,
           preciosData: response.data,
           quantity:    1,
-          discount5:   response.data.descuentos?.de05 || 0
+          discount5:   discount5Inicial
         });
       } else {
         updateProductQuick(producto.codigo, {
@@ -138,6 +132,7 @@ const ProductsTab = ({
     }
   };
 
+  // ── Búsqueda de productos ─────────────────────────────────────────────────────
   const handleSearch = async () => {
     if (!codigoProducto.trim() && !nombreProducto.trim()) {
       setError('Ingrese al menos un código o nombre de producto');
@@ -239,14 +234,18 @@ const ProductsTab = ({
     setModalOpen(true);
   };
 
-  // ─────────────────────────────────────────
-  // CONFIRMAR — carrito envía a cotización
-  // ✅ Validación de stock agregada
-  // ─────────────────────────────────────────
+  // ── Confirmar → cotización ────────────────────────────────────────────────────
   const handleConfirm = (product) => {
     const qa = product.quick;
 
-    // ✅ Validar stock antes de cualquier otra cosa
+    // ✅ Variables de flag
+    const flag  = qa?.preciosData?.flag?.trim();
+    const flagT = flag === 'T';
+    const flagX = flag === 'X';
+    const minD5 = flagT ? (qa?.preciosData?.descuentos?.de04 ?? 0)   : 0;
+    const maxD5 = flagT ? (qa?.preciosData?.descuentos?.de05 ?? 100) : 100;
+
+    // Validar stock
     const stockReason = getStockBlockReason(product);
     if (stockReason) {
       toast.error(
@@ -272,8 +271,31 @@ const ProductsTab = ({
       return;
     }
 
+    // ✅ Validación flag X — no permite descuento
+    if (flagX && Number(qa.discount5) !== 0) {
+      toast.error('Este producto no permite descuento adicional.', {
+        position: 'top-right', duration: 4000, icon: '🚫'
+      });
+      return;
+    }
+
+    // ✅ Validación flag T — rango obligatorio
+    if (flagT) {
+      const d5 = Number(qa.discount5);
+      if (d5 < minD5 || d5 > maxD5) {
+        toast.error(
+          `El 5to descuento debe estar entre ${minD5}% y ${maxD5}%.`,
+          { position: 'top-right', duration: 4000, icon: '⚠️' }
+        );
+        return;
+      }
+    }
+
     const qty       = Math.max(1, Number(qa.quantity) || 1);
-    const discount5 = Math.min(100, Number(qa.discount5) || 0);
+    const discount5 = flagX ? 0 : flagT
+      ? Math.min(maxD5, Math.max(minD5, Number(qa.discount5) || minD5))
+      : Math.min(100, Number(qa.discount5) || 0);
+
     const { precioUnit, precioTotal } = calcPrecios(qa.preciosData, discount5, qty);
 
     onAddToQuotation({
@@ -285,7 +307,7 @@ const ProductsTab = ({
       precioNeto:     precioUnit,
       precioCotizar:  precioTotal,
       preciosDetalle: qa.preciosData,
-      warehouse:      product.almacenes?.[0]?.almacencod        || codAlmacen,
+      warehouse:      product.almacenes?.[0]?.almacencod         || codAlmacen,
       warehouseName:  product.almacenes?.[0]?.almacendes?.trim() || codAlmacen
     });
 
@@ -298,6 +320,7 @@ const ProductsTab = ({
     return               { icon: '✅' };
   };
 
+  // ─────────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
 
@@ -380,10 +403,10 @@ const ProductsTab = ({
                 <table className="w-full min-w-[1400px]">
                   <thead className="bg-[#334a5e] text-white">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Código</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Producto</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Marca</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider whitespace-normal leading-tight">Stock por <br/>Almacén</th>
+                      <th className="px-4 py-3 text-left   text-xs font-semibold uppercase tracking-wider">Código</th>
+                      <th className="px-4 py-3 text-left   text-xs font-semibold uppercase tracking-wider">Producto</th>
+                      <th className="px-4 py-3 text-left   text-xs font-semibold uppercase tracking-wider">Marca</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider whitespace-normal leading-tight">Stock por<br/>Almacén</th>
                       <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider whitespace-normal leading-tight">P. Lista<br/>(Sin IGV)</th>
                       <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider bg-green-700">1er Dsco.</th>
                       <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider bg-green-700">5to Dsco.</th>
@@ -400,16 +423,22 @@ const ProductsTab = ({
                         ? calcPrecios(qa.preciosData, qa.discount5, qa.quantity)
                         : { precioUnit: 0, precioTotal: 0 };
 
-                      // ✅ Evaluar bloqueo de stock para esta fila
+                      // Stock
                       const stockReason  = getStockBlockReason(product);
                       const stockBlocked = !!stockReason;
+
+                      // ✅ Flag logic
+                      const flag  = qa?.preciosData?.flag?.trim();
+                      const flagT = flag === 'T';
+                      const flagX = flag === 'X';
+                      const minD5 = flagT ? (qa?.preciosData?.descuentos?.de04 ?? 0)   : 0;
+                      const maxD5 = flagT ? (qa?.preciosData?.descuentos?.de05 ?? 100) : 100;
 
                       return (
                         <tr
                           key={product.id}
                           className={`transition ${stockBlocked ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}
                         >
-
                           {/* Código */}
                           <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {product.codigo}
@@ -448,7 +477,6 @@ const ProductsTab = ({
                                 })}
                               </div>
                             ) : (
-                              // ✅ Badge visual cuando no hay almacén
                               <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-500 bg-red-50 border border-red-200 rounded-lg px-2 py-1">
                                 🚫 Sin almacén
                               </span>
@@ -469,29 +497,61 @@ const ProductsTab = ({
                             </PriceCell>
                           </td>
 
-                          {/* 5to Dsco */}
+                          {/* ✅ 5to Dsco — con lógica de flag */}
                           <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
                             <PriceCell qa={qa}>
-                              <div className="flex items-center justify-center gap-0.5">
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  value={qa?.discount5 ?? ''}
-                                  onChange={e => {
-                                    const raw    = e.target.value.replace(/\D/g, '');
-                                    const capped = raw === '' ? '' : Number(raw) > 100 ? '100' : raw;
-                                    updateProductQuick(product.codigo, { discount5: capped });
-                                  }}
-                                  onBlur={() => {
-                                    const current = product.quick?.discount5;
-                                    const val = current === '' || current == null
-                                      ? 0
-                                      : Math.min(100, Number(current) || 0);
-                                    updateProductQuick(product.codigo, { discount5: val });
-                                  }}
-                                  className="w-12 text-center text-sm font-bold border border-purple-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-purple-400 outline-none bg-white"
-                                />
-                                <span className="text-xs text-gray-400">%</span>
+                              <div className="flex flex-col items-center gap-1">
+                                <div className="flex items-center gap-0.5">
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={qa?.discount5 ?? ''}
+                                    disabled={flagX}
+                                    onChange={e => {
+                                      if (flagX) return;
+                                      const raw = e.target.value.replace(/\D/g, '');
+                                      if (raw === '') {
+                                        updateProductQuick(product.codigo, { discount5: '' });
+                                        return;
+                                      }
+                                      const num    = Number(raw);
+                                      const capped = flagT
+                                        ? (num > maxD5 ? String(maxD5) : raw)
+                                        : (num > 100   ? '100'         : raw);
+                                      updateProductQuick(product.codigo, { discount5: capped });
+                                    }}
+                                    onBlur={() => {
+  if (flagX) return;
+  const current = product.quick?.discount5;
+  if (current === '' || current == null) return; // ← deja vacío
+  const num = Number(current) || 0;
+  const val = flagT
+    ? Math.min(maxD5, Math.max(minD5, num))
+    : Math.min(100, Math.max(0, num));
+  updateProductQuick(product.codigo, { discount5: val });
+}}
+                                    className={`w-12 text-center text-sm font-bold border rounded px-1 py-0.5 focus:ring-1 outline-none ${
+                                      flagX
+                                        ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
+                                        : flagT
+                                        ? 'bg-white border-orange-400 focus:ring-orange-400'
+                                        : 'bg-white border-purple-300 focus:ring-purple-400'
+                                    }`}
+                                  />
+                                  <span className="text-xs text-gray-400">%</span>
+                                </div>
+
+                                {/* ✅ Badge indicador de restricción */}
+                                {flagX && (
+                                  <span className="text-xs font-semibold text-gray-500 bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5">
+                                    Sin dscto.
+                                  </span>
+                                )}
+                                {flagT && (
+                                  <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">
+                                    {minD5}% – {maxD5}%
+                                  </span>
+                                )}
                               </div>
                             </PriceCell>
                           </td>
@@ -540,8 +600,6 @@ const ProductsTab = ({
                           {/* Acciones */}
                           <td className="px-4 py-4 text-center">
                             <div className="flex items-center justify-center gap-2">
-
-                              {/* ✅ Tooltip dinámico: muestra razón de bloqueo o texto normal */}
                               <Tooltip text={stockBlocked ? stockReason : 'Agregar a cotización'}>
                                 <button
                                   onClick={() => handleConfirm(product)}
