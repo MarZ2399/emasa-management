@@ -10,7 +10,7 @@ const ProdDetailModal = ({
   clienteRuc,
   isOpen,
   onClose,
-  onAddToQuotation
+  onAddToQuotation, quotationItems
 }) => {
   if (!product || !isOpen) return null;
 
@@ -183,50 +183,63 @@ const ProdDetailModal = ({
   };
 
   const handleAddToQuotation = () => {
-    if (!selectedWarehouse) {
-      toast.error('Por favor selecciona un almacén', { position: 'top-right' });
-      return;
-    }
+  // ✅ Validar que el producto no esté ya en la cotización
+  const yaExiste = quotationItems?.some(
+    item => item.codigo?.trim() === product.codigo?.trim()
+  );
 
-    if (quantity > availableStock) {
-      toast.error('Stock insuficiente en el almacén seleccionado', {
-        position: 'top-right'
-      });
-      return;
-    }
+  if (yaExiste) {
+    toast.error(
+      `"${product.codigo}" ya está en la cotización. Modifica los datos directamente en dicha sección.`,
+      { position: 'top-right', duration: 4000, icon: '⚠️' }
+    );
+    return;
+  }
 
-    if (quantity <= 0) {
-      toast.error('La cantidad debe ser mayor a 0', { position: 'top-right' });
-      return;
-    }
+  // Validaciones existentes (sin cambio)
+  if (!selectedWarehouse) {
+    toast.error('Por favor selecciona un almacén', { position: 'top-right' });
+    return;
+  }
 
-    const almacenSeleccionado = product.almacenes?.find(a => a.almacencod === selectedWarehouse);
+  if (quantity > availableStock) {
+    toast.error('Stock insuficiente en el almacén seleccionado', { position: 'top-right' });
+    return;
+  }
 
-    onAddToQuotation({
-      ...product,
-      quantity,
-      discount1,
-      discount5,
-      precioLista: preciosData?.importes?.ldol || product.precioListaDolar || product.precioNetoDolar,
-      precioNeto: precioNetoDolar,
-      precioCotizar: precioTotal,
-      preciosDetalle: preciosData,
-      warehouse: selectedWarehouse,
-      warehouseName: almacenSeleccionado?.almacendes?.trim() || selectedWarehouse
-    });
+  if (quantity <= 0) {
+    toast.error('La cantidad debe ser mayor a 0', { position: 'top-right' });
+    return;
+  }
 
-    toast.success(`Producto agregado desde almacén ${almacenSeleccionado?.almacendes?.trim() || selectedWarehouse}`, {
-      position: 'top-right'
-    });
+  const almacenSeleccionado = product.almacenes?.find(a => a.almacencod === selectedWarehouse);
 
-    // Reset
-    setQuantity(1);
-    setDiscount5(0);
-    setSelectedWarehouse('');
-    setPreciosData(null);
-    initialLoadDone.current = false;
-    onClose();
-  };
+  onAddToQuotation({
+    ...product,
+    quantity,
+    discount1,
+    discount5,
+    precioLista:     preciosData?.importes?.ldol || product.precioListaDolar || product.precioNetoDolar,
+    precioNeto:      precioNetoDolar,
+    precioCotizar:   precioTotal,
+    preciosDetalle:  preciosData,
+    warehouse:       selectedWarehouse,
+    warehouseName:   almacenSeleccionado?.almacendes?.trim() || selectedWarehouse
+  });
+
+  toast.success(`Producto agregado desde almacén ${almacenSeleccionado?.almacendes?.trim() || selectedWarehouse}`, {
+    position: 'top-right'
+  });
+
+  // Reset
+  setQuantity(1);
+  setDiscount5(0);
+  setSelectedWarehouse('');
+  setPreciosData(null);
+  initialLoadDone.current = false;
+  onClose();
+};
+
 
   // ✅ Cleanup del debounce
   useEffect(() => {

@@ -32,6 +32,7 @@ const CallsModule = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage] = useState(15);
+  const [autoSearchTrigger, setAutoSearchTrigger] = useState(0);
   
   const [filters, setFilters] = useState({
     fechaInicio: '',
@@ -258,7 +259,8 @@ const CallsModule = () => {
   const handleProductClick = (codigoProducto) => {
     setCodigoProducto(codigoProducto);
     setNombreProducto('');
-    setHasSearched(true);
+    setHasSearched(false);
+    setAutoSearchTrigger(prev => prev + 1);
     setActiveTab('products');
   };
 
@@ -669,20 +671,27 @@ const CallsModule = () => {
     ) : (
       <>
         <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-lg">✓</span>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-green-900">
-                Cliente seleccionado: {selectedClient.nombreCliente}
-              </p>
-              <p className="text-xs text-green-700">
-                RUC: {selectedClient.ruc}
-              </p>
-            </div>
-          </div>
-        </div>
+  <div className="flex items-center gap-3">
+    <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
+      <span className="text-white text-lg">✓</span>
+    </div>
+    <div>
+      <p className="text-sm font-semibold text-green-900">
+        Cliente seleccionado: {selectedClient.nombreCliente} 
+        {selectedClient.giro && (
+          <span className="ml-2 text-green-900">
+            / {selectedClient.giro}
+          </span>
+        )}
+      </p>
+      <p className="text-xs text-green-700">
+        RUC: {selectedClient.ruc}
+        
+      </p>
+    </div>
+  </div>
+</div>
+
 
         <ProductsTab
           codigoProducto={codigoProducto}
@@ -692,6 +701,8 @@ const CallsModule = () => {
           hasSearched={hasSearched}
           setHasSearched={setHasSearched}
           clienteRuc={selectedClient.ruc} // ✅ PROP AGREGADO
+          quotationItems={quotationItems}
+          autoSearchTrigger={autoSearchTrigger} 
           onAddToQuotation={prodData => {
             setQuotationItems(items => [...items, prodData]);
             setActiveTab('quotations');

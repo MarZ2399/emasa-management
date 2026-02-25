@@ -1,45 +1,144 @@
 // src/components/calls/ProductsTab.jsx
-import React, { useState } from 'react';
-import { Search, Package, AlertCircle, Eye, Building2, Loader2 } from 'lucide-react';
+import React, { useState, useContext, useEffect } from 'react';
+import { Search, Package, AlertCircle, Eye, Building2, Loader2, ShoppingCart } from 'lucide-react';
 import { productService } from '../../services/productService';
+import { precioService } from '../../services/precioService';
 import ProdDetailModal from './ProdDetailModal';
 import Tooltip from '../common/Tooltip';
+import { AuthContext } from '../../context/AuthContext';
+import toast from 'react-hot-toast';
 
-const ProductsTab = ({ 
-  codigoProducto, 
+const PriceCell = ({ qa, children }) => {
+  if (qa?.loading) return <Loader2 className="w-4 h-4 animate-spin text-blue-400 mx-auto" />;
+  if (qa?.error)   return <span className="text-xs text-red-400" title={qa.error}>—</span>;
+  return children;
+};
+
+// ─────────────────────────────────────────
+// ✅ HELPER — valida que el producto tenga al menos un almacén
+// con nombre conocido Y stock > 0
+// Reglas:
+//   1. product.almacenes debe existir y tener al menos 1 elemento
+//   2. Al menos 1 almacén debe tener nombre (almacendes o almacencod no vacío)
+//   3. Al menos 1 almacén con nombre debe tener stock > 0
+// ─────────────────────────────────────────
+const hasValidStock = (product) => {
+  if (!product.almacenes || product.almacenes.length === 0) return false;
+
+  return product.almacenes.some(a => {
+    const tieneNombre = !!(a.almacendes?.trim() || a.almacencod?.trim());
+    const tieneStock  = (a.stock || 0) > 0;
+    return tieneNombre && tieneStock;
+  });
+};
+
+// Retorna el motivo si no puede agregar (para el tooltip)
+const getStockBlockReason = (product) => {
+  if (!product.almacenes || product.almacenes.length === 0)
+    return 'Sin almacén configurado';
+
+  const conNombre = product.almacenes.filter(
+    a => a.almacendes?.trim() || a.almacencod?.trim()
+  );
+
+  if (conNombre.length === 0)
+    return 'Sin almacén identificado';
+
+  if (conNombre.every(a => (a.stock || 0) === 0))
+    return 'Sin stock disponible';
+
+  return null; // ok
+};
+
+const ProductsTab = ({
+  codigoProducto,
   setCodigoProducto,
-  nombreProducto, 
+  nombreProducto,
   setNombreProducto,
-  hasSearched, 
+  hasSearched,
   setHasSearched,
   onAddToQuotation,
-  clienteRuc 
+  clienteRuc,
+  quotationItems,
+  autoSearchTrigger 
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [productsPerPage] = useState(10);
-  
-  // ✅ Estados para la API
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Paginación
-  const indexOfLastProduct = currentPage * productsPerPage;
-  const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
-  const currentProducts = productos.slice(indexOfFirstProduct, indexOfLastProduct);
-  const totalPages = Math.ceil(productos.length / productsPerPage);
+  const { user } = useContext(AuthContext);
+  const codAlmacen = user?.empresa?.cod_almacen || null;
 
-  const handlePageChange = (pageNumber) => {
-    setCurrentPage(pageNumber);
+  // Auto-búsqueda cuando viene desde PurchaseHistoryTab
+  useEffect(() => {
+    if (autoSearchTrigger > 0 && codigoProducto?.trim()) {
+      handleSearch();
+    }
+  }, [autoSearchTrigger]); 
+
+  const indexOfLastProduct  = currentPage * productsPerPage;
+  const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
+  const currentProducts     = productos.slice(indexOfFirstProduct, indexOfLastProduct);
+  const totalPages          = Math.ceil(productos.length / productsPerPage);
+  const handlePageChange    = (pageNumber) => setCurrentPage(pageNumber);
+
+  
+  //Calculo de montos descuentos y totales
+  const calcPrecios = (preciosData, discount5, quantity) => {
+    const ldol  = preciosData?.importes?.ldol || 0;
+    const de01  = (preciosData?.descuentos?.de01 || 0) / 100;
+    const de05  = (Number(discount5) || 0) / 100;
+    const unit  = ldol * (1 - de01) * (1 - de05);
+    const total = unit * (Number(quantity) || 1);
+    return { precioUnit: unit, precioTotal: total };
   };
 
-  /**
-   * ✅ Buscar productos en la API
-   */
+  const updateProductQuick = (codigo, quickData) => {
+    setProductos(prev =>
+      prev.map(p =>
+        p.codigo === codigo
+          ? { ...p, quick: { ...p.quick, ...quickData } }
+          : p
+      )
+    );
+  };
+
+  const fetchPreciosRow = async (producto) => {
+    try {
+      const response = await precioService.obtenerPrecio(
+        clienteRuc,
+        producto.codigo.trim(),
+        1
+      );
+
+      if (response.success && response.data) {
+        updateProductQuick(producto.codigo, {
+          loading:     false,
+          error:       null,
+          preciosData: response.data,
+          quantity:    1,
+          discount5:   response.data.descuentos?.de05 || 0
+        });
+      } else {
+        updateProductQuick(producto.codigo, {
+          loading: false,
+          error:   response.msgerror || 'Error al obtener precios'
+        });
+      }
+    } catch (err) {
+      console.error('❌ Error fetchPreciosRow:', err);
+      updateProductQuick(producto.codigo, {
+        loading: false,
+        error:   'Error de conexión'
+      });
+    }
+  };
+
   const handleSearch = async () => {
-    // Validar que al menos uno de los campos esté lleno
     if (!codigoProducto.trim() && !nombreProducto.trim()) {
       setError('Ingrese al menos un código o nombre de producto');
       return;
@@ -53,74 +152,68 @@ const ProductsTab = ({
     try {
       let response;
 
-      // ✅ Priorizar búsqueda por código
       if (codigoProducto.trim()) {
-        console.log(`🔍 Buscando por código: ${codigoProducto}`);
         response = await productService.searchByCodigo(codigoProducto);
       } else if (nombreProducto.trim()) {
-        console.log(`🔍 Buscando por nombre: ${nombreProducto}`);
         response = await productService.searchByName(nombreProducto);
       }
 
       if (response.success) {
-        // ✅ Transformar los productos al formato del componente
         const productosFormateados = response.data.map(item => {
-          // Si viene de searchByCodigo (con stock completo)
-          if (item.producto && item.stock) {
-            return {
-              id: item.producto.codigo?.trim(),
-              codigo: item.producto.codigo?.trim(),
-              nombre: item.producto.descripcion?.trim(),
-              categoria: item.producto.linea?.trim() || 'Sin categoría',
-              proveedor: item.producto.marca?.trim() || 'N/A',
-              precioNetoDolar: item.producto.precioListaDol || 0,
-              precioBolsa: item.producto.precioBoletin || 0,
-              unidad: 'UND',
-              disponibleVenta: item.producto.disponibleVenta === 'S',
-              
-              // ✅ Stock por almacén (mapear desde el array de stock)
-              stock: item.stock.reduce((sum, s) => sum + (s.stock || 0), 0),
-              // stockBSF: item.stock.find(s => s.almacencod?.includes('BSF'))?.stock || 0,
-              // stockSanLuis: item.stock.find(s => s.almacencod?.includes('SAN'))?.stock || 0,
-              almacenes: item.stock.filter(s => s.stock > 0 || true), // Guardar todos los almacenes
-              
-              // Datos adicionales
-              equivalencia01: item.producto.equivalencia01?.trim(),
-              equivalencia02: item.producto.equivalencia02?.trim(),
-              core: item.producto.core?.trim(),
-              modelo: item.producto.modelo?.trim()
-            };
-          }
-          
-          // Si viene de searchByName (sin stock)
+          const base = item.producto && item.stock
+            ? (() => {
+                const almacenesFiltrados = codAlmacen
+                  ? item.stock.filter(s => s.almacencod?.trim() === codAlmacen.trim())
+                  : item.stock;
+                return {
+                  id:              item.producto.codigo?.trim(),
+                  codigo:          item.producto.codigo?.trim(),
+                  nombre:          item.producto.descripcion?.trim(),
+                  categoria:       item.producto.linea?.trim() || 'Sin categoría',
+                  proveedor:       item.producto.marca?.trim() || 'N/A',
+                  precioNetoDolar: item.producto.precioListaDol || 0,
+                  precioBolsa:     item.producto.precioBoletin || 0,
+                  unidad:          'UND',
+                  disponibleVenta: item.producto.disponibleVenta === 'S',
+                  stock:           almacenesFiltrados.reduce((sum, s) => sum + (s.stock || 0), 0),
+                  almacenes:       almacenesFiltrados,
+                  equivalencia01:  item.producto.equivalencia01?.trim(),
+                  equivalencia02:  item.producto.equivalencia02?.trim(),
+                  core:            item.producto.core?.trim(),
+                  modelo:          item.producto.modelo?.trim()
+                };
+              })()
+            : {
+                id:              item.codigo?.trim(),
+                codigo:          item.codigo?.trim(),
+                nombre:          item.descripcion?.trim(),
+                categoria:       item.linea?.trim() || 'Sin categoría',
+                proveedor:       item.marca?.trim() || 'N/A',
+                precioNetoDolar: item.precioListaDol || 0,
+                unidad:          'UND',
+                stock:           0,
+                almacenes:       []
+              };
+
           return {
-            id: item.codigo?.trim(),
-            codigo: item.codigo?.trim(),
-            nombre: item.descripcion?.trim(),
-            categoria: item.linea?.trim() || 'Sin categoría',
-            proveedor: item.marca?.trim() || 'N/A',
-            precioNetoDolar: item.precioListaDol || 0,
-            unidad: 'UND',
-            stock: 0,
-            stockBSF: 0,
-            stockSanLuis: 0,
-            almacenes: []
+            ...base,
+            quick: { loading: true, error: null, preciosData: null, quantity: 1, discount5: 0 }
           };
         });
 
         setProductos(productosFormateados);
-        console.log(`✅ ${productosFormateados.length} productos encontrados`);
 
         if (productosFormateados.length === 0) {
           setError('No se encontraron productos con esos criterios');
+        } else {
+          productosFormateados.forEach(p => fetchPreciosRow(p));
         }
       } else {
         setError(response.msgerror || 'Error al buscar productos');
         setProductos([]);
       }
-
-    } catch (error) {
-      console.error('❌ Error al buscar productos:', error);
+    } catch (err) {
+      console.error('❌ Error al buscar productos:', err);
       setError('Error al conectar con el servidor. Intente nuevamente.');
       setProductos([]);
     } finally {
@@ -146,188 +239,207 @@ const ProductsTab = ({
     setModalOpen(true);
   };
 
-  /**
-   * ✅ Función para obtener el estado del stock
-   */
-  const getStockStatus = (stock) => {
-    if (stock === 0) {
-      return {
-        text: 'Sin Stock',
-        color: 'bg-red-100 text-red-700 border-red-300',
-        icon: '❌'
-      };
-    } else if (stock < 10) {
-      return {
-        text: 'Stock Bajo',
-        color: 'bg-yellow-100 text-yellow-700 border-yellow-300',
-        icon: '⚠️'
-      };
-    } else {
-      return {
-        text: 'Disponible',
-        color: 'bg-green-100 text-green-700 border-green-300',
-        icon: '✅'
-      };
+  // ─────────────────────────────────────────
+  // CONFIRMAR — carrito envía a cotización
+  // ✅ Validación de stock agregada
+  // ─────────────────────────────────────────
+  const handleConfirm = (product) => {
+    const qa = product.quick;
+
+    // ✅ Validar stock antes de cualquier otra cosa
+    const stockReason = getStockBlockReason(product);
+    if (stockReason) {
+      toast.error(
+        `No se puede agregar "${product.codigo}": ${stockReason}.`,
+        { position: 'top-right', duration: 4000, icon: '🚫' }
+      );
+      return;
     }
+
+    if (!qa?.preciosData) {
+      toast.error('Los precios aún están cargando, por favor espere.', { position: 'top-right' });
+      return;
+    }
+
+    const yaExiste = quotationItems?.some(
+      item => item.codigo?.trim() === product.codigo?.trim()
+    );
+    if (yaExiste) {
+      toast.error(
+        `"${product.codigo}" ya está en la cotización. Modifica los datos directamente en dicha sección.`,
+        { position: 'top-right', duration: 4000, icon: '⚠️' }
+      );
+      return;
+    }
+
+    const qty       = Math.max(1, Number(qa.quantity) || 1);
+    const discount5 = Math.min(100, Number(qa.discount5) || 0);
+    const { precioUnit, precioTotal } = calcPrecios(qa.preciosData, discount5, qty);
+
+    onAddToQuotation({
+      ...product,
+      quantity:       qty,
+      discount1:      qa.preciosData.descuentos?.de01 || 0,
+      discount5,
+      precioLista:    qa.preciosData.importes?.ldol || product.precioNetoDolar,
+      precioNeto:     precioUnit,
+      precioCotizar:  precioTotal,
+      preciosDetalle: qa.preciosData,
+      warehouse:      product.almacenes?.[0]?.almacencod        || codAlmacen,
+      warehouseName:  product.almacenes?.[0]?.almacendes?.trim() || codAlmacen
+    });
+
+    toast.success(`"${product.codigo}" agregado a la cotización`, { position: 'top-right' });
   };
 
-  /**
-   * ✅ Función para obtener el estado del stock por almacén
-   */
   const getWarehouseStockStatus = (stock) => {
     if (stock === 0) return { icon: '❌' };
-    if (stock < 10) return { icon: '⚠️' };
-    return { icon: '✅' };
+    if (stock < 10)  return { icon: '⚠️' };
+    return               { icon: '✅' };
   };
 
   return (
     <div className="space-y-6">
-      {/* Formulario de Búsqueda */}
-<div className="bg-white rounded-lg shadow-md p-6">
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-    {/* Código de Producto */}
-    <div>
-      <label className="block text-sm font-semibold text-gray-700 mb-2">
-        Código de Producto <span className="text-red-600">*</span>
-      </label>
-      <input
-        type="text"
-        placeholder="Ej: Q3 o Q3.VBETY.4E"
-        value={codigoProducto}
-        onChange={e => setCodigoProducto(e.target.value.toUpperCase())}
-        onKeyPress={handleKeyPress}
-        disabled={loading}
-        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition disabled:bg-gray-100"
-      />
-    </div>
-    
-    {/* Nombre de Producto */}
-    <div>
-      <label className="block text-sm font-semibold text-gray-700 mb-2">
-        Nombre de Producto
-      </label>
-      <input
-        type="text"
-        placeholder="Ej: VALVULA"
-        value={nombreProducto}
-        onChange={e => setNombreProducto(e.target.value)}
-        onKeyPress={handleKeyPress}
-        disabled={loading}
-        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition disabled:bg-gray-100"
-      />
-    </div>
-    
-    {/* Botones */}
-    <div className="md:col-span-3 lg:col-span-1 flex items-end gap-2">
-      <button
-        onClick={handleSearch}
-        disabled={(!codigoProducto.trim() && !nombreProducto.trim()) || loading}
-        className="flex-1 flex items-center justify-center gap-2 bg-[#334a5e] text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
-      >
-        {loading ? (
-          <>
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span>Buscando...</span>
-          </>
-        ) : (
-          <>
-            <Search className="w-5 h-5" />
-            <span>Buscar</span>
-          </>
+
+      {/* ── Formulario de Búsqueda ── */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Código de Producto <span className="text-red-600">*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="Ej: Q3 o Q3.VBETY.4E"
+              value={codigoProducto}
+              onChange={e => setCodigoProducto(e.target.value.toUpperCase())}
+              onKeyPress={handleKeyPress}
+              disabled={loading}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition disabled:bg-gray-100"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Nombre de Producto
+            </label>
+            <input
+              type="text"
+              placeholder="Ej: VALVULA"
+              value={nombreProducto}
+              onChange={e => setNombreProducto(e.target.value)}
+              onKeyPress={handleKeyPress}
+              disabled={loading}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition disabled:bg-gray-100"
+            />
+          </div>
+
+          <div className="md:col-span-3 lg:col-span-1 flex items-end gap-2">
+            <button
+              onClick={handleSearch}
+              disabled={(!codigoProducto.trim() && !nombreProducto.trim()) || loading}
+              className="flex-1 flex items-center justify-center gap-2 bg-[#334a5e] text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
+            >
+              {loading ? (
+                <><Loader2 className="w-5 h-5 animate-spin" /><span>Buscando...</span></>
+              ) : (
+                <><Search className="w-5 h-5" /><span>Buscar</span></>
+              )}
+            </button>
+
+            {hasSearched && !loading && (
+              <button
+                onClick={handleClearSearch}
+                className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+              >
+                Limpiar
+              </button>
+            )}
+          </div>
+        </div>
+
+        <p className="text-xs text-gray-500 mt-2">
+          💡 Tip: Puede ingresar código completo (Q3.VBETY.4E) o parcial (Q3) para buscar
+        </p>
+
+        {error && (
+          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
         )}
-      </button>
-      
-      {hasSearched && !loading && (
-        <button
-          onClick={handleClearSearch}
-          className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
-        >
-          Limpiar
-        </button>
-      )}
-    </div>
-  </div>
+      </div>
 
-  {/* Texto helper debajo del formulario (opcional) */}
-  <p className="text-xs text-gray-500 mt-2">
-    💡 Tip: Puede ingresar código completo (Q3.VBETY.4E) o parcial (Q3) para buscar
-  </p>
-
-  {/* Mensaje de Error */}
-  {error && (
-    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-      <p className="text-sm text-red-700">{error}</p>
-    </div>
-  )}
-</div>
-
-
-      {/* Tabla de Resultados */}
+      {/* ── Tabla de Resultados ── */}
       {hasSearched && !loading && (
         <>
           {productos.length > 0 ? (
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1100px]">
+                <table className="w-full min-w-[1400px]">
                   <thead className="bg-[#334a5e] text-white">
                     <tr>
-                      
-                      <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Código</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Producto</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Categoría</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Marca</th>
-                      <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">
-                        <div className="flex items-center justify-center gap-2">
-                          <Building2 className="w-4 h-4" />
-                          Stock por Almacén
-                        </div>
-                      </th>
-                      <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Estado</th>
-                      <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider">Precio ($ USD)</th>
-                      <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Unidad</th>
-                      <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Acciones</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Código</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Producto</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Marca</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider whitespace-normal leading-tight">Stock por <br/>Almacén</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider whitespace-normal leading-tight">P. Lista<br/>(Sin IGV)</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider bg-green-700">1er Dsco.</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider bg-green-700">5to Dsco.</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider bg-green-700 whitespace-normal leading-tight">P. Neto<br/>Unit.</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider bg-green-700">Cant.</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider bg-green-700 whitespace-normal leading-tight">P. Neto<br/>Total</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 bg-white">
                     {currentProducts.map((product) => {
-                      const stockStatus = getStockStatus(product.stock);
-                      const stockBSFStatus = getWarehouseStockStatus(product.stockBSF);
-                      const stockSanLuisStatus = getWarehouseStockStatus(product.stockSanLuis);
-                      
+                      const qa = product.quick;
+                      const { precioUnit, precioTotal } = qa?.preciosData
+                        ? calcPrecios(qa.preciosData, qa.discount5, qa.quantity)
+                        : { precioUnit: 0, precioTotal: 0 };
+
+                      // ✅ Evaluar bloqueo de stock para esta fila
+                      const stockReason  = getStockBlockReason(product);
+                      const stockBlocked = !!stockReason;
+
                       return (
-                        <tr key={product.id} className="hover:bg-gray-50 transition">
-                           
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <tr
+                          key={product.id}
+                          className={`transition ${stockBlocked ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}
+                        >
+
+                          {/* Código */}
+                          <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {product.codigo}
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-900">
+
+                          {/* Producto */}
+                          <td className="px-4 py-4 text-sm text-gray-900 max-w-[200px]">
                             {product.nombre}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <span className="px-2 py-1 bg-gray-100 rounded-full text-xs text-gray-700">
-                              {product.categoria}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+
+                          {/* Marca */}
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
                             {product.proveedor}
                           </td>
-                          
+
                           {/* Stock por Almacén */}
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {product.almacenes && product.almacenes.length > 0 ? (
-                              <div className="space-y-2">
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            {product.almacenes?.length > 0 ? (
+                              <div className="space-y-1">
                                 {product.almacenes.map((almacen, idx) => {
                                   const status = getWarehouseStockStatus(almacen.stock);
                                   return (
-                                    <div key={idx} className="flex items-center justify-between gap-3 bg-blue-50 rounded-lg px-3 py-2 border border-blue-200">
-                                      <div className="flex items-center gap-2">
-                                        <Building2 className="w-4 h-4 text-blue-600" />
+                                    <div key={idx} className="flex items-center justify-between gap-2 bg-blue-50 rounded-lg px-2 py-1.5 border border-blue-200">
+                                      <div className="flex items-center gap-1">
+                                        <Building2 className="w-3 h-3 text-blue-600" />
                                         <span className="text-xs font-semibold text-blue-800">
                                           {almacen.almacendes?.trim() || almacen.almacencod}
                                         </span>
                                       </div>
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-1">
                                         <span className="text-sm font-bold text-blue-900">{almacen.stock}</span>
                                         <span className="text-xs">{status.icon}</span>
                                       </div>
@@ -336,33 +448,125 @@ const ProductsTab = ({
                                 })}
                               </div>
                             ) : (
-                              <span className="text-xs text-gray-400">Sin stock</span>
+                              // ✅ Badge visual cuando no hay almacén
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-500 bg-red-50 border border-red-200 rounded-lg px-2 py-1">
+                                🚫 Sin almacén
+                              </span>
                             )}
                           </td>
 
-                          <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${stockStatus.color}`}>
-                              {stockStatus.icon} {stockStatus.text}
-                            </span>
+                          {/* P. Lista */}
+                          <td className="px-4 py-4 whitespace-nowrap text-center text-sm font-semibold text-gray-800">
+                            ${product.precioNetoDolar.toFixed(3)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
-                            ${product.precioNetoDolar.toFixed(2)}
+
+                          {/* 1er Dsco */}
+                          <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
+                            <PriceCell qa={qa}>
+                              <span className="text-sm font-bold text-indigo-700">
+                                {(qa?.preciosData?.descuentos?.de01 || 0).toFixed(1)}%
+                              </span>
+                            </PriceCell>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-600">
-                            {product.unidad}
+
+                          {/* 5to Dsco */}
+                          <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
+                            <PriceCell qa={qa}>
+                              <div className="flex items-center justify-center gap-0.5">
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={qa?.discount5 ?? ''}
+                                  onChange={e => {
+                                    const raw    = e.target.value.replace(/\D/g, '');
+                                    const capped = raw === '' ? '' : Number(raw) > 100 ? '100' : raw;
+                                    updateProductQuick(product.codigo, { discount5: capped });
+                                  }}
+                                  onBlur={() => {
+                                    const current = product.quick?.discount5;
+                                    const val = current === '' || current == null
+                                      ? 0
+                                      : Math.min(100, Number(current) || 0);
+                                    updateProductQuick(product.codigo, { discount5: val });
+                                  }}
+                                  className="w-12 text-center text-sm font-bold border border-purple-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-purple-400 outline-none bg-white"
+                                />
+                                <span className="text-xs text-gray-400">%</span>
+                              </div>
+                            </PriceCell>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">
-            <div className="flex items-center justify-center gap-2">
-              <Tooltip text="Ver detalle">
-                <button
-                  onClick={() => handleOpenModal(product)}
-                  className="px-3 py-2 bg-[#334a5e] text-white rounded-lg hover:bg-green-700 hover:scale-105 transition inline-flex items-center text-sm font-bold shadow"
-                >
-                  <Eye className="w-4 h-4" />
-                </button>
-              </Tooltip>
-            </div>
-          </td>
+
+                          {/* P. Neto Unit */}
+                          <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
+                            <PriceCell qa={qa}>
+                              <span className="text-sm font-bold text-green-700">
+                                ${precioUnit.toFixed(3)}
+                              </span>
+                            </PriceCell>
+                          </td>
+
+                          {/* Cantidad */}
+                          <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
+                            <PriceCell qa={qa}>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={qa?.quantity ?? ''}
+                                onChange={e => {
+                                  const raw = e.target.value.replace(/\D/g, '');
+                                  updateProductQuick(product.codigo, { quantity: raw });
+                                }}
+                                onBlur={() => {
+                                  const current = product.quick?.quantity;
+                                  const val = current === '' || current == null
+                                    ? 1
+                                    : Math.min(product.stock || 9999, Math.max(1, Number(current) || 1));
+                                  updateProductQuick(product.codigo, { quantity: val });
+                                }}
+                                className="w-14 text-center text-sm font-bold border border-green-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-green-400 outline-none bg-white"
+                              />
+                            </PriceCell>
+                          </td>
+
+                          {/* P. Neto Total */}
+                          <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
+                            <PriceCell qa={qa}>
+                              <span className="text-sm font-bold text-blue-700">
+                                ${precioTotal.toFixed(3)}
+                              </span>
+                            </PriceCell>
+                          </td>
+
+                          {/* Acciones */}
+                          <td className="px-4 py-4 text-center">
+                            <div className="flex items-center justify-center gap-2">
+
+                              {/* ✅ Tooltip dinámico: muestra razón de bloqueo o texto normal */}
+                              <Tooltip text={stockBlocked ? stockReason : 'Agregar a cotización'}>
+                                <button
+                                  onClick={() => handleConfirm(product)}
+                                  disabled={!!qa?.loading || !!qa?.error || stockBlocked}
+                                  className={`px-3 py-2 text-white rounded-lg transition inline-flex items-center text-sm font-bold shadow
+                                    ${stockBlocked
+                                      ? 'bg-gray-400 cursor-not-allowed opacity-50'
+                                      : 'bg-green-600 hover:bg-green-700 hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100'
+                                    }`}
+                                >
+                                  <ShoppingCart className="w-4 h-4" />
+                                </button>
+                              </Tooltip>
+
+                              <Tooltip text="Ver detalle">
+                                <button
+                                  onClick={() => handleOpenModal(product)}
+                                  className="px-3 py-2 bg-[#334a5e] text-white rounded-lg hover:bg-blue-700 hover:scale-105 transition inline-flex items-center text-sm font-bold shadow"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                              </Tooltip>
+                            </div>
+                          </td>
+
                         </tr>
                       );
                     })}
@@ -378,7 +582,7 @@ const ProductsTab = ({
                     <span className="font-semibold">{Math.min(indexOfLastProduct, productos.length)}</span>{' '}
                     de <span className="font-semibold">{productos.length}</span> productos
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handlePageChange(currentPage - 1)}
@@ -387,7 +591,7 @@ const ProductsTab = ({
                     >
                       Anterior
                     </button>
-                    
+
                     <div className="flex gap-1">
                       {[...Array(totalPages)].map((_, index) => {
                         const pageNumber = index + 1;
@@ -418,7 +622,7 @@ const ProductsTab = ({
                         return null;
                       })}
                     </div>
-                    
+
                     <button
                       onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === totalPages}
@@ -447,7 +651,7 @@ const ProductsTab = ({
         </>
       )}
 
-      {/* Estado inicial */}
+      {/* ── Estado Inicial ── */}
       {!hasSearched && !loading && (
         <div className="bg-white rounded-lg shadow-md p-12 text-center border-2 border-dashed border-gray-300">
           <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -458,13 +662,14 @@ const ProductsTab = ({
         </div>
       )}
 
-      {/* Modal de Detalle */}
-      <ProdDetailModal 
+      {/* ── Modal de Detalle ── */}
+      <ProdDetailModal
         product={selectedProduct}
-        clienteRuc={clienteRuc} 
-        isOpen={modalOpen} 
+        clienteRuc={clienteRuc}
+        isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         onAddToQuotation={onAddToQuotation}
+        quotationItems={quotationItems}
       />
     </div>
   );

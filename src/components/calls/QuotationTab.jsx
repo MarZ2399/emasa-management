@@ -8,24 +8,31 @@ import quotationService from '../../services/quotationService';
 
 const IGV_RATE = 0.18;
 
-const QuotationTab = ({ 
-  quotationItems, 
-  setQuotationItems, 
-  onBackToProducts, 
+// ✅ Fuera del componente — idéntico a calcPrecios en ProductsTab
+// precioNeto = precioLista × (1 - de01/100) × (1 - de05/100)
+const calcPrecioNeto = (precioLista, discount1, discount5) => {
+  const ldol = Number(precioLista) || 0;
+  const de01 = (Number(discount1) || 0) / 100;
+  const de05 = (Number(discount5) || 0) / 100;
+  return ldol * (1 - de01) * (1 - de05);
+};
+
+const QuotationTab = ({
+  quotationItems,
+  setQuotationItems,
+  onBackToProducts,
   selectedClient,
-  onRegistrationComplete 
+  onRegistrationComplete
 }) => {
   const pdfRef = useRef(null);
   const [quotationNumber, setQuotationNumber] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
-  
+
   const currency = 'USD';
-  
-  // Símbolos de moneda
   const currencySymbol = currency === 'USD' ? '$' : 'S/';
   const currencyLabel = currency === 'USD' ? 'Dólares Americanos (USD)' : 'Soles (PEN)';
 
-  // ✅ Obtener siguiente correlativo al cargar el componente
+  // ✅ Obtener siguiente correlativo al cargar
   useEffect(() => {
     const fetchNextCorrelative = async () => {
       try {
@@ -39,82 +46,45 @@ const QuotationTab = ({
         setQuotationNumber(`COT-${year}-TEMP`);
       }
     };
-
     fetchNextCorrelative();
   }, []);
 
-  /**
-   * ✅ FUNCIÓN PARA NORMALIZAR Y CALCULAR PRECIO NETO
-   * Se ejecuta cada vez que se agregan o modifican productos
-   */
-  const normalizeAndCalculate = (item) => {
-    // Normalizar valores
+  // ✅ Normaliza un item: convierte strings a números y recalcula precioNeto
+  const normalizeItem = (item) => {
     const precioLista = Number(item.precioLista) || 0;
-    const discount1 = Number(item.discount1) || 0;
-    const discount5 = Number(item.discount5) || 0;
-    const quantity = Number(item.quantity) || 1;
+    const discount1   = Math.max(0, Math.min(100, Number(item.discount1) || 0));
+    const discount5   = Math.max(0, Math.min(100, Number(item.discount5) || 0));
+    const quantity    = Math.max(1, Number(item.quantity) || 1);
+    const precioNeto  = calcPrecioNeto(precioLista, discount1, discount5);
 
-    // Validar rangos de descuentos
-    const validDiscount1 = Math.max(0, Math.min(100, discount1));
-    const validDiscount5 = Math.max(0, Math.min(100, discount5));
-
-    // ✅ Calcular precio neto con descuentos en cascada
-    const precioConDescuento1 = precioLista * ((100 - validDiscount1) / 100);
-    const precioNeto = precioConDescuento1 * ((100 - validDiscount5) / 100);
-
-    return {
-      ...item,
-      precioLista,
-      discount1: validDiscount1,
-      discount5: validDiscount5,
-      quantity,
-      precioNeto: Number(precioNeto.toFixed(2))
-    };
+    return { ...item, precioLista, discount1, discount5, quantity, precioNeto };
   };
 
-  /**
-   * ✅ EFECTO PARA NORMALIZAR ITEMS CUANDO LLEGAN POR PRIMERA VEZ
-   * Se ejecuta cada vez que quotationItems cambia desde el exterior
-   */
+  // ✅ Normalizar items al llegar por primera vez
   useEffect(() => {
     if (quotationItems && quotationItems.length > 0) {
-      const normalizedItems = quotationItems.map(item => normalizeAndCalculate(item));
-      
-      // Solo actualizar si hay cambios reales
-      const hasChanges = normalizedItems.some((normalized, idx) => {
-        const original = quotationItems[idx];
-        return (
-          normalized.precioNeto !== original.precioNeto ||
-          normalized.discount1 !== original.discount1 ||
-          normalized.discount5 !== original.discount5
-        );
+      const normalized = quotationItems.map(normalizeItem);
+      const hasChanges = normalized.some((n, i) => {
+        const o = quotationItems[i];
+        return n.precioNeto !== o.precioNeto || n.discount1 !== o.discount1 || n.discount5 !== o.discount5;
       });
-
       if (hasChanges) {
-        console.log('✅ Normalizando productos al llegar al tab de cotización');
-        setQuotationItems(normalizedItems);
+        setQuotationItems(normalized);
       }
     }
   }, [quotationItems.length]);
 
-  /**
-   * ✅ FUNCIÓN MEJORADA PARA EDITAR CAMPOS
-   * Recalcula automáticamente el precio neto
-   */
-  const handleEdit = (idx, field, value) => {
-    setQuotationItems(items => 
-      items.map((item, i) => {
-        if (i !== idx) return item;
+  // ✅ Actualiza un campo raw (string) sin normalizar — para onChange
+  const setItemField = (idx, field, rawValue) => {
+    setQuotationItems(items =>
+      items.map((item, i) => i === idx ? { ...item, [field]: rawValue } : item)
+    );
+  };
 
-        // Crear item actualizado con el nuevo valor
-        const updatedItem = {
-          ...item,
-          [field]: value === "" ? 0 : Number(value)
-        };
-
-        // Normalizar y recalcular
-        return normalizeAndCalculate(updatedItem);
-      })
+  // ✅ Normaliza el item completo en onBlur
+  const normalizeItemAtIndex = (idx) => {
+    setQuotationItems(items =>
+      items.map((item, i) => i === idx ? normalizeItem(item) : item)
     );
   };
 
@@ -123,15 +93,12 @@ const QuotationTab = ({
     toast.error('Producto eliminado de la cotización', { position: 'top-right' });
   };
 
-  /**
-   * ✅ REGISTRAR COTIZACIÓN EN EL BACKEND
-   */
+  // ✅ Registrar cotización
   const handleRegister = async () => {
     if (quotationItems.length === 0) {
       toast.error('No hay productos en la cotización', { position: 'top-right' });
       return;
     }
-
     if (!selectedClient || !selectedClient.ruc) {
       toast.error('Debe seleccionar un cliente válido', { position: 'top-right' });
       return;
@@ -140,9 +107,11 @@ const QuotationTab = ({
     setIsRegistering(true);
 
     try {
-      // 🔹 PREPARAR PAYLOAD USANDO EL SERVICIO
+      // Normalizar todos los items antes de enviar
+      const itemsNormalized = quotationItems.map(normalizeItem);
+
       const payload = quotationService.prepareQuotationPayload(
-        quotationItems,
+        itemsNormalized,
         selectedClient,
         currency,
         subtotal,
@@ -153,7 +122,6 @@ const QuotationTab = ({
 
       console.log('📤 Enviando cotización:', payload);
 
-      // 🔹 REGISTRAR EN EL BACKEND
       const response = await quotationService.registerQuotation(
         payload.cabecera,
         payload.detalles
@@ -165,7 +133,6 @@ const QuotationTab = ({
           duration: 4000
         });
 
-        // 🔹 GENERAR PDF
         if (pdfRef.current) {
           await generateQuotationPDF(
             pdfRef.current,
@@ -173,29 +140,24 @@ const QuotationTab = ({
           );
         }
 
-        // 🔹 OBTENER SIGUIENTE CORRELATIVO
         const nextResponse = await quotationService.getNextCorrelative();
         if (nextResponse.success) {
           setQuotationNumber(nextResponse.data.correlative);
         }
 
-        // 🔹 LIMPIAR FORMULARIO
         setQuotationItems([]);
 
         if (onRegistrationComplete) {
           onRegistrationComplete();
         }
       }
-
     } catch (error) {
       console.error('❌ Error al registrar cotización:', error);
-      
+
       if (error.response?.data?.details) {
-        // Mostrar errores de validación
-        const errores = Array.isArray(error.response.data.details) 
-          ? error.response.data.details 
+        const errores = Array.isArray(error.response.data.details)
+          ? error.response.data.details
           : [error.response.data.details];
-        
         errores.forEach(err => {
           toast.error(err, { position: 'top-right', duration: 5000 });
         });
@@ -209,24 +171,22 @@ const QuotationTab = ({
     }
   };
 
-  // ✅ Calcular totales con validación
-  const subtotal = (quotationItems ?? []).reduce((sum, p) => {
-    const precioNeto = Number(p.precioNeto) || 0;
-    const quantity = Number(p.quantity) || 0;
-    return sum + (precioNeto * quantity);
+  // ✅ Totales calculados en vivo usando calcPrecioNeto (igual que ProductsTab)
+  const subtotal = (quotationItems ?? []).reduce((sum, item) => {
+    const precioNeto = calcPrecioNeto(item.precioLista, item.discount1, item.discount5);
+    const qty        = Number(item.quantity) || 0;
+    return sum + precioNeto * qty;
   }, 0);
-  
-  const igv = subtotal * IGV_RATE;
+
+  const igv   = subtotal * IGV_RATE;
   const total = subtotal + igv;
 
-  // Handler para PDF preview
   const handlePreviewPDF = async () => {
     if (!pdfRef.current) return;
     await previewQuotationPDF(pdfRef.current);
     toast.success('Vista previa PDF generada', { position: 'top-right' });
   };
 
-  // Handler para PDF descarga
   const handleDownloadPDF = async () => {
     if (!pdfRef.current) return;
     await generateQuotationPDF(pdfRef.current, `cotizacion_${quotationNumber}.pdf`);
@@ -235,7 +195,7 @@ const QuotationTab = ({
 
   return (
     <div className="space-y-8">
-      {/* PDFPreview oculto para generación PDF */}
+      {/* PDFPreview oculto */}
       <PDFPreview
         ref={pdfRef}
         quotationItems={quotationItems}
@@ -247,7 +207,7 @@ const QuotationTab = ({
         currency={currency}
       />
 
-      {/* Header con título y número de cotización */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <h2 className="text-3xl font-extrabold tracking-tight text-gray-800">
           Cotización
@@ -260,20 +220,20 @@ const QuotationTab = ({
         )}
       </div>
 
-      {/* Tabla de productos */}
+      {/* Tabla */}
       <div className="overflow-auto rounded-xl shadow-lg bg-white border">
-        <table className="min-w-full divide-y divide-gray-200 text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
+        <table className="min-w-full divide-y divide-gray-200 text-sm" style={{ tableLayout: 'fixed', width: '100%' }}>
           <thead className="bg-gray-100 sticky top-0 z-10">
             <tr>
-              <th style={{ width: 56 }} className="p-4 font-bold text-gray-700 text-center">Item</th>
+              <th style={{ width: 56 }}  className="p-4 font-bold text-gray-700 text-center">Item</th>
               <th style={{ width: 120 }} className="p-4 font-bold text-gray-700 text-center">Código Mercadería</th>
               <th style={{ width: 210 }} className="p-4 font-bold text-gray-700 text-center">Descripción Mercadería</th>
-              <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">Precio Lista Unitario ({currencySymbol})</th>
+              <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">P. Lista Unit. (Sin IGV) ({currencySymbol})</th>
               <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">1er Dsco.</th>
               <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">5to Dsco.</th>
-              <th style={{ width: 140 }} className="p-4 font-bold text-gray-700 text-center">Precio Neto Unitario ({currencySymbol})</th>
-              <th style={{ width: 70 }} className="p-4 font-bold text-gray-700 text-center">Cant.</th>
-              <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">Precio Neto Total ({currencySymbol})</th>
+              <th style={{ width: 140 }} className="p-4 font-bold text-gray-700 text-center">P. Neto Unit.  ({currencySymbol})</th>
+              <th style={{ width: 70 }}  className="p-4 font-bold text-gray-700 text-center">Cant.</th>
+              <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">P. Neto Total ({currencySymbol})</th>
               <th style={{ width: 100 }} className="p-4 font-bold text-gray-700 text-center">IGV ({currencySymbol})</th>
               <th style={{ width: 120 }} className="p-4 font-bold text-gray-700 text-center">Importe Total ({currencySymbol})</th>
               <th style={{ width: 56 }}></th>
@@ -288,92 +248,104 @@ const QuotationTab = ({
               </tr>
             ) : (
               (quotationItems ?? []).map((item, idx) => {
-                const precioNetoTotal = (item.precioNeto || 0) * (item.quantity || 0);
-                const igvTotal = precioNetoTotal * IGV_RATE;
-                const importeTotal = precioNetoTotal + igvTotal;
-                
+                // ✅ Cálculo en vivo — idéntico a ProductsTab
+                const precioNeto      = calcPrecioNeto(item.precioLista, item.discount1, item.discount5);
+                const qty             = Number(item.quantity) || 1;
+                const precioNetoTotal = precioNeto * qty;
+                const igvTotal        = precioNetoTotal * IGV_RATE;
+                const importeTotal    = precioNetoTotal + igvTotal;
+
                 return (
                   <tr key={idx} className="hover:bg-gray-50 transition">
+
+                    {/* Item */}
                     <td style={{ width: 56 }} className="p-4 text-center font-mono font-bold text-blue-800 bg-blue-50 rounded-l-lg">
                       {String(idx + 1).padStart(3, '0')}
                     </td>
-                    <td style={{ width: 120 }} className="p-4 text-center font-semibold">{item.codigo}</td>
-                    <td style={{ width: 210 }} className="p-4 text-left">{item.nombre}</td>
+
+                    {/* Código */}
+                    <td style={{ width: 120 }} className="p-4 text-center font-semibold">
+                      {item.codigo}
+                    </td>
+
+                    {/* Descripción */}
+                    <td style={{ width: 210 }} className="p-4 text-left">
+                      {item.nombre}
+                    </td>
+
+                    {/* P. Lista — ✅ toFixed(3) */}
                     <td style={{ width: 130 }} className="p-4 text-right text-gray-700">
-                      {currencySymbol} {(item.precioLista || 0).toFixed(2)}
+                      {currencySymbol} {(item.precioLista || 0).toFixed(3)}
                     </td>
-                    <td style={{ width: 130 }} className="p-4 text-right">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={item.discount1 || 0}
-                        onChange={e => {
-                          let value = e.target.value.replace(/\D/g, "");
-                          if (value === "") value = "0";
-                          if (parseInt(value) > 100) value = "100";
-                          handleEdit(idx, 'discount1', value);
-                        }}
-                        onBlur={e => {
-                          if (e.target.value === "" || e.target.value === null) {
-                            handleEdit(idx, 'discount1', 0);
-                          }
-                        }}
-                        className="w-16 bg-indigo-50 border border-indigo-200 rounded px-2 py-1 text-center font-semibold text-indigo-700"
-                      />
-                      <span className="ml-1">%</span>
+
+                    {/* 1er Dsco — readonly */}
+                    <td style={{ width: 130 }} className="p-4 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <input
+                          type="text"
+                          value={item.discount1 ?? 0}
+                          readOnly
+                          className="w-16 bg-indigo-50 border border-indigo-200 rounded px-2 py-1 text-center font-semibold text-indigo-700"
+                        />
+                        <span className="text-sm text-gray-500">%</span>
+                      </div>
                     </td>
-                    <td style={{ width: 130 }} className="p-4 text-right">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={item.discount5 || 0}
-                        onChange={e => {
-                          let value = e.target.value.replace(/\D/g, "");
-                          if (value === "") value = "0";
-                          if (parseInt(value) > 100) value = "100";
-                          handleEdit(idx, 'discount5', value);
-                        }}
-                        onBlur={e => {
-                          if (e.target.value === "" || e.target.value === null) {
-                            handleEdit(idx, 'discount5', 0);
-                          }
-                        }}
-                        className="w-16 bg-orange-50 border border-orange-200 rounded px-2 py-1 text-center font-semibold text-orange-700"
-                      />
-                      <span className="ml-1">%</span>
+
+                    {/* 5to Dsco — editable, máx 100, raw string en onChange */}
+                    <td style={{ width: 130 }} className="p-4 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={item.discount5 ?? ''}
+                          onChange={e => {
+                            const raw    = e.target.value.replace(/\D/g, '');
+                            const capped = raw === '' ? '' : Number(raw) > 100 ? '100' : raw;
+                            setItemField(idx, 'discount5', capped);
+                          }}
+                          onBlur={() => normalizeItemAtIndex(idx)}
+                          className="w-16 bg-orange-50 border border-orange-200 rounded px-2 py-1 text-center font-semibold text-orange-700 focus:ring-1 focus:ring-orange-400 outline-none"
+                        />
+                        <span className="text-sm text-gray-500">%</span>
+                      </div>
                     </td>
+
+                    {/* P. Neto Unit — ✅ calculado en vivo, toFixed(3) */}
                     <td style={{ width: 140 }} className="p-4 text-right font-bold text-green-700">
-                      {currencySymbol} {(item.precioNeto || 0).toFixed(2)}
+                      {currencySymbol} {precioNeto.toFixed(3)}
                     </td>
+
+                    {/* Cantidad — editable, raw string en onChange */}
                     <td style={{ width: 70 }} className="p-4 text-center">
                       <input
                         type="text"
                         inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={item.quantity || 1}
+                        value={item.quantity ?? ''}
                         onChange={e => {
-                          const value = e.target.value.replace(/\D/g, "");
-                          handleEdit(idx, 'quantity', value || 1);
+                          const raw = e.target.value.replace(/\D/g, '');
+                          setItemField(idx, 'quantity', raw);
                         }}
-                        onBlur={e => {
-                          if (e.target.value === "" || parseInt(e.target.value) === 0) {
-                            handleEdit(idx, 'quantity', 1);
-                          }
-                        }}
-                        className="w-16 bg-blue-50 border border-blue-200 rounded px-2 py-1 text-center font-bold"
+                        onBlur={() => normalizeItemAtIndex(idx)}
+                        className="w-16 bg-blue-50 border border-blue-200 rounded px-2 py-1 text-center font-bold focus:ring-1 focus:ring-blue-400 outline-none"
                       />
                     </td>
+
+                    {/* P. Neto Total — ✅ calculado en vivo, toFixed(3) */}
                     <td style={{ width: 130 }} className="p-4 text-right text-blue-900 font-bold">
-                      {currencySymbol} {precioNetoTotal.toFixed(2)}
+                      {currencySymbol} {precioNetoTotal.toFixed(3)}
                     </td>
+
+                    {/* IGV — ✅ toFixed(3) */}
                     <td style={{ width: 100 }} className="p-4 text-right text-yellow-700">
-                      {currencySymbol} {igvTotal.toFixed(2)}
+                      {currencySymbol} {igvTotal.toFixed(3)}
                     </td>
+
+                    {/* Importe Total — ✅ toFixed(3) */}
                     <td style={{ width: 120 }} className="p-4 text-right text-red-800 font-bold">
-                      {currencySymbol} {importeTotal.toFixed(2)}
+                      {currencySymbol} {importeTotal.toFixed(3)}
                     </td>
+
+                    {/* Eliminar */}
                     <td style={{ width: 56 }} className="p-4 text-center">
                       <button
                         onClick={() => removeItem(idx)}
@@ -383,6 +355,7 @@ const QuotationTab = ({
                         <Trash2 size={22} strokeWidth={2.5} />
                       </button>
                     </td>
+
                   </tr>
                 );
               })
@@ -396,15 +369,15 @@ const QuotationTab = ({
         <div className="space-y-2 max-w-xs w-full mr-4">
           <div className="bg-gray-50 rounded px-4 py-2 shadow text-sm flex items-center justify-between">
             <span className="font-bold text-gray-700">Subtotal:</span>
-            <span className="font-bold text-blue-800">{currencySymbol} {subtotal.toFixed(2)}</span>
+            <span className="font-bold text-blue-800">{currencySymbol} {subtotal.toFixed(3)}</span>
           </div>
           <div className="bg-gray-50 rounded px-4 py-2 shadow text-sm flex items-center justify-between">
             <span className="font-bold text-gray-700">IGV (18%):</span>
-            <span className="font-bold text-yellow-700">{currencySymbol} {igv.toFixed(2)}</span>
+            <span className="font-bold text-yellow-700">{currencySymbol} {igv.toFixed(3)}</span>
           </div>
           <div className="bg-gray-100 rounded px-4 py-2 shadow-lg border border-blue-200 text-sm flex items-center justify-between">
             <span className="font-bold text-gray-900">Total:</span>
-            <span className="font-extrabold text-blue-900">{currencySymbol} {total.toFixed(2)}</span>
+            <span className="font-extrabold text-blue-900">{currencySymbol} {total.toFixed(3)}</span>
           </div>
         </div>
       </div>
@@ -426,7 +399,7 @@ const QuotationTab = ({
           >
             👁️ Previsualizar PDF
           </button>
-          
+
           <button
             onClick={handleDownloadPDF}
             disabled={quotationItems.length === 0}
@@ -434,12 +407,12 @@ const QuotationTab = ({
           >
             📥 Descargar PDF
           </button>
-          
+
           <button
             onClick={handleRegister}
             disabled={quotationItems.length === 0 || isRegistering || !quotationNumber}
             className={`bg-green-600 text-white font-bold px-4 py-2 rounded-lg shadow hover:scale-105 transition text-sm flex items-center gap-2
-            ${quotationItems.length === 0 || isRegistering || !quotationNumber ? 'opacity-60 cursor-not-allowed' : ''}`}
+              ${quotationItems.length === 0 || isRegistering || !quotationNumber ? 'opacity-60 cursor-not-allowed' : ''}`}
           >
             {isRegistering ? (
               <>
