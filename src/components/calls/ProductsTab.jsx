@@ -9,11 +9,13 @@ import { AuthContext } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
 
+
 const PriceCell = ({ qa, children }) => {
   if (qa?.loading) return <Loader2 className="w-4 h-4 animate-spin text-blue-400 mx-auto" />;
   if (qa?.error)   return <span className="text-xs text-red-400" title={qa.error}>—</span>;
   return children;
 };
+
 
 
 const hasValidStock = (product) => {
@@ -24,6 +26,7 @@ const hasValidStock = (product) => {
     return tieneNombre && tieneStock;
   });
 };
+
 
 
 const getStockBlockReason = (product) => {
@@ -40,6 +43,7 @@ const getStockBlockReason = (product) => {
 };
 
 
+
 const ProductsTab = ({
   codigoProducto,
   setCodigoProducto,
@@ -52,13 +56,13 @@ const ProductsTab = ({
   quotationItems,
   autoSearchTrigger
 }) => {
-  const [modalOpen, setModalOpen]       = useState(false);
+  const [modalOpen, setModalOpen]             = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [currentPage, setCurrentPage]   = useState(1);
-  const [productsPerPage]               = useState(10);
-  const [productos, setProductos]       = useState([]);
-  const [loading, setLoading]           = useState(false);
-  const [error, setError]               = useState(null);
+  const [currentPage, setCurrentPage]         = useState(1);
+  const [productsPerPage]                     = useState(10);
+  const [productos, setProductos]             = useState([]);
+  const [loading, setLoading]                 = useState(false);
+  const [error, setError]                     = useState(null);
 
   const { user } = useContext(AuthContext);
   const codAlmacen = user?.empresa?.cod_almacen || null;
@@ -78,12 +82,12 @@ const ProductsTab = ({
 
   // ── Cálculo de precios ────────────────────────────────────────────────────────
   const calcPrecios = (preciosData, discount5, quantity) => {
-  const dola  = preciosData?.importes?.dola || 0;   // ← precio neto con de01 ya aplicado
-  const de05  = (Number(discount5) || 0) / 100;
-  const unit  = dola * (1 - de05);
-  const total = unit * (Number(quantity) || 1);
-  return { precioUnit: unit, precioTotal: total };
-};
+    const dola  = preciosData?.importes?.dola || 0;
+    const de05  = (Number(discount5) || 0) / 100;
+    const unit  = dola * (1 - de05);
+    const total = unit * (Number(quantity) || 1);
+    return { precioUnit: unit, precioTotal: total };
+  };
 
   const updateProductQuick = (codigo, quickData) => {
     setProductos(prev =>
@@ -105,17 +109,12 @@ const ProductsTab = ({
       );
 
       if (response.success && response.data) {
-        const flag = response.data.flag?.trim();
-
-        // ✅ discount5 inicial según flag
-        const discount5Inicial = '';
-
         updateProductQuick(producto.codigo, {
           loading:     false,
           error:       null,
           preciosData: response.data,
           quantity:    1,
-          discount5:   discount5Inicial
+          discount5:   ''
         });
       } else {
         updateProductQuick(producto.codigo, {
@@ -157,9 +156,19 @@ const ProductsTab = ({
         const productosFormateados = response.data.map(item => {
           const base = item.producto && item.stock
             ? (() => {
+                // ✅ almacenes del vendedor — para validación de stock y tabla
                 const almacenesFiltrados = codAlmacen
                   ? item.stock.filter(s => s.almacencod?.trim() === codAlmacen.trim())
                   : item.stock;
+
+                // ✅ TODOS los almacenes — solo para el modal informativo
+                const almacenesAll = item.stock.map(s => ({
+                  almacencod: s.almacencod?.trim(),
+                  almacendes: s.almacendes?.trim(),
+                  stock:      s.stock   || 0,
+                  reserva:    s.reserva || 0,
+                }));
+
                 return {
                   id:              item.producto.codigo?.trim(),
                   codigo:          item.producto.codigo?.trim(),
@@ -167,11 +176,12 @@ const ProductsTab = ({
                   categoria:       item.producto.linea?.trim() || 'Sin categoría',
                   proveedor:       item.producto.marca?.trim() || 'N/A',
                   precioNetoDolar: item.producto.precioListaDol || 0,
-                  precioBolsa:     item.producto.precioBoletin || 0,
+                  precioBolsa:     item.producto.precioBoletin  || 0,
                   unidad:          'UND',
                   disponibleVenta: item.producto.disponibleVenta === 'S',
                   stock:           almacenesFiltrados.reduce((sum, s) => sum + (s.stock || 0), 0),
-                  almacenes:       almacenesFiltrados,
+                  almacenes:       almacenesFiltrados, // ✅ vendedor — tabla y validación
+                  almacenesAll,                        // ✅ todos    — modal informativo
                   equivalencia01:  item.producto.equivalencia01?.trim(),
                   equivalencia02:  item.producto.equivalencia02?.trim(),
                   core:            item.producto.core?.trim(),
@@ -187,7 +197,8 @@ const ProductsTab = ({
                 precioNetoDolar: item.precioListaDol || 0,
                 unidad:          'UND',
                 stock:           0,
-                almacenes:       []
+                almacenes:       [],
+                almacenesAll:    []
               };
 
           return {
@@ -238,14 +249,12 @@ const ProductsTab = ({
   const handleConfirm = (product) => {
     const qa = product.quick;
 
-    // ✅ Variables de flag
     const flag  = qa?.preciosData?.flag?.trim();
     const flagT = flag === 'T';
     const flagX = flag === 'X';
     const minD5 = flagT ? (qa?.preciosData?.descuentos?.de04 ?? 0)   : 0;
     const maxD5 = flagT ? (qa?.preciosData?.descuentos?.de05 ?? 100) : 100;
 
-    // Validar stock
     const stockReason = getStockBlockReason(product);
     if (stockReason) {
       toast.error(
@@ -271,7 +280,6 @@ const ProductsTab = ({
       return;
     }
 
-    // ✅ Validación flag X — no permite descuento
     if (flagX && Number(qa.discount5) !== 0) {
       toast.error('Este producto no permite descuento adicional.', {
         position: 'top-right', duration: 4000, icon: '🚫'
@@ -279,7 +287,6 @@ const ProductsTab = ({
       return;
     }
 
-    // ✅ Validación flag T — rango obligatorio
     if (flagT) {
       const d5 = Number(qa.discount5);
       if (d5 < minD5 || d5 > maxD5) {
@@ -423,11 +430,9 @@ const ProductsTab = ({
                         ? calcPrecios(qa.preciosData, qa.discount5, qa.quantity)
                         : { precioUnit: 0, precioTotal: 0 };
 
-                      // Stock
                       const stockReason  = getStockBlockReason(product);
                       const stockBlocked = !!stockReason;
 
-                      // ✅ Flag logic
                       const flag  = qa?.preciosData?.flag?.trim();
                       const flagT = flag === 'T';
                       const flagX = flag === 'X';
@@ -497,7 +502,7 @@ const ProductsTab = ({
                             </PriceCell>
                           </td>
 
-                          {/* ✅ 5to Dsco — con lógica de flag */}
+                          {/* 5to Dsco */}
                           <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
                             <PriceCell qa={qa}>
                               <div className="flex flex-col items-center gap-1">
@@ -521,15 +526,15 @@ const ProductsTab = ({
                                       updateProductQuick(product.codigo, { discount5: capped });
                                     }}
                                     onBlur={() => {
-  if (flagX) return;
-  const current = product.quick?.discount5;
-  if (current === '' || current == null) return; // ← deja vacío
-  const num = Number(current) || 0;
-  const val = flagT
-    ? Math.min(maxD5, Math.max(minD5, num))
-    : Math.min(100, Math.max(0, num));
-  updateProductQuick(product.codigo, { discount5: val });
-}}
+                                      if (flagX) return;
+                                      const current = product.quick?.discount5;
+                                      if (current === '' || current == null) return;
+                                      const num = Number(current) || 0;
+                                      const val = flagT
+                                        ? Math.min(maxD5, Math.max(minD5, num))
+                                        : Math.min(100, Math.max(0, num));
+                                      updateProductQuick(product.codigo, { discount5: val });
+                                    }}
                                     className={`w-12 text-center text-sm font-bold border rounded px-1 py-0.5 focus:ring-1 outline-none ${
                                       flagX
                                         ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
@@ -541,7 +546,6 @@ const ProductsTab = ({
                                   <span className="text-xs text-gray-400">%</span>
                                 </div>
 
-                                {/* ✅ Badge indicador de restricción */}
                                 {flagX && (
                                   <span className="text-xs font-semibold text-gray-500 bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5">
                                     Sin dscto.

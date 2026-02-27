@@ -6,16 +6,18 @@ import { previewQuotationPDF, generateQuotationPDF } from '../../utils/pdfGenera
 import PDFPreview from './PDFPreview';
 import quotationService from '../../services/quotationService';
 
+
 const IGV_RATE = 0.18;
 
-// ✅ Fuera del componente — idéntico a calcPrecios en ProductsTab
-// precioNeto = precioLista × (1 - de01/100) × (1 - de05/100)
-const calcPrecioNeto = (precioLista, discount1, discount5) => {
-  const ldol = Number(precioLista) || 0;
-  const de01 = (Number(discount1) || 0) / 100;
+
+// ✅ dola = precio neto con de01 ya aplicado por el backend
+// Solo se aplica de05 encima
+const calcPrecioNeto = (dola, discount5) => {
+  const base = Number(dola) || 0;
   const de05 = (Number(discount5) || 0) / 100;
-  return ldol * (1 - de01) * (1 - de05);
+  return base * (1 - de05);
 };
+
 
 const QuotationTab = ({
   quotationItems,
@@ -26,80 +28,88 @@ const QuotationTab = ({
 }) => {
   const pdfRef = useRef(null);
   const [quotationNumber, setQuotationNumber] = useState('');
-  const [isRegistering, setIsRegistering] = useState(false);
+  const [isRegistering, setIsRegistering]     = useState(false);
 
-  const currency = 'USD';
+  const currency       = 'USD';
   const currencySymbol = currency === 'USD' ? '$' : 'S/';
-  const currencyLabel = currency === 'USD' ? 'Dólares Americanos (USD)' : 'Soles (PEN)';
 
-  // ✅ Obtener siguiente correlativo al cargar
+  // ── Siguiente correlativo ─────────────────────────────────────────────────────
   useEffect(() => {
     const fetchNextCorrelative = async () => {
       try {
         const response = await quotationService.getNextCorrelative();
-        if (response.success) {
-          setQuotationNumber(response.data.correlative);
-        }
+        if (response.success) setQuotationNumber(response.data.correlative);
       } catch (error) {
         console.error('Error al obtener correlativo:', error);
-        const year = new Date().getFullYear();
-        setQuotationNumber(`COT-${year}-TEMP`);
+        setQuotationNumber(`COT-${new Date().getFullYear()}-TEMP`);
       }
     };
     fetchNextCorrelative();
   }, []);
 
-  // ✅ Normaliza un item: convierte strings a números y recalcula precioNeto
+  // ── Normalizar item ───────────────────────────────────────────────────────────
+  // dola viene de preciosDetalle.importes.dola (ya tiene de01 aplicado)
   const normalizeItem = (item) => {
-    const precioLista = Number(item.precioLista) || 0;
-    const discount1   = Math.max(0, Math.min(100, Number(item.discount1) || 0));
-    const discount5   = Math.max(0, Math.min(100, Number(item.discount5) || 0));
-    const quantity    = Math.max(1, Number(item.quantity) || 1);
-    const precioNeto  = calcPrecioNeto(precioLista, discount1, discount5);
+    const dola      = Number(item.preciosDetalle?.importes?.dola ?? item.dola ?? item.precioNeto ?? 0);
+    const discount1 = Math.max(0, Math.min(100, Number(item.discount1) || 0));
+    const discount5 = Math.max(0, Math.min(100, Number(item.discount5) || 0));
+    const quantity  = Math.max(1, Number(item.quantity) || 1);
+    const precioNeto = calcPrecioNeto(dola, discount5);
 
-    return { ...item, precioLista, discount1, discount5, quantity, precioNeto };
+    return { ...item, dola, discount1, discount5, quantity, precioNeto };
   };
 
-  // ✅ Normalizar items al llegar por primera vez
+  // ── Normalizar al recibir items nuevos ────────────────────────────────────────
   useEffect(() => {
     if (quotationItems && quotationItems.length > 0) {
       const normalized = quotationItems.map(normalizeItem);
       const hasChanges = normalized.some((n, i) => {
         const o = quotationItems[i];
-        return n.precioNeto !== o.precioNeto || n.discount1 !== o.discount1 || n.discount5 !== o.discount5;
+        return (
+          n.precioNeto !== o.precioNeto ||
+          n.discount1  !== o.discount1  ||
+          n.discount5  !== o.discount5  ||
+          n.dola       !== o.dola
+        );
       });
-      if (hasChanges) {
-        setQuotationItems(normalized);
-      }
+      if (hasChanges) setQuotationItems(normalized);
     }
   }, [quotationItems.length]);
 
-  // ✅ Actualiza un campo raw (string) sin normalizar — para onChange
+  // ── Helpers de edición ────────────────────────────────────────────────────────
   const setItemField = (idx, field, rawValue) => {
     setQuotationItems(items =>
       items.map((item, i) => i === idx ? { ...item, [field]: rawValue } : item)
     );
   };
 
-  // ✅ Normaliza el item completo en onBlur
   const normalizeItemAtIndex = (idx) => {
     setQuotationItems(items =>
       items.map((item, i) => i === idx ? normalizeItem(item) : item)
     );
   };
 
-  const removeItem = idx => {
+  const removeItem = (idx) => {
     setQuotationItems(items => items.filter((_, i) => i !== idx));
     toast.error('Producto eliminado de la cotización', { position: 'top-right' });
   };
 
-  // ✅ Registrar cotización
+  // ── Totales en vivo ───────────────────────────────────────────────────────────
+  const subtotal = (quotationItems ?? []).reduce((sum, item) => {
+    const dola = Number(item.preciosDetalle?.importes?.dola ?? item.dola ?? item.precioNeto ?? 0);
+    return sum + calcPrecioNeto(dola, item.discount5) * (Number(item.quantity) || 1);
+  }, 0);
+
+  const igv   = subtotal * IGV_RATE;
+  const total = subtotal + igv;
+
+  // ── Registrar cotización ──────────────────────────────────────────────────────
   const handleRegister = async () => {
     if (quotationItems.length === 0) {
       toast.error('No hay productos en la cotización', { position: 'top-right' });
       return;
     }
-    if (!selectedClient || !selectedClient.ruc) {
+    if (!selectedClient?.ruc) {
       toast.error('Debe seleccionar un cliente válido', { position: 'top-right' });
       return;
     }
@@ -107,7 +117,6 @@ const QuotationTab = ({
     setIsRegistering(true);
 
     try {
-      // Normalizar todos los items antes de enviar
       const itemsNormalized = quotationItems.map(normalizeItem);
 
       const payload = quotationService.prepareQuotationPayload(
@@ -128,10 +137,10 @@ const QuotationTab = ({
       );
 
       if (response.success) {
-        toast.success(`Cotización ${response.data.correlativo_cotiza} registrada exitosamente`, {
-          position: 'top-right',
-          duration: 4000
-        });
+        toast.success(
+          `Cotización ${response.data.correlativo_cotiza} registrada exitosamente`,
+          { position: 'top-right', duration: 4000 }
+        );
 
         if (pdfRef.current) {
           await generateQuotationPDF(
@@ -141,45 +150,28 @@ const QuotationTab = ({
         }
 
         const nextResponse = await quotationService.getNextCorrelative();
-        if (nextResponse.success) {
-          setQuotationNumber(nextResponse.data.correlative);
-        }
+        if (nextResponse.success) setQuotationNumber(nextResponse.data.correlative);
 
         setQuotationItems([]);
-
-        if (onRegistrationComplete) {
-          onRegistrationComplete();
-        }
+        if (onRegistrationComplete) onRegistrationComplete();
       }
     } catch (error) {
       console.error('❌ Error al registrar cotización:', error);
-
       if (error.response?.data?.details) {
         const errores = Array.isArray(error.response.data.details)
           ? error.response.data.details
           : [error.response.data.details];
-        errores.forEach(err => {
-          toast.error(err, { position: 'top-right', duration: 5000 });
-        });
+        errores.forEach(err => toast.error(err, { position: 'top-right', duration: 5000 }));
       } else {
-        toast.error(error.response?.data?.error || 'Error al registrar la cotización', {
-          position: 'top-right'
-        });
+        toast.error(
+          error.response?.data?.error || 'Error al registrar la cotización',
+          { position: 'top-right' }
+        );
       }
     } finally {
       setIsRegistering(false);
     }
   };
-
-  // ✅ Totales calculados en vivo usando calcPrecioNeto (igual que ProductsTab)
-  const subtotal = (quotationItems ?? []).reduce((sum, item) => {
-    const precioNeto = calcPrecioNeto(item.precioLista, item.discount1, item.discount5);
-    const qty        = Number(item.quantity) || 0;
-    return sum + precioNeto * qty;
-  }, 0);
-
-  const igv   = subtotal * IGV_RATE;
-  const total = subtotal + igv;
 
   const handlePreviewPDF = async () => {
     if (!pdfRef.current) return;
@@ -193,8 +185,10 @@ const QuotationTab = ({
     toast.success('PDF descargado', { position: 'top-right' });
   };
 
+  // ─────────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-8">
+
       {/* PDFPreview oculto */}
       <PDFPreview
         ref={pdfRef}
@@ -222,7 +216,10 @@ const QuotationTab = ({
 
       {/* Tabla */}
       <div className="overflow-auto rounded-xl shadow-lg bg-white border">
-        <table className="min-w-full divide-y divide-gray-200 text-sm" style={{ tableLayout: 'fixed', width: '100%' }}>
+        <table
+          className="min-w-full divide-y divide-gray-200 text-sm"
+          style={{ tableLayout: 'fixed', width: '100%' }}
+        >
           <thead className="bg-gray-100 sticky top-0 z-10">
             <tr>
               <th style={{ width: 56 }}  className="p-4 font-bold text-gray-700 text-center">Item</th>
@@ -231,7 +228,7 @@ const QuotationTab = ({
               <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">P. Lista Unit. (Sin IGV) ({currencySymbol})</th>
               <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">1er Dsco.</th>
               <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">5to Dsco.</th>
-              <th style={{ width: 140 }} className="p-4 font-bold text-gray-700 text-center">P. Neto Unit.  ({currencySymbol})</th>
+              <th style={{ width: 140 }} className="p-4 font-bold text-gray-700 text-center">P. Neto Unit. ({currencySymbol})</th>
               <th style={{ width: 70 }}  className="p-4 font-bold text-gray-700 text-center">Cant.</th>
               <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">P. Neto Total ({currencySymbol})</th>
               <th style={{ width: 100 }} className="p-4 font-bold text-gray-700 text-center">IGV ({currencySymbol})</th>
@@ -248,9 +245,18 @@ const QuotationTab = ({
               </tr>
             ) : (
               (quotationItems ?? []).map((item, idx) => {
-                // ✅ Cálculo en vivo — idéntico a ProductsTab
-                const precioNeto      = calcPrecioNeto(item.precioLista, item.discount1, item.discount5);
-                const qty             = Number(item.quantity) || 1;
+
+                // ✅ Flag logic — mismas reglas que ProductsTab
+                const flag  = item.preciosDetalle?.flag?.trim();
+                const flagT = flag === 'T';
+                const flagX = flag === 'X';
+                const minD5 = flagT ? (item.preciosDetalle?.descuentos?.de04 ?? 0)   : 0;
+                const maxD5 = flagT ? (item.preciosDetalle?.descuentos?.de05 ?? 100) : 100;
+
+                // ✅ Cálculo en vivo usando dola como base
+                const dola        = Number(item.preciosDetalle?.importes?.dola ?? item.dola ?? item.precioNeto ?? 0);
+                const precioNeto  = calcPrecioNeto(dola, item.discount5);
+                const qty         = Number(item.quantity) || 1;
                 const precioNetoTotal = precioNeto * qty;
                 const igvTotal        = precioNetoTotal * IGV_RATE;
                 const importeTotal    = precioNetoTotal + igvTotal;
@@ -273,7 +279,7 @@ const QuotationTab = ({
                       {item.nombre}
                     </td>
 
-                    {/* P. Lista — ✅ toFixed(3) */}
+                    {/* P. Lista */}
                     <td style={{ width: 130 }} className="p-4 text-right text-gray-700">
                       {currencySymbol} {(item.precioLista || 0).toFixed(3)}
                     </td>
@@ -291,31 +297,70 @@ const QuotationTab = ({
                       </div>
                     </td>
 
-                    {/* 5to Dsco — editable, máx 100, raw string en onChange */}
+                    {/* ✅ 5to Dsco — con lógica de flag igual que ProductsTab */}
                     <td style={{ width: 130 }} className="p-4 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={item.discount5 ?? ''}
-                          onChange={e => {
-                            const raw    = e.target.value.replace(/\D/g, '');
-                            const capped = raw === '' ? '' : Number(raw) > 100 ? '100' : raw;
-                            setItemField(idx, 'discount5', capped);
-                          }}
-                          onBlur={() => normalizeItemAtIndex(idx)}
-                          className="w-16 bg-orange-50 border border-orange-200 rounded px-2 py-1 text-center font-semibold text-orange-700 focus:ring-1 focus:ring-orange-400 outline-none"
-                        />
-                        <span className="text-sm text-gray-500">%</span>
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={item.discount5 ?? ''}
+                            disabled={flagX}
+                            onChange={e => {
+                              if (flagX) return;
+                              const raw = e.target.value.replace(/\D/g, '');
+                              if (raw === '') {
+                                setItemField(idx, 'discount5', '');
+                                return;
+                              }
+                              const num    = Number(raw);
+                              const capped = flagT
+                                ? (num > maxD5 ? String(maxD5) : raw)
+                                : (num > 100   ? '100'         : raw);
+                              setItemField(idx, 'discount5', capped);
+                            }}
+                            onBlur={() => {
+                              if (flagX) return;
+                              const current = item.discount5;
+                              if (current === '' || current == null) return;
+                              const num = Number(current) || 0;
+                              const val = flagT
+                                ? Math.min(maxD5, Math.max(minD5, num))
+                                : Math.min(100, Math.max(0, num));
+                              setItemField(idx, 'discount5', val);
+                              normalizeItemAtIndex(idx);
+                            }}
+                            className={`w-16 rounded px-2 py-1 text-center font-semibold focus:ring-1 outline-none border ${
+                              flagX
+                                ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
+                                : flagT
+                                ? 'bg-orange-50 border-orange-400 text-orange-700 focus:ring-orange-400'
+                                : 'bg-orange-50 border-orange-200 text-orange-700 focus:ring-orange-400'
+                            }`}
+                          />
+                          <span className="text-sm text-gray-500">%</span>
+                        </div>
+
+                        {/* ✅ Badges de restricción */}
+                        {flagX && (
+                          <span className="text-xs font-semibold text-gray-500 bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5">
+                            Sin dscto.
+                          </span>
+                        )}
+                        {flagT && (
+                          <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">
+                            {minD5}% – {maxD5}%
+                          </span>
+                        )}
                       </div>
                     </td>
 
-                    {/* P. Neto Unit — ✅ calculado en vivo, toFixed(3) */}
+                    {/* P. Neto Unit */}
                     <td style={{ width: 140 }} className="p-4 text-right font-bold text-green-700">
                       {currencySymbol} {precioNeto.toFixed(3)}
                     </td>
 
-                    {/* Cantidad — editable, raw string en onChange */}
+                    {/* Cantidad */}
                     <td style={{ width: 70 }} className="p-4 text-center">
                       <input
                         type="text"
@@ -330,17 +375,17 @@ const QuotationTab = ({
                       />
                     </td>
 
-                    {/* P. Neto Total — ✅ calculado en vivo, toFixed(3) */}
+                    {/* P. Neto Total */}
                     <td style={{ width: 130 }} className="p-4 text-right text-blue-900 font-bold">
                       {currencySymbol} {precioNetoTotal.toFixed(3)}
                     </td>
 
-                    {/* IGV — ✅ toFixed(3) */}
+                    {/* IGV */}
                     <td style={{ width: 100 }} className="p-4 text-right text-yellow-700">
                       {currencySymbol} {igvTotal.toFixed(3)}
                     </td>
 
-                    {/* Importe Total — ✅ toFixed(3) */}
+                    {/* Importe Total */}
                     <td style={{ width: 120 }} className="p-4 text-right text-red-800 font-bold">
                       {currencySymbol} {importeTotal.toFixed(3)}
                     </td>
@@ -412,13 +457,14 @@ const QuotationTab = ({
             onClick={handleRegister}
             disabled={quotationItems.length === 0 || isRegistering || !quotationNumber}
             className={`bg-green-600 text-white font-bold px-4 py-2 rounded-lg shadow hover:scale-105 transition text-sm flex items-center gap-2
-              ${quotationItems.length === 0 || isRegistering || !quotationNumber ? 'opacity-60 cursor-not-allowed' : ''}`}
+              ${quotationItems.length === 0 || isRegistering || !quotationNumber
+                ? 'opacity-60 cursor-not-allowed' : ''}`}
           >
             {isRegistering ? (
               <>
                 <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
                 Registrando...
               </>
