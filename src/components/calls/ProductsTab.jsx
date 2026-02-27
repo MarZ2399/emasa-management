@@ -288,20 +288,26 @@ const ProductsTab = ({
     }
 
     if (flagT) {
-      const d5 = Number(qa.discount5);
-      if (d5 < minD5 || d5 > maxD5) {
-        toast.error(
-          `El 5to descuento debe estar entre ${minD5}% y ${maxD5}%.`,
-          { position: 'top-right', duration: 4000, icon: '⚠️' }
-        );
-        return;
-      }
+  const raw = qa.discount5;
+  const isEmpty = raw === '' || raw == null;
+  if (!isEmpty) {                              // ← solo validar si hay valor
+    const d5 = Number(raw);
+    if (d5 < minD5 || d5 > maxD5) {
+      toast.error(
+        `El 5to descuento debe estar entre ${minD5}% y ${maxD5}%.`,
+        { position: 'top-right', duration: 4000, icon: '⚠️' }
+      );
+      return;
     }
+  }
+}
 
     const qty       = Math.max(1, Number(qa.quantity) || 1);
     const discount5 = flagX ? 0 : flagT
-      ? Math.min(maxD5, Math.max(minD5, Number(qa.discount5) || minD5))
-      : Math.min(100, Number(qa.discount5) || 0);
+  ? (qa.discount5 === '' || qa.discount5 == null)
+    ? 0                                        // ← vacío = sin 5to descuento
+    : Number(qa.discount5)
+  : Math.min(100, Number(qa.discount5) || 0);
 
     const { precioUnit, precioTotal } = calcPrecios(qa.preciosData, discount5, qty);
 
