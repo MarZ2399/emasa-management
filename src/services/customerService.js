@@ -1,6 +1,7 @@
 // src/services/customerService.js
 import api from './api'; // ✅ Usar la instancia configurada con interceptores
 
+
 /**
  * Buscar cliente por RUC
  * @param {string} ruc - RUC del cliente
@@ -8,28 +9,47 @@ import api from './api'; // ✅ Usar la instancia configurada con interceptores
  */
 export const getClientByRuc = async (ruc) => {
   try {
-    // ✅ El interceptor de api.js agrega el token automáticamente
-    const { data } = await api.get(`/customers/ruc/${ruc}`);
+    // ✅ Llamadas en paralelo — cliente + contactos al mismo tiempo
+    const [clientResponse, contactsResponse] = await Promise.all([
+      api.get(`/customers/ruc/${ruc}`),
+      api.get(`/customers/${ruc}/contacts`)
+    ]);
 
-    if (data.success) {
-      return formatClientData(data.data);
-    } else {
-      throw new Error(data.msgerror || 'Cliente no encontrado');
+    if (!clientResponse.data.success) {
+      throw new Error(clientResponse.data.msgerror || 'Cliente no encontrado');
     }
+
+    
+
+    const clientFormatted = formatClientData(clientResponse.data.data);
+
+    // ✅ Mapear contactos al formato de InfoCard
+    const contactos = (contactsResponse.data.data || []).map((c) => ({
+  email:    c.EMAIL?.trim()          || '-',
+  phone:    c.TELEFONO?.trim()       || '-',
+  fullName: c.NOMBRECOMPLETO?.trim() || '-',
+  birthday: formatDate(c.FECHANACIMIENTO) || '-',
+}));
+
+    return {
+      ...clientFormatted,
+      contactos: contactos.length > 0 ? contactos : null
+    };
+
   } catch (error) {
     console.error('Error al buscar cliente por RUC:', error);
-    
-    // Manejo de errores específicos
+
     if (error.response?.status === 401) {
       throw new Error('Sesión expirada. Por favor inicia sesión nuevamente.');
     }
     if (error.response?.status === 404) {
       throw new Error('Cliente no encontrado');
     }
-    
+
     throw new Error(error.message || 'Error al consultar el cliente');
   }
 };
+
 
 /**
  * Buscar clientes por nombre (Búsqueda pública - no requiere token)
@@ -48,13 +68,14 @@ export const searchClientsByName = async (nombre) => {
         nombre: client.VTDRZS
       }));
     }
-    
+
     return [];
   } catch (error) {
     console.error('Error al buscar clientes por nombre:', error);
     throw new Error('Error al buscar clientes');
   }
 };
+
 
 /**
  * Formatear datos del cliente desde la API al formato del componente
@@ -92,7 +113,7 @@ const formatClientData = (apiData) => {
 
     // ⚠️ DATOS QUE NO VIENEN DE LA API (Temporalmente vacíos o calculados)
     ultVenta: `$${formatNumber(apiData.VENTA_ULTI03)}`,
-    contactos: null, // Se llenará con otra API
+    contactos: null, // ✅ Se sobreescribe en getClientByRuc con Promise.all
     corePrincipal: null, // Se llenará con otra API
     promedioVtas2025: `$${formatNumber(apiData.VENTA_ACTUAL)}`, // Temporal
     mesesConVtas2025: calculateMonthsWithSales(apiData),
@@ -103,6 +124,7 @@ const formatClientData = (apiData) => {
   };
 };
 
+
 /**
  * Formatear fecha desde formato YYYYMMDD
  * @param {number|string} dateNumber - Fecha en formato 20050419
@@ -110,17 +132,18 @@ const formatClientData = (apiData) => {
  */
 const formatDate = (dateNumber) => {
   if (!dateNumber) return 'N/A';
-  
+
   const dateStr = dateNumber.toString();
   if (dateStr.length === 8) {
-    const year = dateStr.substring(0, 4);
+    const year  = dateStr.substring(0, 4);
     const month = dateStr.substring(4, 6);
-    const day = dateStr.substring(6, 8);
+    const day   = dateStr.substring(6, 8);
     return `${day}/${month}/${year}`;
   }
-  
+
   return dateNumber.toString();
 };
+
 
 /**
  * Formatear números con separadores de miles
@@ -135,16 +158,23 @@ const formatNumber = (value) => {
   });
 };
 
+
 /**
  * Calcular meses con ventas (lógica personalizada)
  * @param {Object} apiData - Datos de la API
  * @returns {string} - Meses con ventas
  */
 const calculateMonthsWithSales = (apiData) => {
-  // Lógica básica: si tiene venta actual, cuenta como 1 mes
   if (apiData.VENTA_ACTUAL > 0) return '1 mes';
   return '0 meses';
 };
+
+
+export const getClientContacts = async (ruc) => {
+  const response = await api.get(`/customers/${ruc}/contacts`);
+  return response.data;
+};
+
 
 export default {
   getClientByRuc,
