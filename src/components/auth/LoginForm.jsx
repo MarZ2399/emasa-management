@@ -77,9 +77,9 @@ const LoginForm = () => {
             {/* Título principal - enfoque corporativo */}
 <div className="mb-10">
   <h1 className="text-5xl font-bold leading-tight mb-4">
-    SalesCore:<br />
-    El corazón de<br />
-    <span className="text-green-200">nuestra gestión</span>
+    CRM Comercial:<br />
+    Tu centro de<br />
+    <span className="text-green-200">operaciones</span>
   </h1>
   <p className="text-lg text-green-50 leading-relaxed">
     Conectando cada área para potenciar nuestras ventas y optimizar resultados

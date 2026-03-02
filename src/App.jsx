@@ -22,6 +22,8 @@ import QuotationsModule from './components/quotations/QuotationsModule';
 import CallsModule from './components/calls/CallsModule';
 import CallReminders from './components/calls/CallReminders';
 
+import CatalogoDebug from './components/common/CatalogoDebug';
+
 // Data Mock
 import { initialCallRecords } from './data/callsData';
 
@@ -70,6 +72,7 @@ const App = () => {
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {/* RUTAS PÚBLICAS */}
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        <Route path="/debug/catalogos" element={<CatalogoDebug />} />
         
         {/* Login */}
         <Route path="/login" element={<LoginForm />} />

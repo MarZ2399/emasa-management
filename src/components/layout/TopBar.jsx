@@ -1,67 +1,58 @@
 // src/components/layout/TopBar.jsx
 import React, { useState } from 'react';
-import { Menu, Search } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import NotificationDropdown from './header/NotificationDropdown';
 import UserDropdown from './header/UserDropdown';
 import DarkModeSwitcher from './header/DarkModeSwitcher';
 import MobileSidebar from './MobileSidebar';
-import CallReminders from '../calls/CallReminders';  // ✅ Solo el componente (sin el hook)
-import { useCallReminders } from '../../hooks/useCallReminders';  // ✅ Hook desde hooks/
+import CallReminders from '../calls/CallReminders';
+import { useCallReminders } from '../../hooks/useCallReminders';
 import { currentUser } from '../../data/userData';
-import { initialCallRecords } from '../../data/callsData';
 import logoImage from "../../assets/logo-emasa1.png";
 
 const TopBar = ({ mobileMenuOpen, onToggleMobileMenu, currentModule, onModuleChange }) => {
-  const [searchQuery, setSearchQuery] = useState('');
   const [showReminderPanel, setShowReminderPanel] = useState(false);
 
-  // ✅ Obtener recordatorios usando el hook
-  const reminders = useCallReminders(initialCallRecords);
+  // ✅ Sin parámetros — consume API real
+  const { reminders, dismissReminder } = useCallReminders();
 
   return (
     <>
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
         <div className="flex items-center justify-between px-4 py-3 lg:px-6">
-          
-          {/* LEFT SECTION */}
+
+          {/* LEFT */}
           <div className="flex items-center gap-4 flex-1">
-            {/* Mobile: Hamburger */}
             <button
               onClick={onToggleMobileMenu}
               className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition"
             >
               <Menu className="w-6 h-6 text-gray-700" />
             </button>
-
-           
           </div>
 
-          {/* CENTER - Mobile: Logo centrado */}
+          {/* CENTER - Mobile logo */}
           <div className="lg:hidden absolute left-1/2 transform -translate-x-1/2">
-            <img 
-              src={logoImage} 
-              alt="EMASA" 
-              className="h-8 w-auto object-contain"
-            />
+            <img src={logoImage} alt="EMASA" className="h-8 w-auto object-contain" />
           </div>
 
-          {/* RIGHT SECTION */}
+          {/* RIGHT */}
           <div className="flex items-center gap-3">
-            {/* Desktop: Dark Mode + Notifications + User */}
+            {/* Desktop */}
             <div className="hidden md:flex items-center gap-3">
               <DarkModeSwitcher />
-              <NotificationDropdown 
-                reminders={reminders} 
-                onViewAll={() => setShowReminderPanel(true)} 
+              <NotificationDropdown
+                reminders={reminders}
+                onViewAll={() => setShowReminderPanel(true)}
               />
               <UserDropdown user={currentUser} />
             </div>
 
-            {/* Mobile: Notifications + Avatar */}
+            {/* Mobile */}
             <div className="md:hidden flex items-center gap-2">
-              <NotificationDropdown 
-                reminders={reminders} 
-                onViewAll={() => setShowReminderPanel(true)} 
+              <NotificationDropdown
+                reminders={reminders}
+                onViewAll={() => setShowReminderPanel(true)}
               />
               <UserDropdown user={currentUser} isMobile />
             </div>
@@ -69,7 +60,6 @@ const TopBar = ({ mobileMenuOpen, onToggleMobileMenu, currentModule, onModuleCha
         </div>
       </header>
 
-      {/* Mobile Sidebar */}
       <MobileSidebar
         isOpen={mobileMenuOpen}
         onClose={onToggleMobileMenu}
@@ -77,11 +67,12 @@ const TopBar = ({ mobileMenuOpen, onToggleMobileMenu, currentModule, onModuleCha
         onModuleChange={onModuleChange}
       />
 
-      {/* Panel completo de recordatorios */}
+      {/* Panel lateral de recordatorios */}
       <CallReminders
-        callRecords={initialCallRecords}
+        reminders={reminders}
         isOpen={showReminderPanel}
         onClose={() => setShowReminderPanel(false)}
+        onDismiss={dismissReminder}
       />
     </>
   );

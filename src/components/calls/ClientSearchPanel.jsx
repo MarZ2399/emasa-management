@@ -185,7 +185,7 @@ const ClientSearchPanel = ({ onClientSelect, resetTrigger }) => {
           {/* DATOS DEL CLIENTE */}
           <InfoCard
             title="Datos del Cliente"
-            subtitle="RUC OK"
+            
             icon={<CheckCircle className="w-5 h-5" />}
             color="blue"
             data={[
@@ -204,6 +204,7 @@ const ClientSearchPanel = ({ onClientSelect, resetTrigger }) => {
           {/* DATOS COMERCIALES */}
           <InfoCard
             title="Datos Comerciales"
+            icon={<CheckCircle className="w-5 h-5" />}
             color="blue"
             data={[
               { label: 'Giro', value: clientData.giro },
@@ -221,6 +222,7 @@ const ClientSearchPanel = ({ onClientSelect, resetTrigger }) => {
           {/* DATOS CONTACTO - 3 columnas */}
           <InfoCard
             title="Datos Contacto"
+            icon={<CheckCircle className="w-5 h-5" />}
             color="blue"
             data={clientData.contactos || [
               { label: 'Teléfono', value: 'N/A' },
@@ -232,6 +234,7 @@ const ClientSearchPanel = ({ onClientSelect, resetTrigger }) => {
           {/* DATOS ECOMMERCE Y VENTAS */}
           <InfoCard
             title="Datos Ecommerce y Ventas"
+            icon={<CheckCircle className="w-5 h-5" />}
             color="blue"
             data={[
               { label: 'Core Principal', value: clientData.corePrincipal || 'N/A' },

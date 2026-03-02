@@ -1,74 +1,60 @@
 // src/hooks/useCallReminders.js
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import api from '../services/api';
 
-export const useCallReminders = (callRecords) => {
+export const useCallReminders = () => {
   const [reminders, setReminders] = useState([]);
 
-  useEffect(() => {
-    const checkUpcomingCalls = () => {
+  const fetchReminders = useCallback(async () => {
+    try {
+      const response = await api.get('/calls/reminders?dias=7');
+      if (!response.data.success) return;
+
       const now = new Date();
-      const upcoming = [];
+      const mapped = response.data.data.map(r => {
+        const fecha    = new Date(r.fecha_prox_llamada);
+        const timeDiff = fecha - now;
+        const minutos  = Math.floor(timeDiff / 60000);
+        const horas    = Math.floor(timeDiff / 3600000);
+        const dias     = Math.floor(timeDiff / 86400000);
 
-      callRecords.forEach(record => {
-        if (!record.proxLlamada) return;
+        let urgency = 'normal', timeLabel = '';
+        if      (timeDiff < 0)  { urgency = 'overdue';  timeLabel = 'Vencida'; }
+        else if (minutos <= 30) { urgency = 'critical'; timeLabel = `En ${minutos} min`; }
+        else if (horas < 24)    { urgency = 'urgent';   timeLabel = `En ${horas}h`; }
+        else if (dias <= 3)     { urgency = 'soon';     timeLabel = `En ${dias} días`; }
+        else                    {                        timeLabel = `En ${dias} días`; }
 
-        let proxLlamadaDate;
-        
-        if (record.proxLlamada.includes('T')) {
-          proxLlamadaDate = new Date(record.proxLlamada);
-        } else {
-          const [datePart, timePart] = record.proxLlamada.split(' ');
-          if (!datePart || !timePart) return;
-          
-          const [day, month, year] = datePart.split('/');
-          const [hours, minutes] = timePart.split(':');
-          
-          proxLlamadaDate = new Date(year, month - 1, day, hours, minutes);
-        }
-
-        if (isNaN(proxLlamadaDate.getTime())) return;
-
-        const timeDiff = proxLlamadaDate - now;
-        const minutesDiff = Math.floor(timeDiff / (1000 * 60));
-        const hoursDiff = Math.floor(timeDiff / (1000 * 60 * 60));
-        const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-
-        let urgency = 'normal';
-        let timeLabel = '';
-
-        if (timeDiff < 0) {
-          urgency = 'overdue';
-          timeLabel = 'Vencida';
-        } else if (minutesDiff <= 30) {
-          urgency = 'critical';
-          timeLabel = `En ${minutesDiff} minutos`;
-        } else if (hoursDiff < 24) {
-          urgency = 'urgent';
-          timeLabel = `En ${hoursDiff} horas`;
-        } else if (daysDiff <= 3) {
-          urgency = 'soon';
-          timeLabel = `En ${daysDiff} días`;
-        } else {
-          timeLabel = `En ${daysDiff} días`;
-        }
-
-        upcoming.push({
-          ...record,
-          proxLlamadaDate,
+        return {
+          id:               r.id_llamada,
+          ruc:              r.ruc_emp_contacto,
+          clienteNombre:    r.cliente_nombre,
+          nombreContactado: r.nombre_contactado,
+          telef1:           r.telefono_1,
+          asesor:           r.nom_asesor,
+          observaciones:    r.observaciones,
+          proxLlamadaDate:  fecha,
           urgency,
           timeLabel,
           timeDiff
-        });
+        };
       });
 
-      upcoming.sort((a, b) => a.timeDiff - b.timeDiff);
-      setReminders(upcoming);
-    };
+      mapped.sort((a, b) => a.timeDiff - b.timeDiff);
+      setReminders(mapped);
+    } catch (error) {
+      console.error('❌ Error reminders:', error);
+    }
+  }, []);
 
-    checkUpcomingCalls();
-    const interval = setInterval(checkUpcomingCalls, 60000);
+  useEffect(() => {
+    fetchReminders();
+    const interval = setInterval(fetchReminders, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [callRecords]);
+  }, [fetchReminders]);
 
-  return reminders;
+  // ✅ Descartar localmente
+  const dismissReminder = (id) => setReminders(prev => prev.filter(r => r.id !== id));
+
+  return { reminders, dismissReminder };
 };

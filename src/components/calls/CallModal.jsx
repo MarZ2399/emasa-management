@@ -1,223 +1,191 @@
+// CallModal.jsx
 import React from 'react';
 import ReactDOM from 'react-dom';
-import { X } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 
-const CallModal = ({ 
-  isOpen, 
-  onClose, 
-  formData, 
-  onChange, 
-  onSubmit, 
-  isEditing,
-  clienteContactos = [] // ✅ Nueva prop: lista de contactos del cliente
+const CallModal = ({
+  isOpen, onClose, formData, setFormData,
+  onSubmit, saving, isEditing,
+  tiposContacto = [], resultados = [], clienteContactos = []
 }) => {
   if (!isOpen) return null;
+
+  const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
+
+  // ✅ Convertir a Number para que el find() haga match integer === integer
+  const handleTipoContacto = (e) => {
+    const idSeleccionado = Number(e.target.value);
+    const selected       = tiposContacto.find(t => t.value === idSeleccionado);
+    setFormData(prev => ({
+      ...prev,
+      id_tipo_contacto:  idSeleccionado,
+      tipo_contacto_nom: selected?.label ?? ''
+    }));
+  };
+
+  const handleResultado = (e) => {
+    const idSeleccionado = Number(e.target.value);
+    const selected       = resultados.find(r => r.value === idSeleccionado);
+    setFormData(prev => ({
+      ...prev,
+      id_resultado_gestion:  idSeleccionado,
+      resultado_gestion_nom: selected?.label ?? ''
+    }));
+  };
+
+  const handleContactoSelect = (e) => {
+    const selected = clienteContactos.find(c => c.fullName === e.target.value);
+    setFormData(prev => ({
+      ...prev,
+      nombre_contactado: e.target.value,
+      telefono_1:        selected?.phone || prev.telefono_1
+    }));
+  };
+
+  const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm';
+  const labelCls = 'block text-sm font-medium text-gray-700 mb-1';
 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+
+        {/* Header */}
         <div className="bg-[#334a5e] text-white px-6 py-4 flex items-center justify-between rounded-t-lg sticky top-0 z-10">
           <h2 className="text-xl font-bold">
-            {isEditing ? 'Editar Registro de Llamada' : 'Nuevo Registro de Llamada'}
+            {isEditing ? 'Editar Registro de Contacto' : 'Nuevo Registro de Contacto'}
           </h2>
-          <button
-            onClick={onClose}
-            type="button"
-            className="text-white hover:bg-gray-700 rounded p-1 transition"
-          >
+          <button onClick={onClose} className="text-white hover:bg-gray-700 rounded p-1 transition">
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* ✅ NUEVO CAMPO: Contactado */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Contactado *
-              </label>
-              <select
-                name="contactadoNombre"
-                value={formData.contactadoNombre || ''}
-                onChange={onChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Seleccionar contacto...</option>
-                {clienteContactos.map((contacto, index) => (
-                  <option key={index} value={contacto.fullName}>
-                    {contacto.fullName} - {contacto.phone}
-                  </option>
-                ))}
-              </select>
-            </div>
+        <div className="p-6 space-y-5">
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Estatus Llamada
-              </label>
-              <input
-                type="text"
-                name="estatusLlamada"
-                value={formData.estatusLlamada}
-                onChange={onChange}
-                placeholder="Ej: Completada"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Contacto (In/Out) *
-              </label>
-              <select
-                name="contacto"
-                value={formData.contacto}
-                onChange={onChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Seleccionar...</option>
-                <option value="Inbound">Inbound</option>
-                <option value="Outbound">Outbound</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Teléfono 1 *
-              </label>
-              <input
-                type="text"
-                name="telef1"
-                value={formData.telef1}
-                onChange={onChange}
-                required
-                placeholder="Ej: 987654321"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Teléfono 2
-              </label>
-              <input
-                type="text"
-                name="telef2"
-                value={formData.telef2}
-                onChange={onChange}
-                placeholder="Ej: 912345678"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Usuario
-              </label>
-              <input
-                type="text"
-                name="usuario"
-                value={formData.usuario}
-                onChange={onChange}
-                placeholder="Ej: jperez"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Clave
-              </label>
-              <input
-                type="password"
-                name="clave"
-                value={formData.clave}
-                onChange={onChange}
-                placeholder="****"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Próx. Llamada
-              </label>
-              <input
-                type="datetime-local"
-                name="proxLlamada"
-                value={formData.proxLlamada}
-                onChange={onChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Resultado Gestión *
-              </label>
-              <select
-                name="resultadoGestion"
-                value={formData.resultadoGestion}
-                onChange={onChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Seleccionar...</option>
-                <option value="Venta">Venta</option>
-                <option value="- Cotización">- Cotización</option>
-                <option value="Seguimiento / Consulta De Pedido">Seguimiento / Consulta De Pedido</option>
-                <option value="No Contesta">No Contesta</option>
-                <option value="Ocupado">Ocupado</option>
-                <option value="Buzón de Voz">Buzón de Voz</option>
-                <option value="Reagendar">Reagendar</option>
-                <option value="No Interesado">No Interesado</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Asesor
-              </label>
-              <input
-                type="text"
-                name="asesor"
-                value={formData.asesor}
-                onChange={onChange}
-                placeholder="Nombre del asesor"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
+          {/* ── Empresa Contactada ── */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Observaciones
-            </label>
-            <textarea
-              name="observaciones"
-              value={formData.observaciones}
-              onChange={onChange}
-              rows="4"
-              placeholder="Escriba aquí las observaciones de la llamada..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <h3 className="text-sm font-bold text-gray-800 mb-3 pb-1 border-b">Empresa Contactada</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>RUC</label>
+                <input className={inputCls} value={formData.ruc_emp_contacto}
+                  onChange={e => set('ruc_emp_contacto', e.target.value)} placeholder="20100154138" />
+              </div>
+              <div>
+                <label className={labelCls}>Razón Social</label>
+                <input className={inputCls} value={formData.raz_social}
+                  onChange={e => set('raz_social', e.target.value)} placeholder="Empresa SAC" />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className={labelCls}>Nombre Contactado <span className="text-red-500">*</span></label>
+                {clienteContactos.length > 0 ? (
+                  <select className={inputCls} value={formData.nombre_contactado} onChange={handleContactoSelect}>
+                    <option value="">Seleccionar contacto...</option>
+                    {clienteContactos.map((c, i) => (
+                      <option key={i} value={c.fullName}>{c.fullName} — {c.phone}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input className={inputCls} value={formData.nombre_contactado}
+                    onChange={e => set('nombre_contactado', e.target.value)}
+                    placeholder="Juan Pérez" />
+                )}
+              </div>
+            </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full sm:w-auto px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition font-medium"
-            >
+          {/* ── Comunicación ── */}
+          <div>
+            <h3 className="text-sm font-bold text-gray-800 mb-3 pb-1 border-b">Comunicación</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Tipo de Contacto <span className="text-red-500">*</span></label>
+                {/*
+                  ✅ value={formData.id_tipo_contacto ?? ''}
+                  React serializa el Number a string para el DOM,
+                  pero el option también tiene value={t.value} (Number),
+                  así que React los compara como strings y hace match correcto.
+                */}
+                <select
+                  className={inputCls}
+                  value={formData.id_tipo_contacto ?? ''}
+                  onChange={handleTipoContacto}
+                >
+                  <option value="">Seleccione...</option>
+                  {tiposContacto.map(t => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Estatus</label>
+                <input className={inputCls} value={formData.estatus_llamada ?? ''}
+                  onChange={e => set('estatus_llamada', e.target.value)} placeholder="Completada" />
+              </div>
+              <div>
+                <label className={labelCls}>Teléfono 1 <span className="text-red-500">*</span></label>
+                <input className={inputCls} value={formData.telefono_1 ?? ''}
+                  onChange={e => set('telefono_1', e.target.value)} placeholder="999888777" />
+              </div>
+              <div>
+                <label className={labelCls}>Teléfono 2</label>
+                <input className={inputCls} value={formData.telefono_2 ?? ''}
+                  onChange={e => set('telefono_2', e.target.value)} placeholder="01-2345678" />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Gestión y Seguimiento ── */}
+          <div>
+            <h3 className="text-sm font-bold text-gray-800 mb-3 pb-1 border-b">Gestión y Seguimiento</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Resultado de Gestión <span className="text-red-500">*</span></label>
+                {/* ✅ Mismo patrón que Tipo de Contacto */}
+                <select
+                  className={inputCls}
+                  value={formData.id_resultado_gestion ?? ''}
+                  onChange={handleResultado}
+                >
+                  <option value="">Seleccione...</option>
+                  {resultados.map(r => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Próxima Llamada</label>
+                <input type="datetime-local" className={inputCls}
+                  value={formData.fecha_prox_llamada ?? ''}
+                  onChange={e => set('fecha_prox_llamada', e.target.value)} />
+              </div>
+
+              {/* ✅ Campo Asesor */}
+              <div className="md:col-span-2">
+                <label className={labelCls}>Asesor</label>
+                <input className={inputCls} value={formData.nom_asesor ?? ''}
+                  onChange={e => set('nom_asesor', e.target.value)}
+                  placeholder="Nombre del asesor" />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className={labelCls}>Observaciones</label>
+                <textarea className={inputCls} rows={3} value={formData.observaciones ?? ''}
+                  onChange={e => set('observaciones', e.target.value)}
+                  placeholder="Detalles de la llamada..." />
+              </div>
+            </div>
+          </div>
+
+          {/* Acciones */}
+          <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose}
+              className="w-full sm:w-auto px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition font-medium">
               Cancelar
             </button>
-            <button
-              type="button"
-              onClick={onSubmit}
-              className="w-full sm:w-auto px-6 py-2 bg-[#334a5e] text-white rounded-lg hover:bg-blue-700 transition font-medium"
-            >
+            <button type="button" onClick={onSubmit} disabled={saving}
+              className="w-full sm:w-auto px-6 py-2 bg-[#334a5e] text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
               {isEditing ? 'Actualizar' : 'Guardar'}
             </button>
           </div>

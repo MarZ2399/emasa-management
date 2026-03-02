@@ -1,263 +1,33 @@
-// src/components/calls/CallsModule.jsx
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
-import { Phone, Plus, Search, Filter, Package, FileText, ShoppingCart, Sparkles } from 'lucide-react';
-import { initialCallRecords } from '../../data/callsData';
+import { Phone, Package, FileText, ShoppingCart, Sparkles } from 'lucide-react';
 import { getClientPurchases } from '../../data/purchaseHistoryData';
-import CallModal from './CallModal';
 import ClientSearchPanel from './ClientSearchPanel';
-import CallTableRow from './CallTableRow';
+import CallHistoryTab from './CallHistoryTab';       // ← nuevo
 import ProductsTab from './ProductsTab';
 import PurchaseHistoryTab from './PurchaseHistoryTab';
 import ProductSuggestionsTab from './ProductSuggestionsTab';
 import QuotationTab from './QuotationTab';
-import ConfirmDialog from '../common/ConfirmDialog';
 import SectionHeader from '../common/SectionHeader';
-import CallReminders from './CallReminders';
 
 const CallsModule = () => {
-  // Estado para tabs
-  const [activeTab, setActiveTab] = useState('calls');
-  const [selectedClientRUC, setSelectedClientRUC] = useState(null);
-  const [resetClientSearch, setResetClientSearch] = useState(0);
-  const [quotationItems, setQuotationItems] = useState([]);
-  const [codigoProducto, setCodigoProducto] = useState('');
-  const [nombreProducto, setNombreProducto] = useState('');
-  const [hasSearched, setHasSearched] = useState(false);
-  const [callRecords, setCallRecords] = useState(initialCallRecords);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedClient, setSelectedClient] = useState(null);
-  const [showFilters, setShowFilters] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [recordsPerPage] = useState(15);
-  const [autoSearchTrigger, setAutoSearchTrigger] = useState(0);
-  
-  const [filters, setFilters] = useState({
-    fechaInicio: '',
-    fechaFin: '',
-    asesor: '',
-    tipoContacto: '',
-    resultado: ''
-  });
-  
-  const [formData, setFormData] = useState({
-    estatusLlamada: '',
-    contacto: '',
-    telef1: '',
-    telef2: '',
-    usuario: '',
-    clave: '',
-    proxLlamada: '',
-    observaciones: '',
-    resultadoGestion: '',
-    asesor: 'Usuario Actual'
-  });
-
-  const [confirmDialog, setConfirmDialog] = useState({
-    isOpen: false,
-    recordId: null
-  });
+  const [activeTab,          setActiveTab]          = useState('calls');
+  const [selectedClient,     setSelectedClient]     = useState(null);
+  const [selectedClientRUC,  setSelectedClientRUC]  = useState(null);
+  const [resetClientSearch,  setResetClientSearch]  = useState(0);
+  const [quotationItems,     setQuotationItems]     = useState([]);
+  const [codigoProducto,     setCodigoProducto]     = useState('');
+  const [nombreProducto,     setNombreProducto]     = useState('');
+  const [hasSearched,        setHasSearched]        = useState(false);
+  const [autoSearchTrigger,  setAutoSearchTrigger]  = useState(0);
 
   const handleClientSelect = (clientData) => {
     setSelectedClient(clientData);
     setSelectedClientRUC(clientData?.ruc || null);
-    setCurrentPage(1);
-    if (clientData) {
-      setFormData(prev => ({
-        ...prev,
-        telef1: clientData.telefPadron || '',
-        telef2: clientData.telefTV || '',
-        usuario: clientData.usuario || '',
-        asesor: clientData.vendedor || 'Usuario Actual'
-      }));
-    }
   };
 
-  const handleOpenModal = (record = null) => {
-    if (record) {
-      setEditingRecord(record);
-      setFormData({
-        estatusLlamada: record.estatusLlamada || '',
-        contacto: record.contacto || '',
-        telef1: record.telef1 || '',
-        telef2: record.telef2 || '',
-        usuario: record.usuario || '',
-        clave: record.clave || '',
-        proxLlamada: record.proxLlamada || '',
-        observaciones: record.observaciones || '',
-        resultadoGestion: record.resultadoGestion || '',
-        asesor: record.asesor || 'Usuario Actual',
-        contactadoNombre: record.contactadoNombre || ''
-      });
-    } else {
-      setEditingRecord(null);
-      if (selectedClient) {
-        setFormData({
-          estatusLlamada: '',
-          contacto: '',
-          telef1: selectedClient.telefPadron || '',
-          telef2: selectedClient.telefTV || '',
-          usuario: selectedClient.usuario || '',
-          clave: '',
-          proxLlamada: '',
-          observaciones: '',
-          resultadoGestion: '',
-          asesor: selectedClient.vendedor || 'Usuario Actual',
-          contactadoNombre: ''
-        });
-      } else {
-        setFormData({
-          estatusLlamada: '',
-          contacto: '',
-          telef1: '',
-          telef2: '',
-          usuario: '',
-          clave: '',
-          proxLlamada: '',
-          observaciones: '',
-          resultadoGestion: '',
-          asesor: 'Usuario Actual',
-          contactadoNombre: ''
-        });
-      }
-    }
-    setIsModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingRecord(null);
-  };
-
-  const handleFormChange = (e) => {
-    const { name, value } = e.target;
-    
-    if (name === 'contactadoNombre' && selectedClient?.contactos) {
-      const contactoSeleccionado = selectedClient.contactos.find(
-        c => c.fullName === value
-      );
-      
-      if (contactoSeleccionado) {
-        setFormData(prev => ({
-          ...prev,
-          contactadoNombre: value,
-          telef1: contactoSeleccionado.phone || prev.telef1,
-          telef2: prev.telef2
-        }));
-        return;
-      }
-    }
-    
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSubmit = () => {
-    if (!formData.contacto || !formData.telef1 || !formData.resultadoGestion) {
-      toast.error('Por favor completa los campos obligatorios (*)');
-      return;
-    }
-
-    if (!selectedClient) {
-      toast.error('Debe seleccionar un cliente primero');
-      return;
-    }
-
-    const now = new Date();
-    const fechaGestion = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-
-    if (editingRecord) {
-      setCallRecords(prev => prev.map(record => 
-        record.id === editingRecord.id 
-          ? { ...record, ...formData, fechaGestion }
-          : record
-      ));
-      toast.success('Llamada actualizada exitosamente');
-    } else {
-      const newRecord = {
-        id: callRecords.length + 1,
-        fechaGestion,
-        ...formData,
-        clienteRuc: selectedClient.ruc,
-        clienteNombre: selectedClient.nombreCliente
-      };
-      setCallRecords(prev => [newRecord, ...prev]);
-      toast.success('Llamada registrada exitosamente');
-    }
-
-    handleCloseModal();
-  };
-
-  const handleDelete = (id) => {
-    setConfirmDialog({
-      isOpen: true,
-      recordId: id
-    });
-  };
-
-  const confirmDelete = () => {
-    if (confirmDialog.recordId) {
-      setCallRecords(prev => prev.filter(record => record.id !== confirmDialog.recordId));
-      toast.success('Llamada eliminada exitosamente');
-    }
-  };
-
-  const handleClearFilters = () => {
-    setFilters({
-      fechaInicio: '',
-      fechaFin: '',
-      asesor: '',
-      tipoContacto: '',
-      resultado: ''
-    });
-    setCurrentPage(1);
-  };
-
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
-    setCurrentPage(1);
-  };
-
-  const handleFilterChange = (filterName, value) => {
-    setFilters({ ...filters, [filterName]: value });
-    setCurrentPage(1);
-  };
-
-  const clientCallRecords = selectedClient 
-    ? callRecords.filter(record => record.clienteRuc === selectedClient.ruc)
-    : [];
-
-  const filteredRecords = clientCallRecords.filter(record => {
-    const matchesSearch = 
-      record.asesor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (record.contacto && record.contacto.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      record.resultadoGestion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (record.observaciones && record.observaciones.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (record.telef1 && record.telef1.includes(searchTerm)) ||
-      (record.usuario && record.usuario.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    const matchesAsesor = !filters.asesor || record.asesor === filters.asesor;
-    const matchesTipoContacto = !filters.tipoContacto || record.contacto === filters.tipoContacto;
-    const matchesResultado = !filters.resultado || record.resultadoGestion === filters.resultado;
-
-    return matchesSearch && matchesAsesor && matchesTipoContacto && matchesResultado;
-  });
-
-  const indexOfLastRecord = currentPage * recordsPerPage;
-  const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
-  const currentRecords = filteredRecords.slice(indexOfFirstRecord, indexOfLastRecord);
-  const totalPages = Math.ceil(filteredRecords.length / recordsPerPage);
-
-  const handlePageChange = (pageNumber) => {
-    setCurrentPage(pageNumber);
-  };
-
-  const handleProductClick = (codigoProducto) => {
-    setCodigoProducto(codigoProducto);
+  const handleProductClick = (codigo) => {
+    setCodigoProducto(codigo);
     setNombreProducto('');
     setHasSearched(false);
     setAutoSearchTrigger(prev => prev + 1);
@@ -272,367 +42,78 @@ const CallsModule = () => {
     setHasSearched(false);
     setResetClientSearch(prev => prev + 1);
     setActiveTab('calls');
-    
-    toast.success('Cotización completada. Puedes buscar un nuevo cliente', { 
-      position: 'top-right',
-      duration: 3000
+    toast.success('Cotización completada. Puedes buscar un nuevo cliente', {
+      position: 'top-right', duration: 3000
     });
   };
+
+  const tabs = [
+    { key: 'calls',       label: 'Historial de Contacto', icon: Phone,        color: 'blue'   },
+    { key: 'purchases',   label: 'Últimas Compras',        icon: ShoppingCart, color: 'green'  },
+    { key: 'suggestions', label: 'Sugerencias',            icon: Sparkles,     color: 'purple' },
+    { key: 'products',    label: 'Consulta de Productos',  icon: Package,      color: 'indigo' },
+    { key: 'quotations',  label: 'Cotización',             icon: FileText,     color: 'green'  },
+  ];
 
   return (
     <div className="space-y-6">
       <SectionHeader
         icon={Phone}
-        title="Gestión de Clientes"
+        title="Gestión de Televentas"
         subtitle="Buscar cliente y gestionar llamadas"
         showButton={false}
       />
 
-      <ClientSearchPanel 
-        onClientSelect={handleClientSelect} 
+      <ClientSearchPanel
+        onClientSelect={handleClientSelect}
         resetTrigger={resetClientSearch}
       />
 
-      {/* Sistema de Tabs */}
+      {/* Tabs */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         <div className="border-b border-gray-200">
           <nav className="flex overflow-x-auto whitespace-nowrap no-scrollbar">
-            <button
-              onClick={() => setActiveTab('calls')}
-              className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition ${
-                activeTab === 'calls'
-                  ? 'border-blue-600 text-blue-600 bg-blue-50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <Phone className="w-5 h-5" />
-                <span>Historial de Llamadas</span>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('purchases')}
-              className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition ${
-                activeTab === 'purchases'
-                  ? 'border-green-600 text-green-600 bg-green-50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <ShoppingCart className="w-5 h-5" />
-                <span>Últimas Compras</span>
-              </div>
-            </button>
-
-            {/* ✅ NUEVO TAB: Sugerencias */}
-            <button
-              onClick={() => setActiveTab('suggestions')}
-              className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition ${
-                activeTab === 'suggestions'
-                  ? 'border-purple-600 text-purple-600 bg-purple-50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <Sparkles className="w-5 h-5" />
-                <span>Sugerencias</span>
-              </div>
-            </button>
-            
-            <button
-              onClick={() => setActiveTab('products')}
-              className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition ${
-                activeTab === 'products'
-                  ? 'border-indigo-600 text-indigo-600 bg-indigo-50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <Package className="w-5 h-5" />
-                <span>Consulta de Productos</span>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('quotations')}
-              className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition ${
-                activeTab === 'quotations'
-                  ? 'border-green-600 text-green-600 bg-green-50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <FileText className="w-5 h-5" />
-                <span>Cotización</span>
-                {quotationItems.length > 0 && (
-                  <span className="ml-2 px-2.5 py-0.5 bg-blue-600 text-white text-xs font-bold rounded-full">
-                    {quotationItems.length}
-                  </span>
-                )}
-              </div>
-            </button>
+            {tabs.map(({ key, label, icon: Icon, color }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition ${
+                  activeTab === key
+                    ? `border-${color}-600 text-${color}-600 bg-${color}-50`
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <Icon className="w-5 h-5" />
+                  <span>{label}</span>
+                  {key === 'quotations' && quotationItems.length > 0 && (
+                    <span className="ml-2 px-2.5 py-0.5 bg-blue-600 text-white text-xs font-bold rounded-full">
+                      {quotationItems.length}
+                    </span>
+                  )}
+                </div>
+              </button>
+            ))}
           </nav>
         </div>
 
         <div>
-          {/* Tab: Historial de Llamadas */}
+          {/* ── Historial de Llamadas ── */}
           {activeTab === 'calls' && (
-            <>
-              {selectedClient ? (
-                <div>
-                  <div className="p-6 border-b border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h2 className="text-lg font-bold text-gray-900">Historial de Contacto</h2>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {filteredRecords.length} registro{filteredRecords.length !== 1 ? 's' : ''} encontrado{filteredRecords.length !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                      <button 
-                        onClick={() => handleOpenModal()}
-                        className="bg-[#334a5e] hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium transition flex items-center gap-2 shadow-sm"
-                      >
-                        <Plus className="w-5 h-5" />
-                        Nueva Llamada
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="px-6 py-4 border-b border-gray-200">
-                    <div className="space-y-4">
-                      <div className="flex gap-3">
-                        <div className="flex-1 relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="Buscar por asesor, resultado, teléfono u observaciones..."
-                            value={searchTerm}
-                            onChange={handleSearchChange}
-                            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                          />
-                        </div>
-                        <button 
-                          onClick={() => setShowFilters(!showFilters)}
-                          className={`px-4 py-2.5 border rounded-lg font-medium transition flex items-center gap-2 ${
-                            showFilters 
-                              ? 'bg-blue-50 border-blue-300 text-blue-700' 
-                              : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          <Filter className="w-5 h-5" />
-                          Filtros
-                        </button>
-                      </div>
-
-                      {showFilters && (
-                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Fecha Inicio</label>
-                              <input
-                                type="date"
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                value={filters.fechaInicio}
-                                onChange={(e) => handleFilterChange('fechaInicio', e.target.value)}
-                              />
-                            </div>
-                            
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Fecha Fin</label>
-                              <input
-                                type="date"
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                value={filters.fechaFin}
-                                onChange={(e) => handleFilterChange('fechaFin', e.target.value)}
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Asesor</label>
-                              <select 
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                value={filters.asesor}
-                                onChange={(e) => handleFilterChange('asesor', e.target.value)}
-                              >
-                                <option value="">Todos</option>
-                                <option value="Yessir Florian">Yessir Florian</option>
-                                <option value="Giancarlo Nicho">Giancarlo Nicho</option>
-                              </select>
-                            </div>
-
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Tipo Contacto</label>
-                              <select 
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                value={filters.tipoContacto}
-                                onChange={(e) => handleFilterChange('tipoContacto', e.target.value)}
-                              >
-                                <option value="">Todos</option>
-                                <option value="Inbound">Inbound</option>
-                                <option value="Outbound">Outbound</option>
-                              </select>
-                            </div>
-
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Resultado</label>
-                              <select 
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                value={filters.resultado}
-                                onChange={(e) => handleFilterChange('resultado', e.target.value)}
-                              >
-                                <option value="">Todos</option>
-                                <option value="Venta">Venta</option>
-                                <option value="- Cotización">Cotización</option>
-                                <option value="Seguimiento / Consulta De Pedido">Seguimiento</option>
-                                <option value="No Contesta">No Contesta</option>
-                              </select>
-                            </div>
-                          </div>
-                          
-                          <div className="flex justify-end gap-2 mt-4">
-                            <button 
-                              onClick={handleClearFilters}
-                              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-white transition"
-                            >
-                              Limpiar Filtros
-                            </button>
-                            <button 
-                              onClick={() => setShowFilters(false)}
-                              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                            >
-                              Aplicar Filtros
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="overflow-hidden">
-                    <div className="overflow-x-auto px-6 py-4">
-                      <table className="w-full min-w-[1300px]">
-                        <thead className="bg-[#334a5e] text-white">
-                          <tr>
-                            <th className="pl-6 pr-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-40 min-w-[160px]">Fecha Gestión</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-80 min-w-[320px]">Resultados Gestión</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-36 min-w-[140px]">Asesor</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-40 min-w-[160px]">Contactado</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-28 min-w-[140px]">Tipo Contacto</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-40 min-w-[160px]">Próxima Llamada</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-32 min-w-[120px]">Telef 1</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-32 min-w-[120px]">Telef 2</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-32 min-w-[120px]">Usuario</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-72 min-w-[280px]">Observaciones</th>
-                            <th className="pl-4 pr-6 py-3 text-center text-xs font-semibold uppercase tracking-wider w-28 min-w-[100px]">Acciones</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 bg-white">
-                          {currentRecords.length > 0 ? (
-                            currentRecords.map((record, index) => (
-                              <CallTableRow
-                                key={record.id}
-                                record={record}
-                                index={index}
-                                onEdit={handleOpenModal}
-                                onDelete={handleDelete}
-                              />
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan="11" className="px-6 py-12 text-center text-gray-500">
-                                No se encontraron registros de llamadas
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {filteredRecords.length > 0 && (
-                    <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <div className="text-sm text-gray-600">
-                        Mostrando <span className="font-semibold">{indexOfFirstRecord + 1}</span> a{' '}
-                        <span className="font-semibold">{Math.min(indexOfLastRecord, filteredRecords.length)}</span>{' '}
-                        de <span className="font-semibold">{filteredRecords.length}</span> registros
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handlePageChange(currentPage - 1)}
-                          disabled={currentPage === 1}
-                          className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-white transition disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Anterior
-                        </button>
-                        
-                        <div className="flex gap-1">
-                          {[...Array(totalPages)].map((_, index) => {
-                            const pageNumber = index + 1;
-                            
-                            if (
-                              pageNumber === 1 ||
-                              pageNumber === totalPages ||
-                              (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
-                            ) {
-                              return (
-                                <button
-                                  key={pageNumber}
-                                  onClick={() => handlePageChange(pageNumber)}
-                                  className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                                    currentPage === pageNumber
-                                      ? 'bg-blue-600 text-white'
-                                      : 'border border-gray-300 hover:bg-white'
-                                  }`}
-                                >
-                                  {pageNumber}
-                                </button>
-                              );
-                            } else if (
-                              pageNumber === currentPage - 2 ||
-                              pageNumber === currentPage + 2
-                            ) {
-                              return <span key={pageNumber} className="px-2 text-gray-400">...</span>;
-                            }
-                            return null;
-                          })}
-                        </div>
-                        
-                        <button
-                          onClick={() => handlePageChange(currentPage + 1)}
-                          disabled={currentPage === totalPages}
-                          className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-white transition disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Siguiente
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="p-12 text-center">
-                  <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Search className="w-8 h-8 text-blue-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Busca un cliente para comenzar</h3>
-                  <p className="text-gray-600">Ingresa el RUC o Razón Social en el panel de búsqueda superior</p>
-                </div>
-              )}
-            </>
+            <CallHistoryTab selectedClient={selectedClient} />
           )}
 
-          {/* Tab: Últimas Compras */}
+          {/* ── Últimas Compras ── */}
           {activeTab === 'purchases' && (
             <div className="p-6">
-              <PurchaseHistoryTab 
-                clienteRUC={selectedClientRUC} 
+              <PurchaseHistoryTab
+                clienteRUC={selectedClientRUC}
                 onProductClick={handleProductClick}
               />
             </div>
           )}
 
-          {/* ✅ Tab: Sugerencias de Productos */}
+          {/* ── Sugerencias ── */}
           {activeTab === 'suggestions' && (
             <div className="p-6">
               <ProductSuggestionsTab
@@ -645,75 +126,59 @@ const CallsModule = () => {
               />
             </div>
           )}
-          
-          {/* Tab: Consulta de Productos */}
-          {/* Tab: Consulta de Productos - ACTUALIZADO */}
-{activeTab === 'products' && (
-  <div className="p-6">
-    {!selectedClient ? (
-      <div className="text-center py-12">
-        <div className="w-16 h-16 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Search className="w-8 h-8 text-yellow-400" />
-        </div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          Selecciona un cliente primero
-        </h3>
-        <p className="text-gray-600">
-          Para consultar precios de productos, debes seleccionar un cliente en el panel superior
-        </p>
-        <button
-          onClick={() => setActiveTab('calls')}
-          className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-        >
-          Ir a Búsqueda de Cliente
-        </button>
-      </div>
-    ) : (
-      <>
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-  <div className="flex items-center gap-3">
-    <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
-      <span className="text-white text-lg">✓</span>
-    </div>
-    <div>
-      <p className="text-sm font-semibold text-green-900">
-        Cliente seleccionado: {selectedClient.nombreCliente} 
-        {selectedClient.giro && (
-          <span className="ml-2 text-green-900">
-            / {selectedClient.giro}
-          </span>
-        )}
-      </p>
-      <p className="text-xs text-green-700">
-        RUC: {selectedClient.ruc}
-        
-      </p>
-    </div>
-  </div>
-</div>
 
+          {/* ── Consulta de Productos ── */}
+          {activeTab === 'products' && (
+            <div className="p-6">
+              {!selectedClient ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Package className="w-8 h-8 text-yellow-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Selecciona un cliente primero</h3>
+                  <p className="text-gray-600">Para consultar precios de productos, debes seleccionar un cliente en el panel superior</p>
+                  <button onClick={() => setActiveTab('calls')}
+                    className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                    Ir a Búsqueda de Cliente
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-lg">✓</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-green-900">
+                          Cliente seleccionado: {selectedClient.nombreCliente}
+                          {selectedClient.giro && <span className="ml-2">/ {selectedClient.giro}</span>}
+                        </p>
+                        <p className="text-xs text-green-700">RUC: {selectedClient.ruc}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <ProductsTab
+                    codigoProducto={codigoProducto}
+                    setCodigoProducto={setCodigoProducto}
+                    nombreProducto={nombreProducto}
+                    setNombreProducto={setNombreProducto}
+                    hasSearched={hasSearched}
+                    setHasSearched={setHasSearched}
+                    clienteRuc={selectedClient.ruc}
+                    quotationItems={quotationItems}
+                    autoSearchTrigger={autoSearchTrigger}
+                    onAddToQuotation={prodData => {
+                      setQuotationItems(items => [...items, prodData]);
+                      setActiveTab('quotations');
+                    }}
+                  />
+                </>
+              )}
+            </div>
+          )}
 
-        <ProductsTab
-          codigoProducto={codigoProducto}
-          setCodigoProducto={setCodigoProducto}
-          nombreProducto={nombreProducto}
-          setNombreProducto={setNombreProducto}
-          hasSearched={hasSearched}
-          setHasSearched={setHasSearched}
-          clienteRuc={selectedClient.ruc} // ✅ PROP AGREGADO
-          quotationItems={quotationItems}
-          autoSearchTrigger={autoSearchTrigger} 
-          onAddToQuotation={prodData => {
-            setQuotationItems(items => [...items, prodData]);
-            setActiveTab('quotations');
-          }}
-        />
-      </>
-    )}
-  </div>
-)}
-
-          {/* Tab: Cotizaciones */}
+          {/* ── Cotización ── */}
           {activeTab === 'quotations' && (
             <div className="p-6">
               <QuotationTab
@@ -727,29 +192,6 @@ const CallsModule = () => {
           )}
         </div>
       </div>
-
-      <CallModal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        formData={formData}
-        onChange={handleFormChange}
-        onSubmit={handleSubmit}
-        isEditing={!!editingRecord}
-        clienteContactos={selectedClient?.contactos || []}
-      />
-
-      <ConfirmDialog
-        isOpen={confirmDialog.isOpen}
-        onClose={() => setConfirmDialog({ isOpen: false, recordId: null })}
-        onConfirm={confirmDelete}
-        title="¿Estás seguro de eliminar este registro de llamada?"
-        message="Esta acción no se puede deshacer. El registro será eliminado permanentemente."
-        confirmText="Eliminar"
-        cancelText="Cancelar"
-        type="danger"
-      />
-
-      {/* <CallReminders callRecords={callRecords} /> */}
     </div>
   );
 };
