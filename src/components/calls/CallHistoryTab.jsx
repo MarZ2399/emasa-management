@@ -13,6 +13,7 @@ import { getCatalogos } from '../../services/catalogoService';  // ✅ NUEVO
 import CallModal    from './CallModal';
 import CallTableRow from './CallTableRow';
 import ConfirmDialog from '../common/ConfirmDialog';
+import { logActivity, EVENTOS } from '../../services/activityLogService';
 
 // ── Formulario vacío alineado al schema ems.llamada ───────────────────────────
 const EMPTY_FORM = {
@@ -190,6 +191,13 @@ const CallHistoryTab = ({ selectedClient }) => {
         return;
       }
 
+      //Log según si es creación o edición
+      if (editingRecord) {
+        logActivity(EVENTOS.LLAMADA_EDITADA, editingRecord.id_llamada);
+      } else {
+        logActivity(EVENTOS.LLAMADA_REGISTRADA, result.data?.id_llamada ?? null);
+      }
+
       toast.success(
         editingRecord ? 'Llamada actualizada exitosamente' : 'Llamada registrada exitosamente',
         { position: 'top-right' }
@@ -215,6 +223,7 @@ const CallHistoryTab = ({ selectedClient }) => {
     try {
       const result = await deleteCall(confirmDialog.recordId);
       if (result.success) {
+        logActivity(EVENTOS.LLAMADA_ELIMINADA, confirmDialog.recordId); 
         toast.success('Llamada eliminada exitosamente', { position: 'top-right' });
         fetchCalls();
       } else {

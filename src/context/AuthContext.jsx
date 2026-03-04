@@ -3,6 +3,7 @@ import { createContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 import toast from 'react-hot-toast';
+import { logActivity, EVENTOS } from '../services/activityLogService';
 
 export const AuthContext = createContext();
 
@@ -44,6 +45,8 @@ export const AuthProvider = ({ children }) => {
       // Actualizar estado
       setUser(data.user);
 
+      await logActivity(EVENTOS.LOGIN);
+
       // Notificación de éxito
       toast.success(`¡Bienvenido, ${data.user.nombre_completo}!`, {
         duration: 3000,
@@ -82,6 +85,7 @@ export const AuthProvider = ({ children }) => {
    */
   const logout = async () => {
     try {
+      await logActivity(EVENTOS.LOGOUT);
       // Llamar al endpoint de logout (limpia refresh token en cookie)
       await authService.logout();
       

@@ -99,6 +99,8 @@ const formatClientData = (apiData) => {
     giro: apiData.GIRODES ? `${apiData.GIROCOD} - ${apiData.GIRODES}` : 'N/A',
     categoria: apiData.CATEG?.trim() || 'N/A',
     vendedor: apiData.VENDEDORNOM ? `${apiData.VENDEDORCOD?.trim()} - ${apiData.VENDEDORNOM}` : 'N/A',
+    fpago:    apiData.FPAGO    || null,       // ✅ código: "ADE", "CR30", etc.
+    fpagdes:  apiData.FPAGDES  || 'N/A',
     lineaCredito: `$${formatNumber(apiData.CREDITO)}`,
     creditoDisponible: `$${formatNumber(apiData.CREDITODISP)}`,
     deudaTotal: 'N/A',

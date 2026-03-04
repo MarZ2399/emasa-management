@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { previewQuotationPDF, generateQuotationPDF } from '../../utils/pdfGenerator';
 import PDFPreview from './PDFPreview';
 import quotationService from '../../services/quotationService';
+import { logActivity, EVENTOS } from '../../services/activityLogService';
 
 
 const IGV_RATE = 0.18;
@@ -142,6 +143,8 @@ const QuotationTab = ({
       );
 
       if (response.success) {
+        logActivity(EVENTOS.COTIZACION_REGISTRADA, response.data.id_cotizac);
+        
         toast.success(
           `Cotización ${response.data.correlativo_cotiza} registrada exitosamente`,
           { position: 'top-right', duration: 4000 }
@@ -239,25 +242,26 @@ if (!selectedClient?.ruc) {
       {/* Tabla */}
       <div className="overflow-auto rounded-xl shadow-lg bg-white border">
         <table
-          className="min-w-full divide-y divide-gray-200 text-sm"
-          style={{ tableLayout: 'fixed', width: '100%' }}
-        >
-          <thead className="bg-gray-100 sticky top-0 z-10">
-            <tr>
-              <th style={{ width: 56 }}  className="p-4 font-bold text-gray-700 text-center">Item</th>
-              <th style={{ width: 120 }} className="p-4 font-bold text-gray-700 text-center">Código Mercadería</th>
-              <th style={{ width: 210 }} className="p-4 font-bold text-gray-700 text-center">Descripción Mercadería</th>
-              <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">P. Lista Unit. (Sin IGV) ({currencySymbol})</th>
-              <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">1er Dsco.</th>
-              <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">5to Dsco.</th>
-              <th style={{ width: 140 }} className="p-4 font-bold text-gray-700 text-center">P. Neto Unit. ({currencySymbol})</th>
-              <th style={{ width: 70 }}  className="p-4 font-bold text-gray-700 text-center">Cant.</th>
-              <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">P. Neto Total ({currencySymbol})</th>
-              <th style={{ width: 100 }} className="p-4 font-bold text-gray-700 text-center">IGV ({currencySymbol})</th>
-              <th style={{ width: 120 }} className="p-4 font-bold text-gray-700 text-center">Importe Total ({currencySymbol})</th>
-              <th style={{ width: 56 }}></th>
-            </tr>
-          </thead>
+  className="min-w-full divide-y divide-gray-200 text-sm"
+  style={{ tableLayout: 'fixed', minWidth: 1100 }}
+>
+  <thead className="bg-gray-100 sticky top-0 z-10">
+    <tr>
+      <th style={{ width: 52 }}  className="p-3 font-bold text-gray-700 text-center">Item</th>
+      <th style={{ width: 160 }} className="p-3 font-bold text-gray-700 text-center">Código Mercadería</th>
+      <th style={{ width: 200 }} className="p-3 font-bold text-gray-700 text-center">Descripción Mercadería</th>
+      <th style={{ width: 110 }} className="p-3 font-bold text-gray-700 text-center">P. Lista Unit. (Sin IGV) ({currencySymbol})</th>
+      <th style={{ width: 110 }} className="p-3 font-bold text-gray-700 text-center">1er Dsco.</th>
+      <th style={{ width: 110 }} className="p-3 font-bold text-gray-700 text-center">5to Dsco.</th>
+      <th style={{ width: 120 }} className="p-3 font-bold text-gray-700 text-center">P. Neto Unit. ({currencySymbol})</th>
+      <th style={{ width: 70 }}  className="p-3 font-bold text-gray-700 text-center">Cant.</th>
+      <th style={{ width: 120 }} className="p-3 font-bold text-gray-700 text-center">P. Neto Total ({currencySymbol})</th>
+      <th style={{ width: 90 }}  className="p-3 font-bold text-gray-700 text-center">IGV ({currencySymbol})</th>
+      <th style={{ width: 110 }} className="p-3 font-bold text-gray-700 text-center">Importe Total ({currencySymbol})</th>
+      <th style={{ width: 48 }}></th>
+    </tr>
+  </thead>
+
           <tbody className="divide-y divide-gray-100">
             {(quotationItems ?? []).length === 0 ? (
               <tr>
@@ -292,17 +296,17 @@ if (!selectedClient?.ruc) {
                     </td>
 
                     {/* Código */}
-                    <td style={{ width: 120 }} className="p-4 text-center font-semibold">
+                    <td style={{ width: 160 }} className="p-3 text-center font-semibold whitespace-nowrap overflow-hidden text-ellipsis">
                       {item.codigo}
                     </td>
 
                     {/* Descripción */}
-                    <td style={{ width: 210 }} className="p-4 text-left">
+                    <td style={{ width: 200 }} className="p-3 text-left leading-tight break-words">
                       {item.nombre}
                     </td>
 
                     {/* P. Lista */}
-                    <td style={{ width: 130 }} className="p-4 text-right text-gray-700">
+                    <td style={{ width: 110 }} className="p-3 text-right text-gray-700 whitespace-nowrap">
                       {currencySymbol} {(item.precioLista || 0).toFixed(3)}
                     </td>
 
@@ -378,7 +382,7 @@ if (!selectedClient?.ruc) {
                     </td>
 
                     {/* P. Neto Unit */}
-                    <td style={{ width: 140 }} className="p-4 text-right font-bold text-green-700">
+                    <td style={{ width: 120 }} className="p-3 text-right font-bold text-green-700 whitespace-nowrap">
                       {currencySymbol} {precioNeto.toFixed(3)}
                     </td>
 
@@ -398,17 +402,17 @@ if (!selectedClient?.ruc) {
                     </td>
 
                     {/* P. Neto Total */}
-                    <td style={{ width: 130 }} className="p-4 text-right text-blue-900 font-bold">
+                    <td style={{ width: 120 }} className="p-3 text-right text-blue-900 font-bold whitespace-nowrap">
                       {currencySymbol} {precioNetoTotal.toFixed(3)}
                     </td>
 
                     {/* IGV */}
-                    <td style={{ width: 100 }} className="p-4 text-right text-yellow-700">
+                    <td style={{ width: 90 }} className="p-3 text-right text-yellow-700 whitespace-nowrap">
                       {currencySymbol} {igvTotal.toFixed(3)}
                     </td>
 
                     {/* Importe Total */}
-                    <td style={{ width: 120 }} className="p-4 text-right text-red-800 font-bold">
+                    <td style={{ width: 110 }} className="p-3 text-right text-red-800 font-bold whitespace-nowrap">
                       {currencySymbol} {importeTotal.toFixed(3)}
                     </td>
 
@@ -450,52 +454,58 @@ if (!selectedClient?.ruc) {
       </div>
 
       {/* Botones de acción */}
-      <div className="w-full flex flex-col md:flex-row justify-between items-center mt-6 gap-3">
-        <button
-          onClick={onBackToProducts}
-          className="bg-gradient-to-r from-blue-500 to-blue-700 text-white font-bold px-4 py-2 rounded-lg shadow hover:scale-105 transition text-sm w-full md:w-auto"
-        >
-          Seguir agregando productos
-        </button>
+<div className="w-full mt-6 flex flex-col gap-3">
 
-        <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
-          <button
-            onClick={handlePreviewPDF}
-            disabled={quotationItems.length === 0}
-            className="bg-orange-600 text-white font-bold px-4 py-2 rounded-lg shadow hover:scale-105 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            👁️ Previsualizar PDF
-          </button>
+  {/* Fila 1: Seguir agregando — ancho completo en mobile, auto en desktop */}
+  <div className="w-full">
+    <button
+      onClick={onBackToProducts}
+      className="w-full md:w-auto bg-gradient-to-r from-blue-500 to-blue-700 text-white font-bold px-5 py-2.5 rounded-lg shadow hover:scale-105 transition text-sm"
+    >
+      + Seguir agregando productos
+    </button>
+  </div>
 
-          <button
-            onClick={handleDownloadPDF}
-            disabled={quotationItems.length === 0}
-            className="bg-gray-600 text-white font-bold px-4 py-2 rounded-lg shadow hover:scale-105 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            📥 Descargar PDF
-          </button>
+  {/* Fila 2: PDF + Registrar — alineados a la derecha en desktop */}
+  <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+    <button
+      onClick={handlePreviewPDF}
+      disabled={quotationItems.length === 0}
+      className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-orange-600 text-white font-bold px-4 py-2.5 rounded-lg shadow hover:scale-105 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      👁️ Previsualizar PDF
+    </button>
 
-          <button
-            onClick={handleRegister}
-            disabled={quotationItems.length === 0 || isRegistering || !quotationNumber}
-            className={`bg-green-600 text-white font-bold px-4 py-2 rounded-lg shadow hover:scale-105 transition text-sm flex items-center gap-2
-              ${quotationItems.length === 0 || isRegistering || !quotationNumber
-                ? 'opacity-60 cursor-not-allowed' : ''}`}
-          >
-            {isRegistering ? (
-              <>
-                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                Registrando...
-              </>
-            ) : (
-              'Registrar Cotización'
-            )}
-          </button>
-        </div>
-      </div>
+    <button
+      onClick={handleDownloadPDF}
+      disabled={quotationItems.length === 0}
+      className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-gray-600 text-white font-bold px-4 py-2.5 rounded-lg shadow hover:scale-105 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      📥 Descargar PDF
+    </button>
+
+    <button
+      onClick={handleRegister}
+      disabled={quotationItems.length === 0 || isRegistering || !quotationNumber}
+      className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-green-600 text-white font-bold px-4 py-2.5 rounded-lg shadow hover:scale-105 transition text-sm
+        ${quotationItems.length === 0 || isRegistering || !quotationNumber ? 'opacity-60 cursor-not-allowed' : ''}`}
+    >
+      {isRegistering ? (
+        <>
+          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          Registrando...
+        </>
+      ) : (
+        '✅ Registrar Cotización'
+      )}
+    </button>
+  </div>
+
+</div>
+
     </div>
   );
 };

@@ -1,6 +1,7 @@
 // src/services/authService.js
 import api from './api';
 
+
 export const authService = {
   /**
    * Login - Autenticar usuario
@@ -10,6 +11,9 @@ export const authService = {
    */
   login: async (correo, password) => {
     const { data } = await api.post('/auth/login', { correo, password });
+
+
+
     return data;
   },
 
@@ -18,6 +22,7 @@ export const authService = {
    * Limpia el refresh token en el servidor (cookie)
    */
   logout: async () => {
+    
     await api.post('/auth/logout');
   },
 

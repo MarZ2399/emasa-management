@@ -50,7 +50,7 @@ const CallsModule = () => {
   const tabs = [
     { key: 'calls',       label: 'Historial de Contacto', icon: Phone,        color: 'blue'   },
     { key: 'purchases',   label: 'Últimas Compras',        icon: ShoppingCart, color: 'green'  },
-    { key: 'suggestions', label: 'Sugerencias',            icon: Sparkles,     color: 'purple' },
+    // { key: 'suggestions', label: 'Sugerencias',            icon: Sparkles,     color: 'purple' },
     { key: 'products',    label: 'Consulta de Productos',  icon: Package,      color: 'indigo' },
     { key: 'quotations',  label: 'Cotización',             icon: FileText,     color: 'green'  },
   ];

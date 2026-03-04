@@ -4,6 +4,7 @@ import { Search, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { getClientByRuc } from '../../services/customerService';
 import InfoCard from '../common/InfoCard';
 import toast from 'react-hot-toast';
+import { logActivity, EVENTOS } from '../../services/activityLogService';
 
 const ClientSearchPanel = ({ onClientSelect, resetTrigger }) => {
   const [ruc, setRuc] = useState('');
@@ -48,6 +49,8 @@ const ClientSearchPanel = ({ onClientSelect, resetTrigger }) => {
         console.log('✅ Cliente encontrado:', data);
         
         setClientData(data);
+
+        logActivity(EVENTOS.CLIENTE_CONSULTADO, null);
         
         toast.success('Cliente encontrado', {
           icon: '✅',
@@ -205,6 +208,7 @@ const ClientSearchPanel = ({ onClientSelect, resetTrigger }) => {
           <InfoCard
             title="Datos Comerciales"
             icon={<CheckCircle className="w-5 h-5" />}
+            subtitle={`Forma Pago: ${clientData?.fpago|| 'N/A'}`}
             color="blue"
             data={[
               { label: 'Giro', value: clientData.giro },

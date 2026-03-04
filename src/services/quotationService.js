@@ -397,6 +397,18 @@ export const prepareUpdatePayload = (formData, correlativo = null) => {
   return { cabecera, detalles };
 };
 
+
+export const duplicateQuotation = async (id) => {
+  try {
+    const response = await api.post(`/quotations/${id}/duplicate`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error al duplicar cotización:', error);
+    throw error;
+  }
+};
+
+
 export default {
   registerQuotation,
   updateQuotation,
@@ -404,6 +416,7 @@ export default {
   listQuotations,
   getQuotationById,
   cancelQuotation,
+  duplicateQuotation, 
   formatDateToYYYYMMDD,
   formatDateToInputValue,
   formatTimeToHHMM,

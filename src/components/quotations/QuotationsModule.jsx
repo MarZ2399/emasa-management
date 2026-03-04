@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   FileText, Search, Calendar, DollarSign, Package,
-  Eye, Pencil, Loader, RefreshCw, ChevronLeft, ChevronRight
+  Eye, Pencil, Loader, RefreshCw, ChevronLeft, ChevronRight, Copy
 } from 'lucide-react';
 import QuotationEditModal from './QuotationEditModal';
 import QuotationStatusBadge from './QuotationStatusBadge';
@@ -12,6 +12,7 @@ import SectionHeader from '../common/SectionHeader';
 import quotationService from '../../services/quotationService';
 import toast from 'react-hot-toast';
 import Tooltip from '../common/Tooltip';
+import { logActivity, EVENTOS } from '../../services/activityLogService';
 
 const PAGE_SIZE = 10;
 
@@ -243,6 +244,8 @@ const parseFecha = (fechaRaw) => {
       );
 
       if (response.success) {
+        logActivity(EVENTOS.COTIZACION_EDITADA, editingQuotation.id);
+
         toast.success('✅ Cotización actualizada exitosamente');
         setIsEditModalOpen(false);
         setEditingQuotation(null);
@@ -257,6 +260,32 @@ const parseFecha = (fechaRaw) => {
       setLoading(false);
     }
   };
+
+  // ── Duplicar ──────────────────────────────────────────────────
+const handleDuplicateQuotation = async (quotation) => {
+  try {
+    setLoading(true);
+    const response = await quotationService.duplicateQuotation(quotation.id);
+
+    if (response.success) {
+
+       logActivity(EVENTOS.COTIZACION_DUPLICADA, response.data.id_cotizac);
+       
+      toast.success(
+        `Cotización duplicada como ${response.data.correlativo_cotiza}`,
+        { duration: 4000 }
+      );
+      await fetchQuotations();
+    } else {
+      toast.error(response.error || 'Error al duplicar la cotización');
+    }
+  } catch (err) {
+    toast.error(err.response?.data?.error || err.message || 'Error al duplicar');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // ── Ver PDF ───────────────────────────────────────────────────
   const handleViewPDF = async (quotation) => {
@@ -560,6 +589,17 @@ const parseFecha = (fechaRaw) => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <div className="flex items-center justify-center gap-2">
+                        
+                        <Tooltip text="Duplicar cotización">
+                          <button
+                            onClick={() => handleDuplicateQuotation(quotation)}
+                            disabled={loading}
+                            className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 hover:scale-105 transition inline-flex items-center gap-2 text-sm font-bold shadow disabled:opacity-50"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+                        </Tooltip>
+
                         <Tooltip text="Editar cotización">
                         <button
                           onClick={() => handleEditQuotation(quotation)}
