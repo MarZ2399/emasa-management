@@ -32,7 +32,7 @@ const CallTable = ({ records, onEdit, onDelete }) => {
               Observaciones
             </th>
             <th className="px-6 py-3 text-center text-xs lg:text-sm font-semibold">
-              Acciones
+              
             </th>
           </tr>
         </thead>

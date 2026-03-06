@@ -1,5 +1,6 @@
 import React from 'react';
-import { Edit2, Trash2, Calendar, Clock } from 'lucide-react';
+import { Edit2, Trash2, Eye, Calendar, Clock } from 'lucide-react';
+import Tooltip from '../common/Tooltip';
 
 const formatProxLlamada = (fecha) => {
   if (!fecha) return <span className="text-gray-400">—</span>;
@@ -52,7 +53,7 @@ const TIPO_COLORS = {
   'OUTBOUND': 'bg-indigo-100 text-indigo-800 border-indigo-300',
 };
 
-const CallTableRow = ({ record, index, onEdit, onDelete }) => (
+const CallTableRow = ({ record, index, onEdit, onDelete, onView }) => (
   <tr className={`hover:bg-blue-50/30 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/60'}`}>
 
     {/* Fecha */}
@@ -107,17 +108,25 @@ const CallTableRow = ({ record, index, onEdit, onDelete }) => (
 
     {/* Acciones */}
     <td className="px-4 py-3 whitespace-nowrap">
-      <div className="flex items-center justify-center gap-1">
-        <button onClick={() => onEdit(record)}
-          className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition" title="Editar">
-          <Edit2 className="w-4 h-4" />
-        </button>
-        <button onClick={() => onDelete(record.id_llamada)}
-          className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Eliminar">
-          <Trash2 className="w-4 h-4" />
-        </button>
-      </div>
-    </td>
+  <div className="flex items-center justify-center gap-1">
+    <Tooltip text="Ver detalle">
+  <button
+    onClick={() => onView(record)}
+    className="px-3 py-2 bg-[#334a5e] text-white rounded-lg hover:bg-blue-700 hover:scale-105 transition inline-flex items-center text-sm font-bold shadow"
+  >
+    <Eye className="w-4 h-4" />
+  </button>
+</Tooltip>
+    {/* <button onClick={() => onEdit(record)}
+      className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition" title="Editar">
+      <Edit2 className="w-4 h-4" />
+    </button>
+    <button onClick={() => onDelete(record.id_llamada)}
+      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Eliminar">
+      <Trash2 className="w-4 h-4" />
+    </button> */}
+  </div>
+</td>
   </tr>
 );
 

@@ -446,13 +446,14 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
-                    type="date"
-                    value={formData.fecha || ''}
-                    onChange={e => handleHeaderChange('fecha', e.target.value)}
-                    className={`w-full pl-9 pr-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${
-                      errors.fecha ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                    }`}
-                  />
+  type="date"
+  value={formData.fecha || ''}
+  onChange={e => handleHeaderChange('fecha', e.target.value)}
+  disabled
+  className={`w-full pl-9 pr-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-gray-100 text-gray-500 cursor-not-allowed ${
+    errors.fecha ? 'border-red-500 bg-red-50' : 'border-gray-300'
+  }`}
+/>
                 </div>
                 {errors.fecha && <p className="mt-1 text-xs text-red-600">{errors.fecha}</p>}
               </div>

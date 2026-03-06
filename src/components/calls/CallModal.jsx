@@ -1,7 +1,7 @@
 // CallModal.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, AlertTriangle } from 'lucide-react';
 
 const CallModal = ({
   isOpen, onClose, formData, setFormData,
@@ -44,6 +44,7 @@ const CallModal = ({
 
   const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm';
   const labelCls = 'block text-sm font-medium text-gray-700 mb-1';
+  const [showConfirm, setShowConfirm] = useState(false);
 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
@@ -95,45 +96,35 @@ const CallModal = ({
           </div>
 
           {/* ── Comunicación ── */}
-          <div>
-            <h3 className="text-sm font-bold text-gray-800 mb-3 pb-1 border-b">Comunicación</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className={labelCls}>Tipo de Contacto <span className="text-red-500">*</span></label>
-                {/*
-                  ✅ value={formData.id_tipo_contacto ?? ''}
-                  React serializa el Number a string para el DOM,
-                  pero el option también tiene value={t.value} (Number),
-                  así que React los compara como strings y hace match correcto.
-                */}
-                <select
-                  className={inputCls}
-                  value={formData.id_tipo_contacto ?? ''}
-                  onChange={handleTipoContacto}
-                >
-                  <option value="">Seleccione...</option>
-                  {tiposContacto.map(t => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelCls}>Estatus</label>
-                <input className={inputCls} value={formData.estatus_llamada ?? ''}
-                  onChange={e => set('estatus_llamada', e.target.value)} placeholder="Completada" />
-              </div>
-              <div>
-                <label className={labelCls}>Teléfono 1 <span className="text-red-500">*</span></label>
-                <input className={inputCls} value={formData.telefono_1 ?? ''}
-                  onChange={e => set('telefono_1', e.target.value)} placeholder="999888777" />
-              </div>
-              <div>
-                <label className={labelCls}>Teléfono 2</label>
-                <input className={inputCls} value={formData.telefono_2 ?? ''}
-                  onChange={e => set('telefono_2', e.target.value)} placeholder="01-2345678" />
-              </div>
-            </div>
-          </div>
+<div>
+  <h3 className="text-sm font-bold text-gray-800 mb-3 pb-1 border-b">Comunicación</h3>
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div>
+      <label className={labelCls}>Tipo de Contacto <span className="text-red-500">*</span></label>
+      <select
+        className={inputCls}
+        value={formData.id_tipo_contacto ?? ''}
+        onChange={handleTipoContacto}
+      >
+        <option value="">Seleccione...</option>
+        {tiposContacto.map(t => (
+          <option key={t.value} value={t.value}>{t.label}</option>
+        ))}
+      </select>
+    </div>
+    <div>
+      <label className={labelCls}>Teléfono 1 <span className="text-red-500">*</span></label>
+      <input className={inputCls} value={formData.telefono_1 ?? ''}
+        onChange={e => set('telefono_1', e.target.value)} placeholder="999888777" />
+    </div>
+    <div>
+      <label className={labelCls}>Teléfono 2</label>
+      <input className={inputCls} value={formData.telefono_2 ?? ''}
+        onChange={e => set('telefono_2', e.target.value)} placeholder="01-2345678" />
+    </div>
+  </div>
+</div>
+
 
           {/* ── Gestión y Seguimiento ── */}
           <div>
@@ -183,14 +174,49 @@ const CallModal = ({
               className="w-full sm:w-auto px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition font-medium">
               Cancelar
             </button>
-            <button type="button" onClick={onSubmit} disabled={saving}
-              className="w-full sm:w-auto px-6 py-2 bg-[#334a5e] text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50 flex items-center justify-center gap-2">
-              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-              {isEditing ? 'Actualizar' : 'Guardar'}
-            </button>
+            <button type="button" onClick={() => setShowConfirm(true)} disabled={saving}
+  className="w-full sm:w-auto px-6 py-2 bg-[#334a5e] text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+  {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+  {isEditing ? 'Actualizar' : 'Guardar'}
+</button>
           </div>
         </div>
       </div>
+      {showConfirm && (
+  <div className="fixed inset-0 bg-black/50 z-[10000] flex items-center justify-center p-4">
+    <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center shrink-0">
+          <AlertTriangle className="w-5 h-5 text-yellow-600" />
+        </div>
+        <div>
+          <h3 className="font-bold text-gray-900">
+            {isEditing ? '¿Actualizar registro?' : '¿Seguro de guardar registro?'}
+          </h3>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {isEditing
+              ? 'Se guardarán los cambios realizados en este contacto.'
+              : 'Se registrará un nuevo registro de contacto hacia el cliente con los datos ingresados.'}
+          </p>
+        </div>
+      </div>
+      <div className="flex justify-end gap-3">
+        <button
+          onClick={() => setShowConfirm(false)}
+          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium text-sm">
+          Cancelar
+        </button>
+        <button
+          onClick={() => { setShowConfirm(false); onSubmit(); }}
+          disabled={saving}
+          className="px-4 py-2 bg-[#334a5e] text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm disabled:opacity-50 flex items-center gap-2">
+          {saving && <Loader2 className="w-3 h-3 animate-spin" />}
+          {isEditing ? 'Sí, actualizar' : 'Sí, guardar'}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </div>,
     document.body
   );

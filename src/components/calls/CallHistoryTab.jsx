@@ -14,6 +14,7 @@ import CallModal    from './CallModal';
 import CallTableRow from './CallTableRow';
 import ConfirmDialog from '../common/ConfirmDialog';
 import { logActivity, EVENTOS } from '../../services/activityLogService';
+import CallDetailModal from './CallDetailModal';
 
 // ── Formulario vacío alineado al schema ems.llamada ───────────────────────────
 const EMPTY_FORM = {
@@ -48,6 +49,7 @@ const CallHistoryTab = ({ selectedClient }) => {
   const [tiposContacto, setTiposContacto] = useState([]);
   const [resultados,    setResultados]    = useState([]);
   const [recordsPerPage]                  = useState(15);
+  const [detailRecord, setDetailRecord] = useState(null);
 
   const [filters, setFilters] = useState({
     fecha_desde: '',
@@ -151,6 +153,8 @@ const CallHistoryTab = ({ selectedClient }) => {
     setIsModalOpen(false);
     setEditingRecord(null);
   };
+
+  const handleViewRecord = (record) => setDetailRecord(record);
 
   // ── Submit — crear / actualizar ───────────────────────────────────────────────
   const handleSubmit = async () => {
@@ -392,7 +396,7 @@ const CallHistoryTab = ({ selectedClient }) => {
                 {[
                   'Fecha', 'Contactado', 'Tipo', 'Resultado',
                   'Asesor', 'Teléf. 1', 'Teléf. 2',
-                  'Próx. Llamada', 'Observaciones', 'Acciones'
+                  'Próx. Llamada', 'Observaciones', 'Det.'
                 ].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
                     {h}
@@ -409,6 +413,7 @@ const CallHistoryTab = ({ selectedClient }) => {
                     index={index}
                     onEdit={handleOpenModal}
                     onDelete={handleDelete}
+                     onView={handleViewRecord} 
                   />
                 ))
               ) : (
@@ -489,6 +494,12 @@ const CallHistoryTab = ({ selectedClient }) => {
         resultados={resultados}
         clienteContactos={selectedClient?.contactos || []}
       />
+
+      <CallDetailModal
+  isOpen={!!detailRecord}
+  onClose={() => setDetailRecord(null)}
+  record={detailRecord}
+/>
 
       {/* ── Confirm Delete ── */}
       <ConfirmDialog
