@@ -22,9 +22,19 @@ const CallsModule = () => {
   const [autoSearchTrigger,  setAutoSearchTrigger]  = useState(0);
 
   const handleClientSelect = (clientData) => {
-    setSelectedClient(clientData);
-    setSelectedClientRUC(clientData?.ruc || null);
-  };
+  const newRuc = clientData?.ruc || null;
+
+  // Si cambió el RUC → limpiar productos y cotización
+  if (newRuc !== selectedClientRUC) {
+    setQuotationItems([]);
+    setCodigoProducto('');
+    setNombreProducto('');
+    setHasSearched(false);
+  }
+
+  setSelectedClient(clientData);
+  setSelectedClientRUC(newRuc);
+};
 
   const handleProductClick = (codigo) => {
     setCodigoProducto(codigo);

@@ -28,6 +28,7 @@ const QuotationTab = ({
   onRegistrationComplete
 }) => {
   const pdfRef = useRef(null);
+  
   const [quotationNumber, setQuotationNumber] = useState('');
   const [isRegistering, setIsRegistering]     = useState(false);
 
@@ -48,10 +49,7 @@ const QuotationTab = ({
     fetchNextCorrelative();
   }, []);
 
-  useEffect(() => {
-  if (!selectedClient?.ruc) return;
-  setQuotationItems([]);
-}, [selectedClient?.ruc]);
+ 
 
   // ── Normalizar item ───────────────────────────────────────────────────────────
   // dola viene de preciosDetalle.importes.dola (ya tiene de01 aplicado)
@@ -241,25 +239,25 @@ if (!selectedClient?.ruc) {
 
       {/* Tabla */}
       <div className="overflow-auto rounded-xl shadow-lg bg-white border">
-        <table
-  className="min-w-full divide-y divide-gray-200 text-sm"
-  style={{ tableLayout: 'fixed', minWidth: 1100 }}
->
-  <thead className="bg-gray-100 sticky top-0 z-10">
-    <tr>
-      <th style={{ width: 52 }}  className="p-3 font-bold text-gray-700 text-center">Item</th>
-      <th style={{ width: 160 }} className="p-3 font-bold text-gray-700 text-center">Código Mercadería</th>
-      <th style={{ width: 200 }} className="p-3 font-bold text-gray-700 text-center">Descripción Mercadería</th>
-      <th style={{ width: 110 }} className="p-3 font-bold text-gray-700 text-center">P. Lista Unit. (Sin IGV) ({currencySymbol})</th>
-      <th style={{ width: 110 }} className="p-3 font-bold text-gray-700 text-center">1er Dsco.</th>
-      <th style={{ width: 110 }} className="p-3 font-bold text-gray-700 text-center">5to Dsco.</th>
-      <th style={{ width: 120 }} className="p-3 font-bold text-gray-700 text-center">P. Neto Unit. ({currencySymbol})</th>
-      <th style={{ width: 70 }}  className="p-3 font-bold text-gray-700 text-center">Cant.</th>
-      <th style={{ width: 120 }} className="p-3 font-bold text-gray-700 text-center">P. Neto Total ({currencySymbol})</th>
-      <th style={{ width: 90 }}  className="p-3 font-bold text-gray-700 text-center">IGV ({currencySymbol})</th>
-      <th style={{ width: 110 }} className="p-3 font-bold text-gray-700 text-center">Importe Total ({currencySymbol})</th>
-      <th style={{ width: 48 }}></th>
-    </tr>
+          <table
+    className="divide-y divide-gray-200 text-sm"
+    style={{ tableLayout: 'fixed', width: '100%', minWidth: 1300 }}
+  >
+    <thead className="bg-gray-100 sticky top-0 z-10">
+      <tr>
+        <th style={{ width: 56 }}  className="p-4 font-bold text-gray-700 text-center">Item</th>
+        <th style={{ width: 180 }} className="p-4 font-bold text-gray-700 text-center">Código Mercadería</th>
+        <th style={{ width: 210 }} className="p-4 font-bold text-gray-700 text-center">Descripción Mercadería</th>
+        <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">P. Lista Unit. (Sin IGV) ({currencySymbol})</th>
+        <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">1er Dsco.</th>
+        <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">5to Dsco.</th>
+        <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">P. Neto Unit. ({currencySymbol})</th>
+        <th style={{ width: 70 }}  className="p-4 font-bold text-gray-700 text-center">Cant.</th>
+        <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">P. Neto Total ({currencySymbol})</th>
+        <th style={{ width: 100 }} className="p-4 font-bold text-gray-700 text-center">IGV ({currencySymbol})</th>
+        <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">Importe Total ({currencySymbol})</th>
+        <th style={{ width: 56 }}></th>
+      </tr>
   </thead>
 
           <tbody className="divide-y divide-gray-100">
@@ -296,12 +294,12 @@ if (!selectedClient?.ruc) {
                     </td>
 
                     {/* Código */}
-                    <td style={{ width: 160 }} className="p-3 text-center font-semibold whitespace-nowrap overflow-hidden text-ellipsis">
+                    <td style={{ width: 180 }} className="p-3 text-center font-semibold whitespace-nowrap overflow-hidden text-ellipsis">
                       {item.codigo}
                     </td>
 
                     {/* Descripción */}
-                    <td style={{ width: 200 }} className="p-3 text-left leading-tight break-words">
+                    <td style={{ width: 210 }} className="p-3 text-left leading-tight break-words">
                       {item.nombre}
                     </td>
 

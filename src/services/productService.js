@@ -1,6 +1,7 @@
 // src/services/productService.js
 import api from './api';
 
+
 export const productService = {
   /**
    * Buscar productos por código (parcial o completo)
@@ -81,8 +82,28 @@ export const productService = {
         msgerror: error.response?.data?.msgerror || error.message
       };
     }
+  },
+
+  /**
+   * Buscar productos por código Y nombre combinados
+   */
+  searchByCodigoAndNombre: async (codigo, nombre) => {
+    try {
+      const { data } = await api.get('/products/search-combined', {
+        params: { codigo: codigo.trim(), nombre: nombre.trim() }
+      });
+      return data;
+    } catch (error) {
+      console.error('❌ Error en searchByCodigoAndNombre:', error);
+      return {
+        success: false,
+        data: [],
+        msgerror: error.response?.data?.msgerror || error.message
+      };
+    }
   }
 };
+
 
 /**
  * ✅ Export para ProductSelectorModal
@@ -113,5 +134,6 @@ export const searchProducts = async (searchTerm = '') => {
     };
   }
 };
+
 
 export default productService;

@@ -1,5 +1,5 @@
 // src/components/calls/ProductsTab.jsx
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect} from 'react';
 import { Search, Package, AlertCircle, Eye, Building2, Loader2, ShoppingCart } from 'lucide-react';
 import { productService } from '../../services/productService';
 import { precioService } from '../../services/precioService';
@@ -66,6 +66,7 @@ const ProductsTab = ({
 
   const { user } = useContext(AuthContext);
   const codAlmacen = user?.empresa?.cod_almacen || null;
+
 
   // ── Auto-búsqueda desde PurchaseHistoryTab ───────────────────────────────────
   useEffect(() => {
@@ -146,11 +147,13 @@ const ProductsTab = ({
     try {
       let response;
 
-      if (codigoProducto.trim()) {
-        response = await productService.searchByCodigo(codigoProducto);
-      } else if (nombreProducto.trim()) {
-        response = await productService.searchByName(nombreProducto);
-      }
+      if (codigoProducto.trim() && nombreProducto.trim()) {
+  response = await productService.searchByCodigoAndNombre(codigoProducto, nombreProducto);
+} else if (codigoProducto.trim()) {
+  response = await productService.searchByCodigo(codigoProducto);
+} else if (nombreProducto.trim()) {
+  response = await productService.searchByName(nombreProducto);
+}
 
       if (response.success) {
         const productosFormateados = response.data.map(item => {
