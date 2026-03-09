@@ -23,6 +23,7 @@ import CallsModule from './components/calls/CallsModule';
 import CallReminders from './components/calls/CallReminders';
 
 import CatalogoDebug from './components/common/CatalogoDebug';
+import FindStockProduct from './components/products/FindStockProduct';
 
 // Data Mock
 import { initialCallRecords } from './data/callsData';
@@ -118,6 +119,9 @@ const MainLayoutWrapper = () => {
 
           {/* Llamadas */}
           <Route path="/llamadas" element={<CallsModule />} />
+
+          {/* Stock */}
+          <Route path="/stock" element={<FindStockProduct />} />
 
           {/* Administración */}
           <Route 

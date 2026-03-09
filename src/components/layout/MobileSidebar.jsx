@@ -1,16 +1,18 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom'; // <--- IMPORTANTE
-import { Users, Phone, BarChart3, FileText, Package, X } from 'lucide-react';
+import { Users, Phone, BarChart3, FileText, Package, X , Layers } from 'lucide-react';
 import logoImage from "../../assets/logo-emasa1.png";
 
 const menuItems = [
   { icon: BarChart3, label: 'Seguimiento de Metas', path: '/dashboard' },
   // 2. Usamos Users para la cartera de clientes
-  { icon: Users,     label: 'Maestro de Clientes',  path: '/ventas/clientes' }, 
+  // { icon: Users,     label: 'Maestro de Clientes',  path: '/ventas/clientes' }, 
   // 3. Recuperamos el módulo de Llamadas con la ruta que definimos en App.jsx
+  { icon: Layers,    label: 'Consulta Stock',       path: '/stock' },
   { icon: Phone,     label: 'Gestión de Televentas', path: '/llamadas' },        
   { icon: FileText,  label: 'Gestión de Cotización', path: '/ventas/cotizaciones' }, 
   { icon: Package,   label: 'Gestión de Pedidos',    path: '/ventas/pedidos' },
+  
 ];
 
 const MobileSidebar = ({ isOpen, onClose }) => {

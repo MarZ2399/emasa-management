@@ -1,20 +1,22 @@
 // src/components/calls/ProdDetailModal.jsx
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { Building2, AlertCircle, Loader2, Package, Tag, Layers } from 'lucide-react';
+import { Building2, AlertCircle, Loader2, Package, Tag, Layers, Ship } from 'lucide-react';
 import { precioService } from '../../services/precioService';
+import { productService } from '../../services/productService';
 import toast from 'react-hot-toast';
-
 
 
 const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
   if (!product || !isOpen) return null;
 
-  const [preciosData, setPreciosData]       = useState(null);
+  const [preciosData,    setPreciosData]    = useState(null);
   const [loadingPrecios, setLoadingPrecios] = useState(false);
-  const [errorPrecios, setErrorPrecios]     = useState(null);
+  const [errorPrecios,   setErrorPrecios]   = useState(null);
+  const [fases,          setFases]          = useState([]);
+  const [loadingFases,   setLoadingFases]   = useState(false);
 
-  // ── Normalizar almacenes — prioriza almacenesAll (todos) sobre almacenes (vendedor) ──
+  // ── Normalizar almacenes ──────────────────────────────────────────────────────
   const almacenes = (
     product.almacenesAll ??
     product.almacenes    ??
@@ -29,18 +31,20 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
 
   const totalStock = almacenes.reduce((sum, a) => sum + a.stock, 0);
 
-  // ── Cargar precios al abrir ───────────────────────────────────────────────────
+  // ── useEffect ─────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (isOpen && product && clienteRuc) {
-      fetchPrecios();
+    if (isOpen && product) {
+      if (clienteRuc) fetchPrecios();
+      fetchFases();
     }
     if (!isOpen) {
       setPreciosData(null);
       setErrorPrecios(null);
+      setFases([]);
     }
   }, [isOpen, product?.codigo, clienteRuc]);
 
-
+  // ── Fetch precios ─────────────────────────────────────────────────────────────
   const fetchPrecios = async () => {
     if (!clienteRuc || !product?.codigo) {
       setErrorPrecios('Faltan datos para consultar precios');
@@ -64,11 +68,24 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
     }
   };
 
-  // ── Helpers de stock ──────────────────────────────────────────────────────────
+  // ── Fetch fases ───────────────────────────────────────────────────────────────
+  const fetchFases = async () => {
+    try {
+      setLoadingFases(true);
+      const response = await productService.getFasesImportacion(product.codigo.trim());
+      if (response.success) setFases(response.data || []);
+    } catch (error) {
+      console.error('❌ Error al obtener fases:', error);
+    } finally {
+      setLoadingFases(false);
+    }
+  };
+
+  // ── Helpers ───────────────────────────────────────────────────────────────────
   const getStockStyle = (stock) => {
-    if (stock === 0) return { badge: 'bg-red-100 text-red-700 border-red-300',           icon: '❌', label: 'Sin Stock'  };
-    if (stock < 10)  return { badge: 'bg-yellow-100 text-yellow-700 border-yellow-300',  icon: '⚠️', label: 'Stock Bajo' };
-    return             { badge: 'bg-green-100 text-green-700 border-green-300',          icon: '✅', label: 'Disponible' };
+    if (stock === 0) return { badge: 'bg-red-100 text-red-700 border-red-300',          icon: '❌', label: 'Sin Stock'  };
+    if (stock < 10)  return { badge: 'bg-yellow-100 text-yellow-700 border-yellow-300', icon: '⚠️', label: 'Stock Bajo' };
+    return             { badge: 'bg-green-100 text-green-700 border-green-300',         icon: '✅', label: 'Disponible' };
   };
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -108,7 +125,7 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
         <div className="p-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            {/* ── COLUMNA IZQUIERDA ────────────────────────────────────────── */}
+            {/* ── COLUMNA IZQUIERDA ─────────────────────────────────────────── */}
             <div className="space-y-5">
 
               {/* Información general */}
@@ -212,43 +229,12 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
                 </div>
               </div>
 
-              {/* Costos */}
-              {/* {preciosData?.costos && (
-                <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-                  <div className="bg-gray-800 text-white px-4 py-3">
-                    <h3 className="font-bold text-sm uppercase tracking-wide">Costos</h3>
-                  </div>
-                  <div className="divide-y divide-gray-100 text-sm">
-                    {[
-                      { label: 'CPU Soles (CPUS)',   value: `S/ ${(preciosData.costos?.cpuSoles  || 0).toFixed(3)}` },
-                      { label: 'CPU Dólares (CPUD)', value: `$ ${(preciosData.costos?.cpuDolares || 0).toFixed(3)}` },
-                    ].map((row, i) => (
-                      <div key={i} className="grid grid-cols-[1fr_auto] px-4 py-2.5">
-                        <span className="font-medium text-gray-600">{row.label}</span>
-                        <span className="font-bold tabular-nums text-gray-800">{row.value}</span>
-                      </div>
-                    ))}
-                    {preciosData.costos?.cpuDolares > 0 && preciosData.importes?.dolp > 0 && (
-                      <div className="grid grid-cols-[1fr_auto] px-4 py-2.5 bg-green-50">
-                        <span className="font-bold text-green-800">Margen estimado:</span>
-                        <span className="font-bold tabular-nums text-green-700">
-                          {(
-                            ((preciosData.importes.dolp - preciosData.costos.cpuDolares) /
-                              preciosData.costos.cpuDolares) * 100
-                          ).toFixed(2)}%
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )} */}
-
             </div>
 
             {/* ── COLUMNA DERECHA ───────────────────────────────────────────── */}
             <div className="space-y-5">
 
-              {/* ✅ Stock por almacén — usa `almacenes` normalizado con TODOS los almacenes */}
+              {/* Stock por almacén */}
               <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
                 <div className="bg-gray-800 text-white px-4 py-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -312,6 +298,56 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Fases de Importación */}
+              <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                <div className="bg-[#334a5e] text-white px-4 py-3 flex items-center gap-2">
+                  <Ship className="w-5 h-5" />
+                  <h3 className="font-bold text-sm uppercase tracking-wide">STOCK EN TRÁNSITO</h3>
+                </div>
+
+                {loadingFases ? (
+                  <div className="flex items-center gap-3 p-4 text-blue-700 bg-blue-50 animate-pulse">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm font-medium">Cargando fases...</span>
+                  </div>
+                ) : fases.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          
+                          <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 uppercase">Cantidad</th>
+                          <th className="px-4 py-2.5 text-left   text-xs font-semibold text-gray-600 uppercase">Fase</th>
+                          <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 uppercase">Fecha</th>
+                          <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 uppercase">F. Bodega</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {fases.map((f, i) => (
+                          <tr key={i} className="hover:bg-gray-50 transition">
+                            
+                            <td className="px-4 py-2.5 text-center font-bold text-blue-700">{f.cantidad ?? '—'}</td>
+                            <td className="px-4 py-2.5 font-semibold text-gray-800">{f.fase || '—'}</td>
+                            <td className="px-4 py-2.5 text-center text-gray-600 text-xs">
+                              {f.fecha   ?? '—'}
+                            </td>
+                            <td className="px-4 py-2.5 text-center text-gray-600 text-xs">
+                              {f.fbodega ?? '—'}
+
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-400">
+                    <Ship className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm font-medium">Sin fases de importación</p>
+                  </div>
+                )}
               </div>
 
             </div>

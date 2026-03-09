@@ -101,8 +101,37 @@ export const productService = {
         msgerror: error.response?.data?.msgerror || error.message
       };
     }
+  },
+  getFasesImportacion: async (codigo) => {
+  try {
+    const { data } = await api.get(`/products/${codigo.trim()}/fases`);
+    return data;
+  } catch (error) {
+    return { success: false, data: [], msgerror: error.message };
   }
+},
+getStockGeneral: async (filtros = {}) => {
+  try {
+    const params = new URLSearchParams(filtros).toString();
+    const { data } = await api.get(`/products/stock-general?${params}`);
+    return data;
+  } catch (error) {
+    return { success: false, data: [], msgerror: error.message };
+  }
+},
+getCoresStock: async () => {
+  try {
+    const { data } = await api.get('/products/cores-stock');
+    return data;
+  } catch (error) {
+    return { success: false, data: [], msgerror: error.message };
+  }
+},
+
+
 };
+
+
 
 
 /**
@@ -134,6 +163,8 @@ export const searchProducts = async (searchTerm = '') => {
     };
   }
 };
+
+
 
 
 export default productService;

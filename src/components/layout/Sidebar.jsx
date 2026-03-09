@@ -1,17 +1,19 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 // 1. Agregamos 'Users' para diferenciar Clientes de Llamadas
-import { Phone, BarChart3, Package, FileText, ChevronLeft, Users } from 'lucide-react';
+import { Phone, BarChart3, Package, FileText, ChevronLeft, Users, Layers  } from 'lucide-react';
 import logoImage from "../../assets/logo-emasa1.png";
 
 const menuItems = [
   { icon: BarChart3, label: 'Seguimiento de Metas', path: '/dashboard' },
+  { icon: Layers,    label: 'Consulta Stock',       path: '/stock' },
   // 2. Usamos Users para la cartera de clientes
-  { icon: Users,     label: 'Maestro de Clientes',  path: '/ventas/clientes' }, 
+  // { icon: Users,     label: 'Maestro de Clientes',  path: '/ventas/clientes' }, 
   // 3. Recuperamos el módulo de Llamadas con la ruta que definimos en App.jsx
   { icon: Phone,     label: 'Gestión de Televentas', path: '/llamadas' },        
   { icon: FileText,  label: 'Gestión de Cotización', path: '/ventas/cotizaciones' }, 
   { icon: Package,   label: 'Gestión de Pedidos',    path: '/ventas/pedidos' },
+  
 ];
 
 const Sidebar = ({ isOpen, onToggle }) => {
