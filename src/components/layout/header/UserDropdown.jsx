@@ -1,20 +1,19 @@
+// src/components/layout/header/UserDropdown.jsx
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, User, Settings, HelpCircle, LogOut } from 'lucide-react';
+import { ChevronDown, LogOut } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 
-const UserDropdown = ({ user, isMobile = false }) => {
+const UserDropdown = ({ isMobile = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
-  const { logout } = useAuth();
+  const { logout, user } = useAuth(); // ← lee user directo del context
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsOpen(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
@@ -25,65 +24,61 @@ const UserDropdown = ({ user, isMobile = false }) => {
   };
 
   const menuItems = [
-    // { 
-    //   icon: User, 
-    //   label: 'Editar Usuario', 
-    //   onClick: () => console.log('Edit profile') 
-    // },
-    // { 
-    //   icon: Settings, 
-    //   label: 'Ajustes de Cuenta', 
-    //   onClick: () => console.log('Settings') 
-    // },
-    // { 
-    //   icon: HelpCircle, 
-    //   label: 'Soporte', 
-    //   onClick: () => console.log('Support') 
-    // },
-    { 
-      icon: LogOut, 
-      label: 'Cerrar Sesión', 
-      onClick: handleLogout, 
-      danger: true 
-    }
+    // { icon: User,       label: 'Editar Usuario',    onClick: () => {} },
+    // { icon: Settings,   label: 'Ajustes de Cuenta', onClick: () => {} },
+    // { icon: HelpCircle, label: 'Soporte',            onClick: () => {} },
+    { icon: LogOut, label: 'Cerrar Sesión', onClick: handleLogout, danger: true },
   ];
+
+  // ✅ Fallbacks defensivos por si acaso llega data cruda
+  const nombre = user?.nombreCompleto
+    || user?.nombre_completo
+    || user?.username
+    || 'Usuario';
+
+  const email = user?.email
+    || user?.correo
+    || user?.username
+    || '';
+
+  const fotoUrl = user?.foto
+    || `https://ui-avatars.com/api/?name=${encodeURIComponent(nombre)}&background=e0f2fe&color=0369a1&bold=true`;
+
+  if (!user) return null;
 
   return (
     <div className="relative" ref={dropdownRef}>
+
       {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-3 px-3 py-2 hover:bg-gray-50 rounded-lg transition-colors ${
-          isMobile ? 'px-0' : ''
+        className={`flex items-center gap-3 py-2 hover:bg-gray-50 rounded-lg transition-colors ${
+          isMobile ? 'px-0' : 'px-3'
         }`}
       >
         {/* Avatar */}
-        <div className={`rounded-full overflow-hidden border-2 border-gray-200 ${
+        <div className={`rounded-full overflow-hidden border-2 border-gray-200 flex-shrink-0 ${
           isMobile ? 'w-9 h-9' : 'w-10 h-10'
         }`}>
           <img
-            src={user.foto || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.nombreCompleto)}
-            alt={user.nombreCompleto}
+            src={fotoUrl}
+            alt={nombre}
             className="w-full h-full object-cover bg-white"
           />
         </div>
 
-        {/* User Info - Solo Desktop */}
+        {/* User Info — Solo Desktop */}
         {!isMobile && (
           <div className="hidden lg:block text-left max-w-[180px]">
-            <p className="text-sm font-semibold text-gray-900 truncate">
-              {user.nombreCompleto}
-            </p>
-            <p className="text-xs text-gray-500 truncate">
-              {user.email || user.correo || 'usuario@emasa.com'}
-            </p>
+            <p className="text-sm font-semibold text-gray-900 truncate">{nombre}</p>
+            <p className="text-xs text-gray-500 truncate">{email}</p>
           </div>
         )}
 
-        {/* Chevron Icon - Solo Desktop */}
+        {/* Chevron — Solo Desktop */}
         {!isMobile && (
           <ChevronDown
-            className={`w-4 h-4 text-gray-500 transition-transform ${
+            className={`w-4 h-4 text-gray-500 transition-transform flex-shrink-0 ${
               isOpen ? 'rotate-180' : ''
             }`}
           />
@@ -93,14 +88,11 @@ const UserDropdown = ({ user, isMobile = false }) => {
       {/* Dropdown Menu */}
       {isOpen && (
         <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-50">
-          {/* User Info Header */}
+
+          {/* Header */}
           <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-            <p className="text-sm font-semibold text-gray-900 truncate">
-              {user.nombreCompleto}
-            </p>
-            <p className="text-xs text-gray-500 truncate">
-              {user.email || user.correo || 'usuario@emasa.com'}
-            </p>
+            <p className="text-sm font-semibold text-gray-900 truncate">{nombre}</p>
+            <p className="text-xs text-gray-500 truncate">{email}</p>
           </div>
 
           {/* Menu Items */}

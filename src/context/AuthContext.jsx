@@ -7,22 +7,29 @@ import { logActivity, EVENTOS } from '../services/activityLogService';
 
 export const AuthContext = createContext();
 
+// ── Normaliza los campos del usuario para uso uniforme en toda la app ──
+const normalizeUser = (raw) => ({
+  ...raw,
+  nombreCompleto: raw.nombre_completo || raw.nombreCompleto || raw.username || 'Usuario',
+  email:         raw.correo          || raw.email          || raw.username || '',
+});
+
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser]       = useState(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const navigate              = useNavigate();
 
   // ✅ Verificar sesión activa al cargar la app
   useEffect(() => {
-    const storedUser = localStorage.getItem('ems_user');
+    const storedUser  = localStorage.getItem('ems_user');
     const storedToken = localStorage.getItem('ems_access');
 
     if (storedUser && storedToken) {
       try {
-        setUser(JSON.parse(storedUser));
+        // ← normalizar al leer del localStorage
+        setUser(normalizeUser(JSON.parse(storedUser)));
       } catch (error) {
         console.error('Error al parsear usuario:', error);
-        // Si hay error, limpiar datos corruptos
         localStorage.removeItem('ems_user');
         localStorage.removeItem('ems_access');
       }
@@ -38,17 +45,20 @@ export const AuthProvider = ({ children }) => {
     try {
       const data = await authService.login(correo, password);
 
-      // ✅ Guardar token y datos del usuario
-      localStorage.setItem('ems_access', data.accessToken);
-      localStorage.setItem('ems_user', JSON.stringify(data.user));
+      console.log('🔍 data.user raw:', data.user);
 
-      // Actualizar estado
-      setUser(data.user);
+      // ← normalizar antes de guardar
+      const normalizedUser = normalizeUser(data.user);
+
+      localStorage.setItem('ems_access', data.accessToken);
+      localStorage.setItem('ems_user', JSON.stringify(normalizedUser));
+
+      setUser(normalizedUser);
 
       await logActivity(EVENTOS.LOGIN);
 
-      // Notificación de éxito
-      toast.success(`¡Bienvenido, ${data.user.nombre_completo}!`, {
+      // ← usar el campo ya normalizado
+      toast.success(`¡Bienvenido, ${normalizedUser.nombreCompleto}!`, {
         duration: 3000,
         icon: '👋',
       });
@@ -59,7 +69,6 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('❌ Error en login:', error);
 
-      // Manejo de errores específicos
       let message = 'Error al iniciar sesión';
 
       if (error.response?.status === 401) {
@@ -72,9 +81,7 @@ export const AuthProvider = ({ children }) => {
         message = 'No se pudo conectar con el servidor';
       }
 
-      toast.error(message, {
-        duration: 4000,
-      });
+      toast.error(message, { duration: 4000 });
 
       return { success: false, message };
     }
@@ -86,25 +93,17 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       await logActivity(EVENTOS.LOGOUT);
-      // Llamar al endpoint de logout (limpia refresh token en cookie)
       await authService.logout();
-      
       console.log('✅ Logout ejecutado en servidor');
     } catch (error) {
       console.error('Error en logout:', error);
-      // No mostrar error al usuario, solo limpiar sesión local
     } finally {
-      // ✅ Limpiar localStorage y estado
       localStorage.removeItem('ems_access');
       localStorage.removeItem('ems_user');
       setUser(null);
 
-      // Notificación
-      toast.success('Sesión cerrada correctamente', {
-        icon: '👋',
-      });
+      toast.success('Sesión cerrada correctamente', { icon: '👋' });
 
-      // Redirigir al login
       navigate('/login');
 
       console.log('✅ Sesión local limpiada');
@@ -129,7 +128,7 @@ export const AuthProvider = ({ children }) => {
    * Actualizar datos del usuario sin hacer logout
    */
   const updateUser = (newUserData) => {
-    const updatedUser = { ...user, ...newUserData };
+    const updatedUser = normalizeUser({ ...user, ...newUserData });
     setUser(updatedUser);
     localStorage.setItem('ems_user', JSON.stringify(updatedUser));
     console.log('✅ Datos de usuario actualizados');
@@ -156,7 +155,7 @@ export const AuthProvider = ({ children }) => {
     getToken,
     updateUser,
     clearSession,
-    loading
+    loading,
   };
 
   return (

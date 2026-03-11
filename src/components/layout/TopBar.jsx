@@ -7,8 +7,8 @@ import DarkModeSwitcher from './header/DarkModeSwitcher';
 import MobileSidebar from './MobileSidebar';
 import CallReminders from '../calls/CallReminders';
 import { useCallReminders } from '../../hooks/useCallReminders';
-import { currentUser } from '../../data/userData';
 import logoImage from "../../assets/logo-emasa1.png";
+// ← Se elimina: import { currentUser } from '../../data/userData';
 
 const TopBar = ({ mobileMenuOpen, onToggleMobileMenu, currentModule, onModuleChange }) => {
   const [showReminderPanel, setShowReminderPanel] = useState(false);
@@ -38,6 +38,7 @@ const TopBar = ({ mobileMenuOpen, onToggleMobileMenu, currentModule, onModuleCha
 
           {/* RIGHT */}
           <div className="flex items-center gap-3">
+
             {/* Desktop */}
             <div className="hidden md:flex items-center gap-3">
               <DarkModeSwitcher />
@@ -45,7 +46,7 @@ const TopBar = ({ mobileMenuOpen, onToggleMobileMenu, currentModule, onModuleCha
                 reminders={reminders}
                 onViewAll={() => setShowReminderPanel(true)}
               />
-              <UserDropdown user={currentUser} />
+              <UserDropdown /> {/* ← Sin prop user */}
             </div>
 
             {/* Mobile */}
@@ -54,7 +55,7 @@ const TopBar = ({ mobileMenuOpen, onToggleMobileMenu, currentModule, onModuleCha
                 reminders={reminders}
                 onViewAll={() => setShowReminderPanel(true)}
               />
-              <UserDropdown user={currentUser} isMobile />
+              <UserDropdown isMobile /> {/* ← Sin prop user */}
             </div>
           </div>
         </div>
