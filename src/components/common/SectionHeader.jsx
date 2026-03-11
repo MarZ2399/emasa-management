@@ -14,7 +14,7 @@ const SectionHeader = ({
   gradientTo = 'to-[#2ecc70]'
 }) => {
   return (
-    <div className={`bg-gradient-to-r ${gradientFrom} ${gradientTo} rounded-xl shadow-lg p-6 text-white`}>
+    <div className={`bg-gradient-to-r ${gradientFrom} ${gradientTo} rounded-xl shadow-lg p-3 text-white`}>
       <div className="w-full flex items-center gap-6 justify-start">
         
         {/* Contenido Izquierdo */}
@@ -23,10 +23,9 @@ const SectionHeader = ({
             <Icon className="w-8 h-8 md:w-6 md:h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl md:text-3xl font-bold">{title}</h1>
-            {/* ✅ CAMBIO: <p> por <div> */}
-            <div className="text-blue-100 text-sm md:text-base mt-1">{subtitle}</div>
-          </div>
+  <h1 className="text-lg md:text-2xl font-bold">{title}</h1>
+  <div className="text-blue-100 text-xs md:text-sm mt-0.5">{subtitle}</div>
+</div>
         </div>
 
         {/* Botón Derecho - Condicional */}
