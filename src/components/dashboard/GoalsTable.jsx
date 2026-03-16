@@ -81,23 +81,23 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso }) => {
   };
 
   const SortIcon = ({ col }) => {
-    if (sortKey !== col) return <ArrowUpDown className="w-3 h-3 opacity-40" />;
-    return sortDir === 'asc'
-      ? <ArrowUp className="w-3 h-3 text-blue-600" />
-      : <ArrowDown className="w-3 h-3 text-blue-600" />;
-  };
+  if (sortKey !== col) return <ArrowUpDown className="w-3 h-3 opacity-40" />;
+  return sortDir === 'asc'
+    ? <ArrowUp   className="w-3 h-3 text-white" />  // ← antes text-blue-600
+    : <ArrowDown className="w-3 h-3 text-white" />;  // ← antes text-blue-600
+};
 
   const ThBtn = ({ col, label }) => (
-    <th
-      onClick={() => handleSort(col)}
-      className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:text-blue-600 select-none whitespace-nowrap"
-    >
-      <div className="flex items-center justify-end gap-1">
-        {label}
-        <SortIcon col={col} />
-      </div>
-    </th>
-  );
+  <th
+    onClick={() => handleSort(col)}
+    className="px-4 py-3 text-right text-xs font-semibold text-white/90 uppercase tracking-wider cursor-pointer hover:text-white select-none whitespace-nowrap"
+  >
+    <div className="flex items-center justify-end gap-1">
+      {label}
+      <SortIcon col={col} />
+    </div>
+  </th>
+);
 
   if (!goals.length) return null;
 
@@ -135,23 +135,23 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso }) => {
       {/* Tabla */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th
-                onClick={() => handleSort('descripcion')}
-                className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:text-blue-600 select-none"
-              >
-                <div className="flex items-center gap-1">
-                  Descripción <SortIcon col="descripcion" />
-                </div>
-              </th>
-              <ThBtn col="meta"       label={`Meta ${mesLabel} US$`} />
-              <ThBtn col="venta"      label={`Ventas ${mesLabel} US$`} />
-              <ThBtn col="devolucion" label={`Devolución ${mesLabel} US$`} />
-              <ThBtn col="metnet"     label={`Efectivo ${mesLabel} US$`} />
-              <ThBtn col="metpor"     label="% Logro US$" />
-            </tr>
-          </thead>
+          <thead className="bg-gradient-to-r from-[#5982A6] to-[#1a2f3d]">
+  <tr>
+    <th
+      onClick={() => handleSort('descripcion')}
+      className="px-4 py-3 text-left text-xs font-semibold text-white/90 uppercase tracking-wider cursor-pointer hover:text-white select-none"
+    >
+      <div className="flex items-center gap-1">
+        Descripción <SortIcon col="descripcion" />
+      </div>
+    </th>
+    <ThBtn col="meta"       label={`Meta ${mesLabel} US$`} />
+    <ThBtn col="venta"      label={`Ventas ${mesLabel} US$`} />
+    <ThBtn col="devolucion" label={`Devolución ${mesLabel} US$`} />
+    <ThBtn col="metnet"     label={`Efectivo ${mesLabel} US$`} />
+    <ThBtn col="metpor"     label="% Logro US$" />
+  </tr>
+</thead>
 
           <tbody className="divide-y divide-gray-100">
             {sorted.map((row, i) => (

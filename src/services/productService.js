@@ -128,6 +128,14 @@ getCoresStock: async () => {
   }
 },
 
+getAlmacenesStock: async () => {
+  try {
+    const { data } = await api.get('/products/almacenes-stock');
+    return data;
+  } catch (error) {
+    return { success: false, data: [], msgerror: error.message };
+  }
+},
 
 };
 

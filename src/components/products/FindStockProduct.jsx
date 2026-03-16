@@ -26,7 +26,7 @@ const getStockBadge = (stock) => {
   return 'bg-green-100 text-green-700 border-green-300';
 };
 
-// ── Selector custom responsive ─────────────────────────────────────────────
+// ── Selector Core ──────────────────────────────────────────────────────────
 const CoreSelect = ({ value, onChange, options }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -41,7 +41,6 @@ const CoreSelect = ({ value, onChange, options }) => {
 
   return (
     <div ref={ref} className="relative w-full">
-      {/* Trigger */}
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
@@ -52,10 +51,8 @@ const CoreSelect = ({ value, onChange, options }) => {
         <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
 
-      {/* Dropdown */}
       {open && (
         <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
-          {/* Todos */}
           <button
             type="button"
             onClick={() => { onChange(''); setOpen(false); }}
@@ -65,7 +62,6 @@ const CoreSelect = ({ value, onChange, options }) => {
                 : 'text-gray-500 hover:bg-gray-50'}`}>
             Todos los cores
           </button>
-
           <div className="border-t border-gray-100 max-h-60 overflow-y-auto">
             {options.map(opt => (
               <button
@@ -91,21 +87,93 @@ const CoreSelect = ({ value, onChange, options }) => {
   );
 };
 
+// ── Selector Almacén ───────────────────────────────────────────────────────
+const AlmacenSelect = ({ value, onChange, options }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const selected = options.find(o => o.cod === value);
+
+  return (
+    <div ref={ref} className="relative w-full">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-gray-400 transition">
+        <span className={value ? 'text-gray-800 font-medium truncate' : 'text-gray-400'}>
+          {selected ? `${selected.cod} — ${selected.descripcion}` : 'Todos los almacenes'}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-gray-500 shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+          <button
+            type="button"
+            onClick={() => { onChange(''); setOpen(false); }}
+            className={`w-full text-left px-4 py-3 text-sm transition
+              ${value === ''
+                ? 'bg-[#334a5e] text-white font-semibold'
+                : 'text-gray-500 hover:bg-gray-50'}`}>
+            Todos los almacenes
+          </button>
+          <div className="border-t border-gray-100 max-h-60 overflow-y-auto">
+            {options.map(opt => (
+              <button
+                key={opt.cod}
+                type="button"
+                onClick={() => { onChange(opt.cod); setOpen(false); }}
+                className={`w-full text-left px-4 py-3 text-sm transition flex items-center justify-between gap-2
+                  ${value === opt.cod
+                    ? 'bg-[#334a5e] text-white font-semibold'
+                    : 'text-gray-700 hover:bg-blue-50'}`}>
+                <span>
+                  <span className="font-mono font-bold">{opt.cod}</span>
+                  {opt.descripcion && (
+                    <span className="ml-2 opacity-75">— {opt.descripcion}</span>
+                  )}
+                </span>
+                {value === opt.cod && (
+                  <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ──────────────────────────────────────────────────────────────────────────────
 
 const FindStockProduct = () => {
-  const [allRows,     setAllRows]     = useState([]);
-  const [coreOptions, setCoreOptions] = useState([]);
-  const [loading,     setLoading]     = useState(false);
-  const [buscado,     setBuscado]     = useState(false);
+  const [allRows,        setAllRows]        = useState([]);
+  const [coreOptions,    setCoreOptions]    = useState([]);
+  const [almacenOptions, setAlmacenOptions] = useState([]);  // ✅ NUEVO
+  const [loading,        setLoading]        = useState(false);
+  const [buscado,        setBuscado]        = useState(false);
 
-  const [filtros, setFiltros] = useState({ core: '', codigo: '', descripcion: '' });
+  const [filtros, setFiltros] = useState({ core: '', almacen: '', codigo: '', descripcion: '' }); // ✅ almacen agregado
   const [page, setPage] = useState(1);
 
-  // ── Al montar: solo cargar los cores (tabla vacía) ─────────────────────
+  // ── Al montar: cargar cores y almacenes ───────────────────────────────
   useEffect(() => {
     productService.getCoresStock().then(res => {
       if (res.success) setCoreOptions(res.data);
+    });
+    productService.getAlmacenesStock().then(res => {        // ✅ NUEVO
+      if (res.success) setAlmacenOptions(res.data);
     });
   }, []);
 
@@ -117,10 +185,11 @@ const FindStockProduct = () => {
   // ── Filtrado local sobre allRows ───────────────────────────────────────
   const filtered = useMemo(() => {
     return allRows.filter(row => {
-      const matchCodigo = !filtros.codigo      || row.codProd.toUpperCase().includes(filtros.codigo.toUpperCase());
-      const matchDesc   = !filtros.descripcion || row.mercaderia.toUpperCase().includes(filtros.descripcion.toUpperCase());
-      const matchCore   = !filtros.core        || row.core === filtros.core;
-      return matchCodigo && matchDesc && matchCore;
+      const matchCodigo  = !filtros.codigo      || row.codProd.toUpperCase().includes(filtros.codigo.toUpperCase());
+      const matchDesc    = !filtros.descripcion || row.mercaderia.toUpperCase().includes(filtros.descripcion.toUpperCase());
+      const matchCore    = !filtros.core        || row.core === filtros.core;
+      const matchAlmacen = !filtros.almacen     || row.codAlmc === filtros.almacen; // ✅ NUEVO
+      return matchCodigo && matchDesc && matchCore && matchAlmacen;
     });
   }, [allRows, filtros]);
 
@@ -150,7 +219,7 @@ const FindStockProduct = () => {
   }, [filtros]);
 
   const handleLimpiar = () => {
-    setFiltros({ core: '', codigo: '', descripcion: '' });
+    setFiltros({ core: '', almacen: '', codigo: '', descripcion: '' }); // ✅ almacen reseteado
     setAllRows([]);
     setBuscado(false);
     setPage(1);
@@ -160,102 +229,78 @@ const FindStockProduct = () => {
     if (e.key === 'Enter') handleBuscar();
   };
 
- // ── Exportar Excel con formato profesional ─────────────────────────────
-const handleExportExcel = () => {
-  if (filtered.length === 0) return toast('No hay datos para exportar', { icon: '⚠️' });
+  // ── Exportar Excel ─────────────────────────────────────────────────────
+  const handleExportExcel = () => {
+    if (filtered.length === 0) return toast('No hay datos para exportar', { icon: '⚠️' });
 
-  const wb = XLSX.utils.book_new();
+    const wb = XLSX.utils.book_new();
+    const now = new Date().toLocaleString('es-PE', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: true
+    });
 
-  // Crear array de datos con encabezado personalizado
-  const now = new Date().toLocaleString('es-PE', { 
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hour12: true 
-  });
+    const wsData = [
+      ['Consulta de Stock'],
+      [`Generado: ${now}   |   Total registros: ${filtered.length}`],
+      [],
+      ['Código', 'Mercadería', 'P. Lista $', 'Disponible', 'Almacén', 'Core', 'Reemplazo'],
+      ...filtered.map(row => [
+        row.codProd,
+        row.mercaderia,
+        row.precioLista,
+        row.stockDisponible,
+        row.descAlmc || row.codAlmc || '',
+        row.core || '',
+        row.codReemplazo || '',
+      ])
+    ];
 
-  const wsData = [
-    ['Consulta de Stock'],                                    // Título
-    [`Generado: ${now}   |   Total registros: ${filtered.length}`], // Info
-    [],                                                        // Fila vacía
-    ['Código', 'Mercadería', 'P. Lista $', 'Disponible', 'Almacén', 'Core', 'Reemplazo'], // Headers
-    ...filtered.map(row => [
-      row.codProd,
-      row.mercaderia,
-      row.precioLista,
-      row.stockDisponible,
-      row.descAlmc || row.codAlmc || '',
-      row.core || '',
-      row.codReemplazo || '',
-    ])
-  ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = [
+      { wch: 18 }, { wch: 45 }, { wch: 12 },
+      { wch: 12 }, { wch: 15 }, { wch: 20 }, { wch: 15 },
+    ];
 
-  // ── Anchos de columna ──────────────────────────────────────────────────
-  ws['!cols'] = [
-    { wch: 18 },  // Código
-    { wch: 45 },  // Mercadería
-    { wch: 12 },  // P. Lista
-    { wch: 12 },  // Disponible
-    { wch: 15 },  // Almacén
-    { wch: 20 },  // Core
-    { wch: 15 },  // Reemplazo
-  ];
+    const headerStyle = {
+      font: { bold: true, color: { rgb: 'FFFFFF' } },
+      fill: { fgColor: { rgb: '334a5e' } },
+      alignment: { horizontal: 'center', vertical: 'center' }
+    };
+    const titleStyle = {
+      font: { bold: true, sz: 14, color: { rgb: '334a5e' } },
+      alignment: { horizontal: 'left', vertical: 'center' }
+    };
 
-  // ── Estilos (aplica si tu versión de xlsx soporta) ────────────────────
-  const headerStyle = {
-    font: { bold: true, color: { rgb: 'FFFFFF' } },
-    fill: { fgColor: { rgb: '334a5e' } },
-    alignment: { horizontal: 'center', vertical: 'center' }
-  };
+    if (ws['A1']) ws['A1'].s = titleStyle;
+    if (ws['A2']) ws['A2'].s = { font: { sz: 9, color: { rgb: '666666' } } };
 
-  const titleStyle = {
-    font: { bold: true, sz: 14, color: { rgb: '334a5e' } },
-    alignment: { horizontal: 'left', vertical: 'center' }
-  };
+    ['A4','B4','C4','D4','E4','F4','G4'].forEach(cell => {
+      if (ws[cell]) ws[cell].s = headerStyle;
+    });
 
-  // Aplicar estilos a celdas específicas
-  if (ws['A1']) ws['A1'].s = titleStyle;
-  if (ws['A2']) ws['A2'].s = { font: { sz: 9, color: { rgb: '666666' } } };
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
+    ];
 
-  // Headers (fila 4)
-  const headerCells = ['A4', 'B4', 'C4', 'D4', 'E4', 'F4', 'G4'];
-  headerCells.forEach(cell => {
-    if (ws[cell]) ws[cell].s = headerStyle;
-  });
-
-  // Merge título (A1 ocupa hasta G1)
-  ws['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },  // Título
-    { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },  // Info
-  ];
-
-  // ── Formato condicional para columna Disponible (D) ───────────────────
-  filtered.forEach((row, i) => {
-    const rowNum = i + 5; // Fila 5 en adelante (después de headers)
-    const cell = `D${rowNum}`;
-    if (ws[cell]) {
-      const stock = row.stockDisponible;
-      if (stock <= 0) {
-        ws[cell].s = { fill: { fgColor: { rgb: 'fee2e2' } }, font: { color: { rgb: 'b91c1c' }, bold: true } };
-      } else if (stock < 10) {
-        ws[cell].s = { fill: { fgColor: { rgb: 'fef3c7' } }, font: { color: { rgb: 'a16207' }, bold: true } };
-      } else {
-        ws[cell].s = { fill: { fgColor: { rgb: 'dcfce7' } }, font: { color: { rgb: '15803d' }, bold: true } };
+    filtered.forEach((row, i) => {
+      const rowNum = i + 5;
+      const cell = `D${rowNum}`;
+      if (ws[cell]) {
+        const stock = row.stockDisponible;
+        if (stock <= 0)       ws[cell].s = { fill: { fgColor: { rgb: 'fee2e2' } }, font: { color: { rgb: 'b91c1c' }, bold: true } };
+        else if (stock < 10)  ws[cell].s = { fill: { fgColor: { rgb: 'fef3c7' } }, font: { color: { rgb: 'a16207' }, bold: true } };
+        else                  ws[cell].s = { fill: { fgColor: { rgb: 'dcfce7' } }, font: { color: { rgb: '15803d' }, bold: true } };
       }
-    }
+      const priceCell = `C${rowNum}`;
+      if (ws[priceCell]) ws[priceCell].s = { alignment: { horizontal: 'right' }, numFmt: '0.00' };
+    });
 
-    // Alineación derecha para precio
-    const priceCell = `C${rowNum}`;
-    if (ws[priceCell]) {
-      ws[priceCell].s = { alignment: { horizontal: 'right' }, numFmt: '0.00' };
-    }
-  });
-
-  XLSX.utils.book_append_sheet(wb, ws, 'Stock');
-  XLSX.writeFile(wb, `Stock_${new Date().toISOString().slice(0, 10)}.xlsx`);
-  toast.success(`Excel exportado (${filtered.length} registros)`);
-};
-
+    XLSX.utils.book_append_sheet(wb, ws, 'Stock');
+    XLSX.writeFile(wb, `Stock_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success(`Excel exportado (${filtered.length} registros)`);
+  };
 
   // ── Exportar PDF ───────────────────────────────────────────────────────
   const handleExportPDF = () => {
@@ -327,9 +372,8 @@ const handleExportExcel = () => {
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h2 className="text-sm font-bold text-gray-700 mb-4 pb-2 border-b">Filtros de Búsqueda</h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-          {/* Core — selector custom responsive */}
+        {/* Fila 1: Core + Almacén */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <label className={labelCls}>Core (Grupo de Venta)</label>
             <CoreSelect
@@ -339,6 +383,22 @@ const handleExportExcel = () => {
             />
           </div>
 
+          {/* ✅ NUEVO — Almacén */}
+          <div>
+            <label className={labelCls}>
+              Almacén
+              <span className="ml-1 font-normal text-gray-400">(opcional)</span>
+            </label>
+            <AlmacenSelect
+              value={filtros.almacen}
+              onChange={val => set('almacen', val)}
+              options={almacenOptions}
+            />
+          </div>
+        </div>
+
+        {/* Fila 2: Código + Descripción */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>Código de Producto</label>
             <input
@@ -360,7 +420,6 @@ const handleExportExcel = () => {
               placeholder="Ej: GASKET"
             />
           </div>
-
         </div>
 
         <div className="flex justify-end gap-3 mt-4">
@@ -379,11 +438,10 @@ const handleExportExcel = () => {
         </div>
       </div>
 
-      {/* ── Tabla — solo aparece después de buscar ────────────────────────── */}
+      {/* ── Tabla ─────────────────────────────────────────────────────────── */}
       {buscado && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
 
-          {/* Header con botones exportar */}
           <div className="bg-[#334a5e] text-white px-5 py-3 flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <Package className="w-5 h-5" />
@@ -394,14 +452,12 @@ const handleExportExcel = () => {
                 {filtered.length} registros
                 {filtered.length !== allRows.length && ` (filtrados de ${allRows.length})`}
               </span>
-              <button
-                onClick={handleExportExcel}
+              <button onClick={handleExportExcel}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition">
                 <FileSpreadsheet className="w-3.5 h-3.5" />
                 Excel
               </button>
-              <button
-                onClick={handleExportPDF}
+              <button onClick={handleExportPDF}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-semibold transition">
                 <FileText className="w-3.5 h-3.5" />
                 PDF

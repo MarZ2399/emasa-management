@@ -10,6 +10,7 @@ import SectionHeader from '../common/SectionHeader';
 import { followService } from '../../services/followService';
 import { AuthContext } from '../../context/AuthContext';
 
+
 const DashboardModule = () => {
   const { user } = useContext(AuthContext);
 
@@ -76,9 +77,16 @@ const DashboardModule = () => {
     { meta: 0, venta: 0, devol: 0, metnet: 0 }
   );
 
+  const faltante = Math.max(0, metrics.meta - metrics.metnet);
+  
   const cumplimiento = metrics.meta > 0
   ? Number(((metrics.metnet / metrics.meta) * 100).toFixed(2))
   : 0;
+
+  const faltantePct = metrics.meta > 0
+  ? Math.max(0, Number((100 - cumplimiento).toFixed(2)))
+  : 0;
+
 
   const currentDate = now.toLocaleDateString('es-ES', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
@@ -129,6 +137,9 @@ const DashboardModule = () => {
         onMesChange={setMes}
         nivel={nivel}
         vendorName={selectedVendor?.VTDNOM || null}
+        team={team}                                   // ← ¿está esto?
+  onSelectVendor={setSelectedVendor}            // ← ¿está esto?
+  onClearVendor={() => setSelectedVendor(null)}
       />
 
       {/* Estado de carga */}
@@ -157,18 +168,29 @@ const DashboardModule = () => {
               format="currency"
               color="from-blue-500 to-blue-600"
             />
-            <MetricCard
+            {/* <MetricCard
               title="Venta Bruta"
               value={metrics.venta}
               format="currency"
               color="from-green-500 to-green-600"
-            />
+            /> */}
             <MetricCard
               title="Venta Neta"
               value={metrics.metnet}
               target={metrics.meta}
               format="currency"
               color="from-purple-500 to-purple-600"
+            />
+            <MetricCard
+              title="Faltante para Meta"       // ← nuevo título
+              value={faltante}                  // ← nuevo valor
+              pctFaltante={faltantePct} 
+              format="currency"
+              color={
+                faltante === 0              ? 'from-green-500 to-green-600'   // meta cumplida
+                : faltante <= metrics.meta * 0.3 ? 'from-yellow-500 to-yellow-600' // falta poco (≤30%)
+                : 'from-red-500 to-red-600'                                         // falta bastante
+              }
             />
             <MetricCard
               title="% Cumplimiento"
@@ -197,12 +219,14 @@ const DashboardModule = () => {
               <WeeklyChart goals={goals} />
             </div>
             <div>
-              <ResultsDonut goals={goals} />
+              <ResultsDonut goals={goals} 
+               nivel={nivel}   // ← NUEVO
+  team={team}/>
             </div>
           </div>
 
           {/* Ranking equipo (jefe/gerente sin drill-down activo) */}
-          {nivel < 2 && !selectedVendor && (
+          {/* {nivel < 2 && !selectedVendor && (
             <AgentRanking
               team={team}
               nivel={nivel}
@@ -210,10 +234,10 @@ const DashboardModule = () => {
               mes={mes}
               onSelectVendor={setSelectedVendor}
             />
-          )}
+          )} */}
 
           {/* Mensaje motivacional */}
-          <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl shadow-lg p-6 text-white">
+          <div className="bg-gradient-to-r from-[#334a5e] to-[#2ecc70] rounded-xl shadow-lg p-6 text-white">
             <div className="flex items-center gap-4">
               <div className="text-6xl">🎯</div>
               <div>
