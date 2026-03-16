@@ -1,13 +1,13 @@
 // src/components/calls/ProductsTab.jsx
-import React, { useState, useContext, useEffect} from 'react';
-import { Search, Package, AlertCircle, Eye, Building2, Loader2, ShoppingCart } from 'lucide-react';
+import React, { useState, useContext, useEffect } from 'react';
+import { Search, Package, AlertCircle, Eye, Building2, Loader2, ShoppingCart, Lock } from 'lucide-react';
 import { productService } from '../../services/productService';
 import { precioService } from '../../services/precioService';
 import ProdDetailModal from './ProdDetailModal';
 import Tooltip from '../common/Tooltip';
+import SearchableSelect from '../common/SearchableSelect';
 import { AuthContext } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
-
 
 
 const PriceCell = ({ qa, children }) => {
@@ -17,31 +17,16 @@ const PriceCell = ({ qa, children }) => {
 };
 
 
-
-const hasValidStock = (product) => {
-  if (!product.almacenes || product.almacenes.length === 0) return false;
-  return product.almacenes.some(a => {
-    const tieneNombre = !!(a.almacendes?.trim() || a.almacencod?.trim());
-    const tieneStock  = (a.stock || 0) > 0;
-    return tieneNombre && tieneStock;
-  });
-};
-
-
-
 const getStockBlockReason = (product) => {
   if (!product.almacenes || product.almacenes.length === 0)
     return 'Sin almacén configurado';
   const conNombre = product.almacenes.filter(
     a => a.almacendes?.trim() || a.almacencod?.trim()
   );
-  if (conNombre.length === 0)
-    return 'Sin almacén identificado';
-  if (conNombre.every(a => (a.stock || 0) === 0))
-    return 'Sin stock disponible';
+  if (conNombre.length === 0) return 'Sin almacén identificado';
+  if (conNombre.every(a => (a.stock || 0) === 0)) return 'Sin stock disponible';
   return null;
 };
-
 
 
 const ProductsTab = ({
@@ -54,7 +39,9 @@ const ProductsTab = ({
   onAddToQuotation,
   clienteRuc,
   quotationItems,
-  autoSearchTrigger
+  autoSearchTrigger,
+  almacenSeleccionado,     
+  setAlmacenSeleccionado,
 }) => {
   const [modalOpen, setModalOpen]             = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -65,10 +52,20 @@ const ProductsTab = ({
   const [error, setError]                     = useState(null);
 
   const { user } = useContext(AuthContext);
-  const codAlmacen = user?.empresa?.cod_almacen || null;
 
+  const codAlmacenes = user?.empresa?.cod_almacenes || [];
 
-  // ── Auto-búsqueda desde PurchaseHistoryTab ───────────────────────────────────
+  const almacenOptions = codAlmacenes.map(a => ({
+    value: a.cod,
+    label: `${a.cod} — ${a.nombre}`,
+  }));
+
+  
+
+  // ✅ VALIDACIÓN 2 y 3 — almacén bloqueado si hay productos en cotización
+  const almacenBloqueado = quotationItems?.length > 0;
+
+  // ── Auto-búsqueda desde PurchaseHistoryTab ─────────────────────────────
   useEffect(() => {
     if (autoSearchTrigger > 0 && codigoProducto?.trim()) {
       handleSearch();
@@ -81,7 +78,6 @@ const ProductsTab = ({
   const totalPages          = Math.ceil(productos.length / productsPerPage);
   const handlePageChange    = (pageNumber) => setCurrentPage(pageNumber);
 
-  // ── Cálculo de precios ────────────────────────────────────────────────────────
   const calcPrecios = (preciosData, discount5, quantity) => {
     const dola  = preciosData?.importes?.dola || 0;
     const de05  = (Number(discount5) || 0) / 100;
@@ -100,40 +96,35 @@ const ProductsTab = ({
     );
   };
 
-  // ── Fetch precios por fila ────────────────────────────────────────────────────
   const fetchPreciosRow = async (producto) => {
     try {
-      const response = await precioService.obtenerPrecio(
-        clienteRuc,
-        producto.codigo.trim(),
-        1
-      );
-
+      const response = await precioService.obtenerPrecio(clienteRuc, producto.codigo.trim(), 1);
       if (response.success && response.data) {
         updateProductQuick(producto.codigo, {
-          loading:     false,
-          error:       null,
-          preciosData: response.data,
-          quantity:    1,
-          discount5:   ''
+          loading: false, error: null,
+          preciosData: response.data, quantity: 1, discount5: ''
         });
       } else {
         updateProductQuick(producto.codigo, {
           loading: false,
-          error:   response.msgerror || 'Error al obtener precios'
+          error: response.msgerror || 'Error al obtener precios'
         });
       }
     } catch (err) {
       console.error('❌ Error fetchPreciosRow:', err);
-      updateProductQuick(producto.codigo, {
-        loading: false,
-        error:   'Error de conexión'
-      });
+      updateProductQuick(producto.codigo, { loading: false, error: 'Error de conexión' });
     }
   };
 
-  // ── Búsqueda de productos ─────────────────────────────────────────────────────
   const handleSearch = async () => {
+    // ✅ VALIDACIÓN 1 — almacén obligatorio
+    if (codAlmacenes.length > 0 && !almacenSeleccionado) {
+      toast.error('Debe seleccionar un almacén antes de buscar.', {
+        position: 'top-right', icon: '🏭'
+      });
+      return;
+    }
+
     if (!codigoProducto.trim() && !nombreProducto.trim()) {
       setError('Ingrese al menos un código o nombre de producto');
       return;
@@ -146,25 +137,22 @@ const ProductsTab = ({
 
     try {
       let response;
-
       if (codigoProducto.trim() && nombreProducto.trim()) {
-  response = await productService.searchByCodigoAndNombre(codigoProducto, nombreProducto);
-} else if (codigoProducto.trim()) {
-  response = await productService.searchByCodigo(codigoProducto);
-} else if (nombreProducto.trim()) {
-  response = await productService.searchByName(nombreProducto);
-}
+        response = await productService.searchByCodigoAndNombre(codigoProducto, nombreProducto);
+      } else if (codigoProducto.trim()) {
+        response = await productService.searchByCodigo(codigoProducto);
+      } else if (nombreProducto.trim()) {
+        response = await productService.searchByName(nombreProducto);
+      }
 
       if (response.success) {
         const productosFormateados = response.data.map(item => {
           const base = item.producto && item.stock
             ? (() => {
-                // ✅ almacenes del vendedor — para validación de stock y tabla
-                const almacenesFiltrados = codAlmacen
-                  ? item.stock.filter(s => s.almacencod?.trim() === codAlmacen.trim())
+                const almacenesFiltrados = almacenSeleccionado
+                  ? item.stock.filter(s => s.almacencod?.trim() === almacenSeleccionado)
                   : item.stock;
 
-                // ✅ TODOS los almacenes — solo para el modal informativo
                 const almacenesAll = item.stock.map(s => ({
                   almacencod: s.almacencod?.trim(),
                   almacendes: s.almacendes?.trim(),
@@ -183,8 +171,8 @@ const ProductsTab = ({
                   unidad:          'UND',
                   disponibleVenta: item.producto.disponibleVenta === 'S',
                   stock:           almacenesFiltrados.reduce((sum, s) => sum + (s.stock || 0), 0),
-                  almacenes:       almacenesFiltrados, // ✅ vendedor — tabla y validación
-                  almacenesAll,                        // ✅ todos    — modal informativo
+                  almacenes:       almacenesFiltrados,
+                  almacenesAll,
                   equivalencia01:  item.producto.equivalencia01?.trim(),
                   equivalencia02:  item.producto.equivalencia02?.trim(),
                   core:            item.producto.core?.trim(),
@@ -248,7 +236,6 @@ const ProductsTab = ({
     setModalOpen(true);
   };
 
-  // ── Confirmar → cotización ────────────────────────────────────────────────────
   const handleConfirm = (product) => {
     const qa = product.quick;
 
@@ -260,10 +247,8 @@ const ProductsTab = ({
 
     const stockReason = getStockBlockReason(product);
     if (stockReason) {
-      toast.error(
-        `No se puede agregar "${product.codigo}": ${stockReason}.`,
-        { position: 'top-right', duration: 4000, icon: '🚫' }
-      );
+      toast.error(`No se puede agregar "${product.codigo}": ${stockReason}.`,
+        { position: 'top-right', duration: 4000, icon: '🚫' });
       return;
     }
 
@@ -272,45 +257,36 @@ const ProductsTab = ({
       return;
     }
 
-    const yaExiste = quotationItems?.some(
-      item => item.codigo?.trim() === product.codigo?.trim()
-    );
+    const yaExiste = quotationItems?.some(item => item.codigo?.trim() === product.codigo?.trim());
     if (yaExiste) {
-      toast.error(
-        `"${product.codigo}" ya está en la cotización. Modifica los datos directamente en dicha sección.`,
-        { position: 'top-right', duration: 4000, icon: '⚠️' }
-      );
+      toast.error(`"${product.codigo}" ya está en la cotización. Modifica los datos directamente en dicha sección.`,
+        { position: 'top-right', duration: 4000, icon: '⚠️' });
       return;
     }
 
     if (flagX && Number(qa.discount5) !== 0) {
-      toast.error('Este producto no permite descuento adicional.', {
-        position: 'top-right', duration: 4000, icon: '🚫'
-      });
+      toast.error('Este producto no permite descuento adicional.',
+        { position: 'top-right', duration: 4000, icon: '🚫' });
       return;
     }
 
     if (flagT) {
-  const raw = qa.discount5;
-  const isEmpty = raw === '' || raw == null;
-  if (!isEmpty) {                              // ← solo validar si hay valor
-    const d5 = Number(raw);
-    if (d5 < minD5 || d5 > maxD5) {
-      toast.error(
-        `El 5to descuento debe estar entre ${minD5}% y ${maxD5}%.`,
-        { position: 'top-right', duration: 4000, icon: '⚠️' }
-      );
-      return;
+      const raw = qa.discount5;
+      const isEmpty = raw === '' || raw == null;
+      if (!isEmpty) {
+        const d5 = Number(raw);
+        if (d5 < minD5 || d5 > maxD5) {
+          toast.error(`El 5to descuento debe estar entre ${minD5}% y ${maxD5}%.`,
+            { position: 'top-right', duration: 4000, icon: '⚠️' });
+          return;
+        }
+      }
     }
-  }
-}
 
-    const qty       = Math.max(1, Number(qa.quantity) || 1);
+    const qty = Math.max(1, Number(qa.quantity) || 1);
     const discount5 = flagX ? 0 : flagT
-  ? (qa.discount5 === '' || qa.discount5 == null)
-    ? 0                                        // ← vacío = sin 5to descuento
-    : Number(qa.discount5)
-  : Math.min(100, Number(qa.discount5) || 0);
+      ? (qa.discount5 === '' || qa.discount5 == null) ? 0 : Number(qa.discount5)
+      : Math.min(100, Number(qa.discount5) || 0);
 
     const { precioUnit, precioTotal } = calcPrecios(qa.preciosData, discount5, qty);
 
@@ -323,8 +299,8 @@ const ProductsTab = ({
       precioNeto:     precioUnit,
       precioCotizar:  precioTotal,
       preciosDetalle: qa.preciosData,
-      warehouse:      product.almacenes?.[0]?.almacencod         || codAlmacen,
-      warehouseName:  product.almacenes?.[0]?.almacendes?.trim() || codAlmacen
+      warehouse:     product.almacenes?.[0]?.almacencod         || almacenSeleccionado || '',
+      warehouseName: product.almacenes?.[0]?.almacendes?.trim() || almacenSeleccionado || '',
     });
 
     toast.success(`"${product.codigo}" agregado a la cotización`, { position: 'top-right' });
@@ -336,13 +312,45 @@ const ProductsTab = ({
     return               { icon: '✅' };
   };
 
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
 
       {/* ── Formulario de Búsqueda ── */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+          {/* ✅ Selector de almacén — obligatorio, se bloquea con productos en cotización */}
+          {codAlmacenes.length > 0 && (
+            <div>
+              {/* ✅ Badge de bloqueado cuando hay productos en cotización */}
+              {almacenBloqueado && (
+                <div className="flex items-center gap-1.5 mb-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                  <Lock className="w-3 h-3 shrink-0" />
+                  <span>Almacén fijado — hay productos en cotización</span>
+                </div>
+              )}
+              <SearchableSelect
+                label="Almacén"
+                required
+                value={almacenSeleccionado}
+                onChange={val => {
+                  if (almacenBloqueado) return; // ✅ VALIDACIÓN 2 — no permitir cambio
+                  setAlmacenSeleccionado(val);
+                  setProductos([]);
+                  setHasSearched(false);
+                }}
+                options={almacenOptions}
+                placeholder="Buscar almacén..."
+                disabled={almacenBloqueado} // ✅ VALIDACIÓN 2 y 3
+                error={
+                  !almacenSeleccionado && !almacenBloqueado
+                    ? 'Seleccione un almacén para buscar'
+                    : null
+                }
+              />
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -374,7 +382,7 @@ const ProductsTab = ({
             />
           </div>
 
-          <div className="md:col-span-3 lg:col-span-1 flex items-end gap-2">
+          <div className={`flex items-end gap-2 ${codAlmacenes.length > 0 ? 'md:col-span-3' : 'md:col-span-3 lg:col-span-1'}`}>
             <button
               onClick={handleSearch}
               disabled={(!codigoProducto.trim() && !nombreProducto.trim()) || loading}
@@ -449,26 +457,13 @@ const ProductsTab = ({
                       const maxD5 = flagT ? (qa?.preciosData?.descuentos?.de05 ?? 100) : 100;
 
                       return (
-                        <tr
-                          key={product.id}
-                          className={`transition ${stockBlocked ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}
-                        >
-                          {/* Código */}
-                          <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {product.codigo}
-                          </td>
+                        <tr key={product.id}
+                          className={`transition ${stockBlocked ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}>
 
-                          {/* Producto */}
-                          <td className="px-4 py-4 text-sm text-gray-900 max-w-[200px]">
-                            {product.nombre}
-                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{product.codigo}</td>
+                          <td className="px-4 py-4 text-sm text-gray-900 max-w-[200px]">{product.nombre}</td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{product.proveedor}</td>
 
-                          {/* Marca */}
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                            {product.proveedor}
-                          </td>
-
-                          {/* Stock por Almacén */}
                           <td className="px-4 py-4 whitespace-nowrap">
                             {product.almacenes?.length > 0 ? (
                               <div className="space-y-1">
@@ -497,12 +492,10 @@ const ProductsTab = ({
                             )}
                           </td>
 
-                          {/* P. Lista */}
                           <td className="px-4 py-4 whitespace-nowrap text-center text-sm font-semibold text-gray-800">
                             ${product.precioNetoDolar.toFixed(3)}
                           </td>
 
-                          {/* 1er Dsco */}
                           <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
                             <PriceCell qa={qa}>
                               <span className="text-sm font-bold text-indigo-700">
@@ -511,7 +504,6 @@ const ProductsTab = ({
                             </PriceCell>
                           </td>
 
-                          {/* 5to Dsco */}
                           <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
                             <PriceCell qa={qa}>
                               <div className="flex flex-col items-center gap-1">
@@ -524,14 +516,9 @@ const ProductsTab = ({
                                     onChange={e => {
                                       if (flagX) return;
                                       const raw = e.target.value.replace(/\D/g, '');
-                                      if (raw === '') {
-                                        updateProductQuick(product.codigo, { discount5: '' });
-                                        return;
-                                      }
-                                      const num    = Number(raw);
-                                      const capped = flagT
-                                        ? (num > maxD5 ? String(maxD5) : raw)
-                                        : (num > 100   ? '100'         : raw);
+                                      if (raw === '') { updateProductQuick(product.codigo, { discount5: '' }); return; }
+                                      const num = Number(raw);
+                                      const capped = flagT ? (num > maxD5 ? String(maxD5) : raw) : (num > 100 ? '100' : raw);
                                       updateProductQuick(product.codigo, { discount5: capped });
                                     }}
                                     onBlur={() => {
@@ -539,46 +526,28 @@ const ProductsTab = ({
                                       const current = product.quick?.discount5;
                                       if (current === '' || current == null) return;
                                       const num = Number(current) || 0;
-                                      const val = flagT
-                                        ? Math.min(maxD5, Math.max(minD5, num))
-                                        : Math.min(100, Math.max(0, num));
+                                      const val = flagT ? Math.min(maxD5, Math.max(minD5, num)) : Math.min(100, Math.max(0, num));
                                       updateProductQuick(product.codigo, { discount5: val });
                                     }}
                                     className={`w-12 text-center text-sm font-bold border rounded px-1 py-0.5 focus:ring-1 outline-none ${
-                                      flagX
-                                        ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
-                                        : flagT
-                                        ? 'bg-white border-orange-400 focus:ring-orange-400'
-                                        : 'bg-white border-purple-300 focus:ring-purple-400'
-                                    }`}
+                                      flagX ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
+                                            : flagT ? 'bg-white border-orange-400 focus:ring-orange-400'
+                                            : 'bg-white border-purple-300 focus:ring-purple-400'}`}
                                   />
                                   <span className="text-xs text-gray-400">%</span>
                                 </div>
-
-                                {flagX && (
-                                  <span className="text-xs font-semibold text-gray-500 bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5">
-                                    Sin dscto.
-                                  </span>
-                                )}
-                                {flagT && (
-                                  <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">
-                                    {minD5}% – {maxD5}%
-                                  </span>
-                                )}
+                                {flagX && <span className="text-xs font-semibold text-gray-500 bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5">Sin dscto.</span>}
+                                {flagT && <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">{minD5}% – {maxD5}%</span>}
                               </div>
                             </PriceCell>
                           </td>
 
-                          {/* P. Neto Unit */}
                           <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
                             <PriceCell qa={qa}>
-                              <span className="text-sm font-bold text-green-700">
-                                ${precioUnit.toFixed(3)}
-                              </span>
+                              <span className="text-sm font-bold text-green-700">${precioUnit.toFixed(3)}</span>
                             </PriceCell>
                           </td>
 
-                          {/* Cantidad */}
                           <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
                             <PriceCell qa={qa}>
                               <input
@@ -591,8 +560,7 @@ const ProductsTab = ({
                                 }}
                                 onBlur={() => {
                                   const current = product.quick?.quantity;
-                                  const val = current === '' || current == null
-                                    ? 1
+                                  const val = current === '' || current == null ? 1
                                     : Math.min(product.stock || 9999, Math.max(1, Number(current) || 1));
                                   updateProductQuick(product.codigo, { quantity: val });
                                 }}
@@ -601,16 +569,12 @@ const ProductsTab = ({
                             </PriceCell>
                           </td>
 
-                          {/* P. Neto Total */}
                           <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
                             <PriceCell qa={qa}>
-                              <span className="text-sm font-bold text-blue-700">
-                                ${precioTotal.toFixed(3)}
-                              </span>
+                              <span className="text-sm font-bold text-blue-700">${precioTotal.toFixed(3)}</span>
                             </PriceCell>
                           </td>
 
-                          {/* Acciones */}
                           <td className="px-4 py-4 text-center">
                             <div className="flex items-center justify-center gap-2">
                               <Tooltip text={stockBlocked ? stockReason : 'Agregar a cotización'}>
@@ -618,26 +582,20 @@ const ProductsTab = ({
                                   onClick={() => handleConfirm(product)}
                                   disabled={!!qa?.loading || !!qa?.error || stockBlocked}
                                   className={`px-3 py-2 text-white rounded-lg transition inline-flex items-center text-sm font-bold shadow
-                                    ${stockBlocked
-                                      ? 'bg-gray-400 cursor-not-allowed opacity-50'
-                                      : 'bg-green-600 hover:bg-green-700 hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100'
-                                    }`}
-                                >
+                                    ${stockBlocked ? 'bg-gray-400 cursor-not-allowed opacity-50'
+                                      : 'bg-green-600 hover:bg-green-700 hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100'}`}>
                                   <ShoppingCart className="w-4 h-4" />
                                 </button>
                               </Tooltip>
-
                               <Tooltip text="Ver detalle">
                                 <button
                                   onClick={() => handleOpenModal(product)}
-                                  className="px-3 py-2 bg-[#334a5e] text-white rounded-lg hover:bg-blue-700 hover:scale-105 transition inline-flex items-center text-sm font-bold shadow"
-                                >
+                                  className="px-3 py-2 bg-[#334a5e] text-white rounded-lg hover:bg-blue-700 hover:scale-105 transition inline-flex items-center text-sm font-bold shadow">
                                   <Eye className="w-4 h-4" />
                                 </button>
                               </Tooltip>
                             </div>
                           </td>
-
                         </tr>
                       );
                     })}
@@ -653,52 +611,31 @@ const ProductsTab = ({
                     <span className="font-semibold">{Math.min(indexOfLastProduct, productos.length)}</span>{' '}
                     de <span className="font-semibold">{productos.length}</span> productos
                   </div>
-
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-white transition disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
+                    <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-white transition disabled:opacity-50 disabled:cursor-not-allowed">
                       Anterior
                     </button>
-
                     <div className="flex gap-1">
                       {[...Array(totalPages)].map((_, index) => {
                         const pageNumber = index + 1;
-                        if (
-                          pageNumber === 1 ||
-                          pageNumber === totalPages ||
-                          (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
-                        ) {
+                        if (pageNumber === 1 || pageNumber === totalPages ||
+                          (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)) {
                           return (
-                            <button
-                              key={pageNumber}
-                              onClick={() => handlePageChange(pageNumber)}
+                            <button key={pageNumber} onClick={() => handlePageChange(pageNumber)}
                               className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                                currentPage === pageNumber
-                                  ? 'bg-[#334a5e] text-white'
-                                  : 'border border-gray-300 hover:bg-gray-50'
-                              }`}
-                            >
+                                currentPage === pageNumber ? 'bg-[#334a5e] text-white' : 'border border-gray-300 hover:bg-gray-50'}`}>
                               {pageNumber}
                             </button>
                           );
-                        } else if (
-                          pageNumber === currentPage - 2 ||
-                          pageNumber === currentPage + 2
-                        ) {
+                        } else if (pageNumber === currentPage - 2 || pageNumber === currentPage + 2) {
                           return <span key={pageNumber} className="px-2 text-gray-400">...</span>;
                         }
                         return null;
                       })}
                     </div>
-
-                    <button
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-white transition disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
+                    <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-white transition disabled:opacity-50 disabled:cursor-not-allowed">
                       Siguiente
                     </button>
                   </div>
@@ -710,10 +647,8 @@ const ProductsTab = ({
               <div className="bg-white rounded-lg shadow-md p-12 text-center">
                 <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-500 text-lg">No se encontraron productos</p>
-                <button
-                  onClick={handleClearSearch}
-                  className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                >
+                <button onClick={handleClearSearch}
+                  className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
                   Nueva búsqueda
                 </button>
               </div>
@@ -733,7 +668,6 @@ const ProductsTab = ({
         </div>
       )}
 
-      {/* ── Modal de Detalle ── */}
       <ProdDetailModal
         product={selectedProduct}
         clienteRuc={clienteRuc}

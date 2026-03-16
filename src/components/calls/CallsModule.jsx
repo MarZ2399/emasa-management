@@ -1,16 +1,21 @@
-import React, { useState } from 'react';
+// src/components/calls/CallsModule.jsx
+import React, { useState, useContext } from 'react';
 import toast from 'react-hot-toast';
 import { Phone, Package, FileText, ShoppingCart, Sparkles } from 'lucide-react';
 import { getClientPurchases } from '../../data/purchaseHistoryData';
+import { AuthContext } from '../../context/AuthContext';
 import ClientSearchPanel from './ClientSearchPanel';
-import CallHistoryTab from './CallHistoryTab';       // ← nuevo
+import CallHistoryTab from './CallHistoryTab';
 import ProductsTab from './ProductsTab';
 import PurchaseHistoryTab from './PurchaseHistoryTab';
 import ProductSuggestionsTab from './ProductSuggestionsTab';
 import QuotationTab from './QuotationTab';
 import SectionHeader from '../common/SectionHeader';
 
+
 const CallsModule = () => {
+  const { user } = useContext(AuthContext);
+
   const [activeTab,          setActiveTab]          = useState('calls');
   const [selectedClient,     setSelectedClient]     = useState(null);
   const [selectedClientRUC,  setSelectedClientRUC]  = useState(null);
@@ -21,20 +26,25 @@ const CallsModule = () => {
   const [hasSearched,        setHasSearched]        = useState(false);
   const [autoSearchTrigger,  setAutoSearchTrigger]  = useState(0);
 
+  // ✅ Estado elevado — sobrevive al cambio de tabs
+  const codAlmacenes = user?.empresa?.cod_almacenes || [];
+  const [almacenSeleccionado, setAlmacenSeleccionado] = useState(
+    codAlmacenes.find(a => a.principal)?.cod || codAlmacenes[0]?.cod || ''
+  );
+
   const handleClientSelect = (clientData) => {
-  const newRuc = clientData?.ruc || null;
+    const newRuc = clientData?.ruc || null;
 
-  // Si cambió el RUC → limpiar productos y cotización
-  if (newRuc !== selectedClientRUC) {
-    setQuotationItems([]);
-    setCodigoProducto('');
-    setNombreProducto('');
-    setHasSearched(false);
-  }
+    if (newRuc !== selectedClientRUC) {
+      setQuotationItems([]);
+      setCodigoProducto('');
+      setNombreProducto('');
+      setHasSearched(false);
+    }
 
-  setSelectedClient(clientData);
-  setSelectedClientRUC(newRuc);
-};
+    setSelectedClient(clientData);
+    setSelectedClientRUC(newRuc);
+  };
 
   const handleProductClick = (codigo) => {
     setCodigoProducto(codigo);
@@ -51,6 +61,10 @@ const CallsModule = () => {
     setNombreProducto('');
     setHasSearched(false);
     setResetClientSearch(prev => prev + 1);
+    // ✅ Resetear almacén al completar cotización
+    setAlmacenSeleccionado(
+      codAlmacenes.find(a => a.principal)?.cod || codAlmacenes[0]?.cod || ''
+    );
     setActiveTab('calls');
     toast.success('Cotización completada. Puedes buscar un nuevo cliente', {
       position: 'top-right', duration: 3000
@@ -58,11 +72,10 @@ const CallsModule = () => {
   };
 
   const tabs = [
-    { key: 'calls',       label: 'Historial de Contacto', icon: Phone,        color: 'blue'   },
-    { key: 'purchases',   label: 'Últimas Compras',        icon: ShoppingCart, color: 'green'  },
-    // { key: 'suggestions', label: 'Sugerencias',            icon: Sparkles,     color: 'purple' },
-    { key: 'products',    label: 'Consulta de Productos',  icon: Package,      color: 'indigo' },
-    { key: 'quotations',  label: 'Cotización',             icon: FileText,     color: 'green'  },
+    { key: 'calls',      label: 'Historial de Contacto', icon: Phone,        color: 'blue'   },
+    { key: 'purchases',  label: 'Últimas Compras',        icon: ShoppingCart, color: 'green'  },
+    { key: 'products',   label: 'Consulta de Productos',  icon: Package,      color: 'indigo' },
+    { key: 'quotations', label: 'Cotización',             icon: FileText,     color: 'green'  },
   ];
 
   return (
@@ -182,6 +195,9 @@ const CallsModule = () => {
                       setQuotationItems(items => [...items, prodData]);
                       setActiveTab('quotations');
                     }}
+                    // ✅ Props elevados — persisten entre cambios de tab
+                    almacenSeleccionado={almacenSeleccionado}
+                    setAlmacenSeleccionado={setAlmacenSeleccionado}
                   />
                 </>
               )}
@@ -197,6 +213,8 @@ const CallsModule = () => {
                 onBackToProducts={() => setActiveTab('products')}
                 selectedClient={selectedClient}
                 onRegistrationComplete={handleRegistrationComplete}
+                // ✅ Almacén fijado — solo lectura en QuotationTab
+                almacenCotizacion={almacenSeleccionado}
               />
             </div>
           )}
