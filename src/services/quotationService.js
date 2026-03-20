@@ -226,7 +226,9 @@ export const prepareQuotationPayload = (
     dirc: (selectedClient.direccion || '').substring(0, 100),
     disc: (selectedClient.distrito || '').substring(0, 50),
     contac: (selectedClient.contacto || '').substring(0, 50),
-    telef1: (selectedClient.telefono || '').substring(0, 15)
+    telef1: (selectedClient.telefono || '').substring(0, 15),
+    cod_alm:    selectedClient.cod_alm    || null,   // ✅ nuevo
+  codnum_alm: selectedClient.codnum_alm ?? null,
   };
 
   const IGV_RATE = 0.18;
@@ -386,7 +388,9 @@ export const prepareUpdatePayload = (formData, correlativo = null) => {
     imporc: totalCalculado,
     fechac,
     vend: extractVendorCode(formData.asesor || formData.vendedor),
-    forpag: formData.formaPago || 'ADE'
+    forpag: formData.formaPago || 'ADE',
+    cod_alm:    formData.cod_alm    || null,         // ✅ nuevo
+  codnum_alm: formData.codnum_alm ?? null,
   };
 
   console.log('✅ === PAYLOAD FINAL ===');

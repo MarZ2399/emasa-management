@@ -150,7 +150,7 @@ const ProductsTab = ({
           const base = item.producto && item.stock
             ? (() => {
                 const almacenesFiltrados = almacenSeleccionado
-                  ? item.stock.filter(s => s.almacencod?.trim() === almacenSeleccionado)
+                  ? item.stock.filter(s => s.almacencod?.trim() === almacenSeleccionado?.cod)
                   : item.stock;
 
                 const almacenesAll = item.stock.map(s => ({
@@ -290,6 +290,15 @@ const ProductsTab = ({
 
     const { precioUnit, precioTotal } = calcPrecios(qa.preciosData, discount5, qty);
 
+    const almacenData  = codAlmacenes.find(a => a.cod === almacenSeleccionado);
+    const codNumAlmacen = almacenSeleccionado?.codnum ?? null;
+
+    console.log('🏭 Almacén seleccionado:', {
+  cod:        almacenSeleccionado,
+  codnum:     codNumAlmacen,
+  almacenData,
+});
+
     onAddToQuotation({
       ...product,
       quantity:       qty,
@@ -301,6 +310,7 @@ const ProductsTab = ({
       preciosDetalle: qa.preciosData,
       warehouse:     product.almacenes?.[0]?.almacencod         || almacenSeleccionado || '',
       warehouseName: product.almacenes?.[0]?.almacendes?.trim() || almacenSeleccionado || '',
+      codNumAlmacen, 
     });
 
     toast.success(`"${product.codigo}" agregado a la cotización`, { position: 'top-right' });
@@ -333,10 +343,11 @@ const ProductsTab = ({
               <SearchableSelect
                 label="Almacén"
                 required
-                value={almacenSeleccionado}
+                value={almacenSeleccionado?.cod || ''}  
                 onChange={val => {
                   if (almacenBloqueado) return; // ✅ VALIDACIÓN 2 — no permitir cambio
-                  setAlmacenSeleccionado(val);
+                  const almacenData = codAlmacenes.find(a => a.cod === val);
+  setAlmacenSeleccionado(almacenData || null);
                   setProductos([]);
                   setHasSearched(false);
                 }}

@@ -29,8 +29,8 @@ const CallsModule = () => {
   // ✅ Estado elevado — sobrevive al cambio de tabs
   const codAlmacenes = user?.empresa?.cod_almacenes || [];
   const [almacenSeleccionado, setAlmacenSeleccionado] = useState(
-    codAlmacenes.find(a => a.principal)?.cod || codAlmacenes[0]?.cod || ''
-  );
+  codAlmacenes.find(a => a.principal) || codAlmacenes[0] || null
+);
 
   const handleClientSelect = (clientData) => {
     const newRuc = clientData?.ruc || null;
@@ -63,8 +63,8 @@ const CallsModule = () => {
     setResetClientSearch(prev => prev + 1);
     // ✅ Resetear almacén al completar cotización
     setAlmacenSeleccionado(
-      codAlmacenes.find(a => a.principal)?.cod || codAlmacenes[0]?.cod || ''
-    );
+  codAlmacenes.find(a => a.principal) || codAlmacenes[0] || null  // ✅
+);
     setActiveTab('calls');
     toast.success('Cotización completada. Puedes buscar un nuevo cliente', {
       position: 'top-right', duration: 3000

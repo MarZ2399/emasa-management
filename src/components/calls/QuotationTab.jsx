@@ -101,80 +101,86 @@ const QuotationTab = ({
   const igv   = subtotal * IGV_RATE;
   const total = subtotal + igv;
 
-  // ── Registrar cotización ────────────────────────────────────────────────
-  const handleRegister = async () => {
-    if (quotationItems.length === 0) {
-      toast.error('No hay productos en la cotización', { position: 'top-right' });
-      return;
-    }
-    if (!selectedClient?.ruc) {
-      toast.error('Debe seleccionar un cliente válido', { position: 'top-right' });
-      return;
-    }
+ // ── Registrar cotización ────────────────────────────────────────────────
+const handleRegister = async () => {
+  if (quotationItems.length === 0) {
+    toast.error('No hay productos en la cotización', { position: 'top-right' });
+    return;
+  }
+  if (!selectedClient?.ruc) {
+    toast.error('Debe seleccionar un cliente válido', { position: 'top-right' });
+    return;
+  }
 
-    setIsRegistering(true);
+  setIsRegistering(true);
 
-    try {
-      const itemsNormalized = quotationItems.map(normalizeItem);
+  try {
+    const itemsNormalized = quotationItems.map(normalizeItem);
 
-      // ✅ almacenCotizacion disponible para el payload
-      const payload = quotationService.prepareQuotationPayload(
-        itemsNormalized,
-        selectedClient,
-        currency,
-        subtotal,
-        igv,
-        total,
-        quotationNumber,
-        almacenCotizacion   // ✅ pasar al service
+    // ✅ NUEVO — enriquecer cliente con datos del almacén
+    const clienteConAlmacen = {
+      ...selectedClient,
+      cod_alm:    almacenCotizacion?.cod    || null,
+      codnum_alm: almacenCotizacion?.codnum ?? null,
+    };
+
+    const payload = quotationService.prepareQuotationPayload(
+      itemsNormalized,
+      clienteConAlmacen,   // ✅ CAMBIO — antes era selectedClient
+      currency,
+      subtotal,
+      igv,
+      total,
+      quotationNumber
+      // ✅ CAMBIO — eliminado almacenCotizacion como 8vo param
+    );
+
+    console.log('📤 Enviando cotización:', payload);
+    console.log('🏭 Almacén:', almacenCotizacion);
+
+    const response = await quotationService.registerQuotation(
+      payload.cabecera,
+      payload.detalles
+    );
+
+    if (response.success) {
+      logActivity(EVENTOS.COTIZACION_REGISTRADA, response.data.id_cotizac);
+
+      toast.success(
+        `Cotización ${response.data.correlativo_cotiza} registrada exitosamente`,
+        { position: 'top-right', duration: 4000 }
       );
 
-      console.log('📤 Enviando cotización:', payload);
-      console.log('🏭 Almacén:', almacenCotizacion);
-
-      const response = await quotationService.registerQuotation(
-        payload.cabecera,
-        payload.detalles
-      );
-
-      if (response.success) {
-        logActivity(EVENTOS.COTIZACION_REGISTRADA, response.data.id_cotizac);
-
-        toast.success(
-          `Cotización ${response.data.correlativo_cotiza} registrada exitosamente`,
-          { position: 'top-right', duration: 4000 }
-        );
-
-        if (pdfRef.current) {
-          await generateQuotationPDF(
-            pdfRef.current,
-            `cotizacion_${response.data.correlativo_cotiza}.pdf`
-          );
-        }
-
-        const nextResponse = await quotationService.getNextCorrelative();
-        if (nextResponse.success) setQuotationNumber(nextResponse.data.correlative);
-
-        setQuotationItems([]);
-        if (onRegistrationComplete) onRegistrationComplete();
-      }
-    } catch (error) {
-      console.error('❌ Error al registrar cotización:', error);
-      if (error.response?.data?.details) {
-        const errores = Array.isArray(error.response.data.details)
-          ? error.response.data.details
-          : [error.response.data.details];
-        errores.forEach(err => toast.error(err, { position: 'top-right', duration: 5000 }));
-      } else {
-        toast.error(
-          error.response?.data?.error || 'Error al registrar la cotización',
-          { position: 'top-right' }
+      if (pdfRef.current) {
+        await generateQuotationPDF(
+          pdfRef.current,
+          `cotizacion_${response.data.correlativo_cotiza}.pdf`
         );
       }
-    } finally {
-      setIsRegistering(false);
+
+      const nextResponse = await quotationService.getNextCorrelative();
+      if (nextResponse.success) setQuotationNumber(nextResponse.data.correlative);
+
+      setQuotationItems([]);
+      if (onRegistrationComplete) onRegistrationComplete();
     }
-  };
+  } catch (error) {
+    console.error('❌ Error al registrar cotización:', error);
+    if (error.response?.data?.details) {
+      const errores = Array.isArray(error.response.data.details)
+        ? error.response.data.details
+        : [error.response.data.details];
+      errores.forEach(err => toast.error(err, { position: 'top-right', duration: 5000 }));
+    } else {
+      toast.error(
+        error.response?.data?.error || 'Error al registrar la cotización',
+        { position: 'top-right' }
+      );
+    }
+  } finally {
+    setIsRegistering(false);
+  }
+};
 
   const handlePreviewPDF = async () => {
     if (!pdfRef.current) return;
@@ -230,7 +236,7 @@ const QuotationTab = ({
           {almacenCotizacion && (
             <div className="bg-amber-50 border-2 border-amber-200 rounded-lg px-4 py-2">
               <span className="text-sm font-semibold text-gray-600">Almacén:</span>
-              <span className="ml-2 text-sm font-bold text-amber-700">{almacenCotizacion}</span>
+              <span className="ml-2 text-sm font-bold text-amber-700">{almacenCotizacion?.cod} — {almacenCotizacion?.nombre}</span>
             </div>
           )}
           {/* Badge número cotización */}
