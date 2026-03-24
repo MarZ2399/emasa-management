@@ -177,6 +177,29 @@ export const getClientContacts = async (ruc) => {
   return response.data;
 };
 
+/**
+ * Extrae solo los campos de dirección/ubigeo del cliente para el modal de pedido
+ */
+export const getClientShippingInfo = async (ruc) => {
+  try {
+    const { data } = await api.get(`/customers/ruc/${ruc}`);
+    if (!data.success) throw new Error(data.msgerror);
+
+    const d = data.data;
+    return {
+      direccion:       d.DIRECCION?.trim()             || '',
+      ubigeoDistrito:  d.UBIGEO?.trim()                || '', // '150136'
+      ubigeoProvinca:  d.UBIGEO?.trim().substring(0, 4) || '', // '1501'
+      ubigeoDepto:     d.UBIGEO?.trim().substring(0, 2) || '', // '15'
+      distritoNombre:  d.DISTRITO?.trim()              || '',
+      provinciaNombre: d.PROVINCIA?.trim()              || '',
+      deptoNombre:     d.DEPARTAMENTO?.trim()           || '',
+    };
+  } catch (e) {
+    console.error('❌ Error getClientShippingInfo:', e);
+    throw e;
+  }
+};
 
 export default {
   getClientByRuc,

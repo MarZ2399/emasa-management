@@ -5,29 +5,34 @@ import {
   ShoppingCart, FileText, Truck, MapPin,
   Calendar, MessageSquare, Save, X, Package, AlertCircle
 } from 'lucide-react';
-import ShippingAgencyForm  from '../orders/ShippingAgencyForm';
-import SearchableSelect    from '../common/SearchableSelect';
+import ShippingAgencyForm            from '../orders/ShippingAgencyForm';
+import SearchableSelect              from '../common/SearchableSelect';
 import { deliveryTypes, transportZones } from '../../data/ordersData';
-import {
-  shippingAddresses, provincias, distritosByProvincia
-} from '../../data/shippingAddresses';
-import useTransportistas   from '../../hooks/useTransportistas';
-import { transmitOrder }   from '../../services/orderRequestService';
-import toast               from 'react-hot-toast';
+import useTransportistas             from '../../hooks/useTransportistas';
+import useUbigeo                     from '../../hooks/useUbigeo';
+import useClientShippingAddresses    from '../../hooks/useClientShippingAddresses';
+import { transmitOrder }             from '../../services/orderRequestService';
+import toast                         from 'react-hot-toast';
+
 
 const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
+
   const [formData, setFormData] = useState({
-    ordenCompra:          '',
-    pagoTransporte:       '',
-    transporteZona:       'lima_callao',
-    tipoEntrega:          'despacho',
-    direccionDespacho:    '',
-    provinciaDespacho:    'Lima',
-    distritoDespacho:     '',
-    observaciones:        '',
+    ordenCompra:            '',
+    pagoTransporte:         '',
+    transporteZona:         'lima_callao',
+    tipoEntrega:            'despacho',
+    direccionDespacho:      '',
+    deptoDespacho:          '',
+    provinciaDespacho:      '',
+    distritoDespacho:       '',
+    deptoNombre:      '',
+provinciaNombre:  '',
+distritoNombre:   '',
+    observaciones:          '',
     observacionesCreditos:  '',
     observacionesLogistica: '',
-    fechaEntrega:         '',
+    fechaEntrega:           '',
     agenciaDespacho: {
       nombre:   '',
       dni:      '',
@@ -39,11 +44,34 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
   const [errors, setErrors]                       = useState({});
   const [isSubmitting, setIsSubmitting]           = useState(false);
 
-  // ✅ Transportistas desde AS400
+  // RUC del cliente — solo 10 dígitos
+  const rucCli = String(quotation?.clienteRuc ?? quotation?.ruc ?? '').substring(0, 10);
+
+  // ── Transportistas desde AS400 ─────────────────────────────────────────
   const { options: transportOptions, loading: loadingTransport, error: transportError } =
     useTransportistas(formData.transporteZona);
 
-  // ✅ Auto-seleccionar Lima-Callao
+  // ── Ubigeo encadenado desde AS400 (solo para nueva_direccion) ──────────
+  const {
+    departamentos,
+    provincias,
+    distritos,
+    codDepto,     setCodDepto,
+    codProvincia, setCodProvincia,
+    loadingDeptos,
+    loadingProvs,
+    loadingDistritos,
+    reset: resetUbigeo,
+  } = useUbigeo();
+
+  // ── Direcciones del cliente (AS400 + BD) ───────────────────────────────
+  const {
+    addresses: clientAddresses,
+    loading:   loadingAddresses,
+    error:     addressError,
+  } = useClientShippingAddresses(isOpen ? rucCli : null);
+
+  // ── Auto-seleccionar Lima-Callao ───────────────────────────────────────
   useEffect(() => {
     if (!isOpen || transportOptions.length === 0) return;
     if (formData.transporteZona === 'lima_callao') {
@@ -53,13 +81,13 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
     }
   }, [formData.transporteZona, transportOptions, isOpen]);
 
-  // Bloquear scroll
+  // ── Bloquear scroll ────────────────────────────────────────────────────
   useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = 'unset'; };
   }, [isOpen]);
 
-  // Cerrar con ESC
+  // ── Cerrar con ESC ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!isOpen) return;
     const handleEscape = (e) => { if (e.key === 'Escape') onClose(); };
@@ -67,7 +95,7 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose, isOpen]);
 
-  // Reset form al abrir
+  // ── Reset form al abrir ────────────────────────────────────────────────
   useEffect(() => {
     if (isOpen) {
       setFormData({
@@ -76,8 +104,12 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
         transporteZona:         'lima_callao',
         tipoEntrega:            'despacho',
         direccionDespacho:      '',
-        provinciaDespacho:      'Lima',
+        deptoDespacho:          '',
+        provinciaDespacho:      '',
         distritoDespacho:       '',
+        deptoNombre:      '',
+        provinciaNombre:  '',
+        distritoNombre:   '',
         observaciones:          '',
         observacionesCreditos:  '',
         observacionesLogistica: '',
@@ -86,33 +118,33 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
       });
       setSelectedAddressId('');
       setErrors({});
+      resetUbigeo();
     }
   }, [isOpen]);
 
   if (!isOpen || !quotation) return null;
 
+  // ── Helpers ────────────────────────────────────────────────────────────
   const getTomorrowDate = () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     return tomorrow.toISOString().split('T')[0];
   };
 
-  const clientAddresses    = shippingAddresses.filter(
-    addr => addr.clienteId === quotation.clienteId
-  );
-  const availableDistricts = distritosByProvincia[formData.provinciaDespacho] || [];
-
+  // ── Handlers ───────────────────────────────────────────────────────────
   const handleChange = (field, value) => {
     if (field === 'tipoEntrega') {
       setFormData(prev => ({
         ...prev,
         tipoEntrega:       value,
         direccionDespacho: '',
-        provinciaDespacho: 'Lima',
+        deptoDespacho:     '',
+        provinciaDespacho: '',
         distritoDespacho:  '',
         agenciaDespacho:   { nombre: '', dni: '', telefono: '' }
       }));
       setSelectedAddressId('');
+      resetUbigeo();
     } else {
       setFormData(prev => ({ ...prev, [field]: value }));
     }
@@ -131,31 +163,58 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
       setFormData(prev => ({
         ...prev,
         direccionDespacho: '',
-        provinciaDespacho: 'Lima',
+        provinciaDespacho: '',
         distritoDespacho:  '',
         agenciaDespacho:   { nombre: '', dni: '', telefono: '' }
       }));
-    } else {
-      const address = clientAddresses.find(addr => addr.id === parseInt(addressId));
-      if (address) {
-        setFormData(prev => ({
-          ...prev,
-          direccionDespacho: address.direccion,
-          provinciaDespacho: address.provincia,
-          distritoDespacho:  address.distrito
-        }));
-      }
+      return;
+    }
+    const address = clientAddresses.find(
+      addr => String(addr.id) === String(addressId)
+    );
+    if (address) {
+      setFormData(prev => ({
+        ...prev,
+        direccionDespacho: address.direccion,
+        provinciaDespacho: address.provinciaNombre,
+        distritoDespacho:  address.distritoNombre,
+      }));
     }
   };
 
-  const handleProvinciaChange = (provincia) => {
-    setFormData(prev => ({ ...prev, provinciaDespacho: provincia, distritoDespacho: '' }));
-  };
+  // Solo para nueva_direccion — encadenado con useUbigeo
+  const handleDeptoChange = (codDep) => {
+  const depto = departamentos.find(d => d.codigo === codDep);
+  setCodDepto(codDep);
+  setCodProvincia('');
+  setFormData(prev => ({
+    ...prev,
+    deptoDespacho:     codDep,
+    deptoNombre:       depto?.descripcion    || '', // ✅
+    provinciaDespacho: '',
+    provinciaNombre:   '',
+    distritoDespacho:  '',
+    distritoNombre:    '',
+  }));
+};
+
+  const handleProvinciaChange = (codProv) => {
+  const prov = provincias.find(p => p.codigo === codProv);
+  setCodProvincia(codProv);
+  setFormData(prev => ({
+    ...prev,
+    provinciaDespacho: codProv,
+    provinciaNombre:   prov?.descripcion     || '', // ✅
+    distritoDespacho:  '',
+    distritoNombre:    '',
+  }));
+};
 
   const handleAgencyChange = (agencyData) => {
     setFormData(prev => ({ ...prev, agenciaDespacho: agencyData }));
   };
 
+  // ── Validación ─────────────────────────────────────────────────────────
   const validate = () => {
     const newErrors = {};
 
@@ -189,10 +248,18 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
     if (formData.tipoEntrega === 'despacho' && !selectedAddressId)
       newErrors.direccionDespacho = 'Debe seleccionar una dirección registrada';
 
+    if (formData.tipoEntrega === 'nueva_direccion') {
+      if (!formData.deptoDespacho)
+        newErrors.deptoDespacho = 'Departamento es requerido';
+      if (!formData.provinciaDespacho)
+        newErrors.provinciaDespacho = 'Provincia es requerida';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  // ── Submit ─────────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -217,6 +284,7 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
     }
   };
 
+  // ── Render ─────────────────────────────────────────────────────────────
   const modalContent = (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div
@@ -277,7 +345,6 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-              {/* N° Orden de Compra */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   N° Orden de Compra
@@ -291,7 +358,6 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
                 />
               </div>
 
-              {/* Fecha de Entrega */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Fecha de Entrega <span className="text-red-500">*</span>
@@ -317,7 +383,7 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
             </div>
           </div>
 
-          {/* Sección 2: Transporte ✅ desde AS400 */}
+          {/* Sección 2: Transporte */}
           <div className="border border-gray-200 rounded-lg p-5">
             <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
               <Truck className="w-5 h-5 text-gray-700" />
@@ -340,7 +406,6 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
                 </select>
               </div>
 
-              {/* ✅ Desde AS400 */}
               <SearchableSelect
                 value={formData.pagoTransporte}
                 onChange={(value) => handleChange('pagoTransporte', value)}
@@ -374,6 +439,7 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
               Datos de Entrega
             </h3>
 
+            {/* Tipo de Entrega */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Tipo de Entrega
@@ -402,7 +468,7 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
               </div>
             </div>
 
-            {/* CASO 1: Retiro */}
+            {/* CASO 1: Retiro en Agencia */}
             {formData.tipoEntrega === 'retiro' && (
               <div className="mt-4">
                 <ShippingAgencyForm
@@ -417,27 +483,39 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
               </div>
             )}
 
-            {/* CASO 2: Despacho a dirección registrada */}
+            {/* CASO 2: Despacho a Dirección Registrada */}
             {formData.tipoEntrega === 'despacho' && (
               <>
-                {clientAddresses.length > 0 ? (
+                {loadingAddresses ? (
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500 animate-pulse">
+                    Cargando direcciones del cliente...
+                  </div>
+
+                ) : addressError ? (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    ⚠ Error al cargar direcciones. Intente nuevamente.
+                  </div>
+
+                ) : clientAddresses.length > 0 ? (
                   <>
                     <div className="mb-4">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Seleccionar Dirección Registrada <span className="text-red-500">*</span>
+                        Seleccionar Dirección <span className="text-red-500">*</span>
                       </label>
                       <select
                         value={selectedAddressId}
                         onChange={(e) => handleAddressSelect(e.target.value)}
-                        className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white ${
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2
+                          focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white ${
                           errors.direccionDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
                         }`}
                       >
                         <option value="">-- Seleccionar dirección --</option>
                         {clientAddresses.map(addr => (
-                          <option key={addr.id} value={addr.id}>
-                            {addr.direccion} - {addr.distrito}, {addr.provincia}
-                            {addr.isDefault && ' (Principal)'}
+                          <option key={addr.id} value={String(addr.id)}>
+                            {addr.source === 'as400' ? '📍' : '📦'} {addr.direccion} — {addr.distritoNombre}, {addr.provinciaNombre}
+                            {addr.source === 'as400' && ' (Dirección registrada)'}
+                            {addr.source === 'bd' && addr.isDefault === 1 && ' (Principal)'}
                           </option>
                         ))}
                       </select>
@@ -448,50 +526,71 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
                       )}
                     </div>
 
-                    {selectedAddressId && (
-                      <div className="grid grid-cols-1 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Dirección de Despacho
-                          </label>
-                          <textarea
-                            value={formData.direccionDespacho}
-                            readOnly rows={2}
-                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed resize-none"
-                          />
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {selectedAddressId && (() => {
+                      const addr = clientAddresses.find(
+                        a => String(a.id) === String(selectedAddressId)
+                      );
+                      if (!addr) return null;
+                      return (
+                        <div className="grid grid-cols-1 gap-4">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
-                            <select disabled value={formData.provinciaDespacho}
-                              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed appearance-none"
-                            >
-                              <option value={formData.provinciaDespacho}>{formData.provinciaDespacho}</option>
-                            </select>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Dirección de Despacho
+                            </label>
+                            <textarea
+                              value={formData.direccionDespacho}
+                              readOnly rows={2}
+                              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed resize-none"
+                            />
                           </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Distrito</label>
-                            <select disabled value={formData.distritoDespacho}
-                              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed appearance-none"
-                            >
-                              <option value={formData.distritoDespacho}>{formData.distritoDespacho}</option>
-                            </select>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Departamento
+                              </label>
+                              <input
+                                readOnly
+                                value={addr.deptoNombre}
+                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Provincia
+                              </label>
+                              <input
+                                readOnly
+                                value={addr.provinciaNombre}
+                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Distrito
+                              </label>
+                              <input
+                                readOnly
+                                value={addr.distritoNombre}
+                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                              />
+                            </div>
+                          </div>
+                          <div className="mt-2">
+                            <ShippingAgencyForm
+                              agencyData={formData.agenciaDespacho}
+                              onChange={handleAgencyChange}
+                              errors={{
+                                nombre:   errors.agenciaNombre,
+                                dni:      errors.agenciaDni,
+                                telefono: errors.agenciaTelefono
+                              }}
+                            />
                           </div>
                         </div>
-                        <div className="mt-2">
-                          <ShippingAgencyForm
-                            agencyData={formData.agenciaDespacho}
-                            onChange={handleAgencyChange}
-                            errors={{
-                              nombre:   errors.agenciaNombre,
-                              dni:      errors.agenciaDni,
-                              telefono: errors.agenciaTelefono
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </>
+
                 ) : (
                   <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
                     ⚠️ No hay direcciones registradas para este cliente. Selecciona "Despacho a Otra Dirección".
@@ -500,9 +599,10 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
               </>
             )}
 
-            {/* CASO 3: Nueva dirección */}
+            {/* CASO 3: Despacho a Otra Dirección — Ubigeo AS400 */}
             {formData.tipoEntrega === 'nueva_direccion' && (
               <div className="grid grid-cols-1 gap-4">
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Dirección de Despacho <span className="text-red-500">*</span>
@@ -512,7 +612,8 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
                     onChange={(e) => handleChange('direccionDespacho', e.target.value)}
                     placeholder="Av. Ejemplo 123, Oficina 501..."
                     rows={2}
-                    className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent resize-none ${
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70]
+                      focus:border-transparent resize-none ${
                       errors.direccionDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
                     }`}
                   />
@@ -522,33 +623,95 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
                     </p>
                   )}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                {/* Ubigeo encadenado — 3 columnas */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Departamento <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.deptoDespacho}
+                      onChange={(e) => handleDeptoChange(e.target.value)}
+                      disabled={loadingDeptos}
+                      className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70]
+                        focus:border-transparent appearance-none bg-white
+                        disabled:bg-gray-100 disabled:cursor-wait ${
+                        errors.deptoDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
+                    >
+                      <option value="">
+                        {loadingDeptos ? 'Cargando...' : '-- Seleccionar departamento --'}
+                      </option>
+                      {departamentos.map(d => (
+                        <option key={d.codigo} value={d.codigo}>{d.descripcion}</option>
+                      ))}
+                    </select>
+                    {errors.deptoDespacho && (
+                      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />{errors.deptoDespacho}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Provincia <span className="text-red-500">*</span>
+                    </label>
                     <select
                       value={formData.provinciaDespacho}
                       onChange={(e) => handleProvinciaChange(e.target.value)}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white"
+                      disabled={!formData.deptoDespacho || loadingProvs}
+                      className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70]
+                        focus:border-transparent appearance-none bg-white
+                        disabled:bg-gray-100 disabled:cursor-not-allowed ${
+                        errors.provinciaDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
                     >
+                      <option value="">
+                        {loadingProvs ? 'Cargando...' : '-- Seleccionar provincia --'}
+                      </option>
                       {provincias.map(p => (
-                        <option key={p} value={p}>{p}</option>
+                        <option key={p.codigo} value={p.codigo}>{p.descripcion}</option>
                       ))}
                     </select>
+                    {errors.provinciaDespacho && (
+                      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />{errors.provinciaDespacho}
+                      </p>
+                    )}
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Distrito <span className="text-red-500">*</span>
                     </label>
                     <select
                       value={formData.distritoDespacho}
-                      onChange={(e) => handleChange('distritoDespacho', e.target.value)}
-                      className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white ${
+                      onChange={(e) => {
+                          const dist = distritos.find(d => d.codigo === e.target.value);
+                          setFormData(prev => ({
+                            ...prev,
+                            distritoDespacho: e.target.value,
+                            distritoNombre:   dist?.descripcion || '', // ✅
+                          }));
+                          if (errors.distritoDespacho) {
+                            setErrors(prev => { const er = { ...prev }; delete er.distritoDespacho; return er; });
+                          }
+                        }}
+                      disabled={!formData.provinciaDespacho || loadingDistritos}
+                      className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70]
+                        focus:border-transparent appearance-none bg-white
+                        disabled:bg-gray-100 disabled:cursor-not-allowed ${
                         errors.distritoDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
                     >
-                      <option value="">-- Seleccionar distrito --</option>
-                      {availableDistricts.map(d => (
-                        <option key={d} value={d}>{d}</option>
+                      <option value="">
+                        {loadingDistritos ? 'Cargando...' : '-- Seleccionar distrito --'}
+                      </option>
+                      {distritos.map(d => (
+                        <option key={d.codigo} value={d.codigo}>{d.descripcion}</option>
                       ))}
                     </select>
                     {errors.distritoDespacho && (
@@ -558,6 +721,7 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
                     )}
                   </div>
                 </div>
+
                 <div className="mt-2">
                   <ShippingAgencyForm
                     agencyData={formData.agenciaDespacho}
