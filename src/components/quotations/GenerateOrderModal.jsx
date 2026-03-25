@@ -73,13 +73,12 @@ distritoNombre:   '',
 
   // ── Auto-seleccionar Lima-Callao ───────────────────────────────────────
   useEffect(() => {
-    if (!isOpen || transportOptions.length === 0) return;
-    if (formData.transporteZona === 'lima_callao') {
-      setFormData(prev => ({ ...prev, pagoTransporte: transportOptions[0].value }));
-    } else {
-      setFormData(prev => ({ ...prev, pagoTransporte: '' }));
-    }
-  }, [formData.transporteZona, transportOptions, isOpen]);
+  if (!isOpen) return;
+  if (transportOptions.length === 0) return;
+  if (formData.transporteZona === 'lima_callao' && !formData.pagoTransporte) {
+    setFormData(prev => ({ ...prev, pagoTransporte: transportOptions[0].value }));
+  }
+}, [transportOptions]);//  solo depende de transportOptions, no de isOpen ni zona
 
   // ── Bloquear scroll ────────────────────────────────────────────────────
   useEffect(() => {
@@ -100,7 +99,9 @@ distritoNombre:   '',
     if (isOpen) {
       setFormData({
         ordenCompra:            '',
-        pagoTransporte:         '',
+        pagoTransporte: formData.transporteZona === 'lima_callao' && transportOptions.length > 0
+        ? transportOptions[0].value  
+        : '',
         transporteZona:         'lima_callao',
         tipoEntrega:            'despacho',
         direccionDespacho:      '',
@@ -154,8 +155,12 @@ distritoNombre:   '',
   };
 
   const handleTransportZoneChange = (zona) => {
-    setFormData(prev => ({ ...prev, transporteZona: zona, pagoTransporte: '' }));
-  };
+  setFormData(prev => ({
+    ...prev,
+    transporteZona:  zona,
+    pagoTransporte:  '', // ✅ limpia — el useEffect lo rellenará si es lima_callao
+  }));
+};
 
   const handleAddressSelect = (addressId) => {
     setSelectedAddressId(addressId);

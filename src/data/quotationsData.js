@@ -151,16 +151,20 @@ export const getQuotationStatus = (estado) => {
   const statuses = {
     pendiente: {
       label: 'Pendiente',
-      color: 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
     },
-    convertida: {
-      label: 'Convertida a Pedido',
-      color: 'bg-green-100 text-green-800 border-green-200'
+    enviado: {
+      label: 'Enviado al AS400',
+      color: 'bg-green-100 text-green-800 border-green-200',
     },
-    rechazada: {
-      label: 'Rechazada',
-      color: 'bg-red-100 text-red-800 border-red-200'
-    }
+    anulado: {
+      label: 'Anulado',
+      color: 'bg-red-100 text-red-800 border-red-200',
+    },
   };
-  return statuses[estado] || statuses.pendiente;
+
+  return statuses[estado] ?? {
+    label: estado ?? 'Desconocido',
+    color: 'bg-gray-100 text-gray-600 border-gray-200',
+  };
 };

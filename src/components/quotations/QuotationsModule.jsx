@@ -46,14 +46,13 @@ const QuotationsModule = () => {
 
   // ── Helpers ───────────────────────────────────────────────────
   const mapEstadoBackendToFrontend = (estadoBackend) => {
-    const estadoMap = {
-      'PENDIENTE': 'pendiente',
-      'APROBADO':  'convertida',
-      'RECHAZADO': 'rechazada',
-      'ANULADO':   'rechazada'
-    };
-    return estadoMap[estadoBackend] || 'pendiente';
+  const estadoMap = {
+    'PENDIENTE': 'pendiente',
+    'ENVIADO':   'enviado',
+    'ANULADO':   'anulado',
   };
+  return estadoMap[estadoBackend] || 'pendiente';
+};
 
   const formatDateFromInt = (dateInt) => {
     if (!dateInt) return new Date().toISOString().split('T')[0];
@@ -338,29 +337,31 @@ const handleDuplicateQuotation = async (quotation) => {
 
   // ── Generar pedido ────────────────────────────────────────────
   const handleGenerateOrder = (orderData) => {
-    setQuotations(prev =>
-      prev.map(q =>
-        q.id === selectedQuotationForOrder.id ? { ...q, estado: 'convertida' } : q
-      )
-    );
-    toast.success('¡Pedido generado exitosamente!');
-    setIsOrderModalOpen(false);
-    setSelectedQuotationForOrder(null);
-  };
+  setQuotations(prev =>
+    prev.map(q =>
+      q.id === selectedQuotationForOrder.id
+        ? { ...q, estado: 'enviado' }  // ✅ antes era 'convertida'
+        : q
+    )
+  );
+  toast.success('¡Pedido generado y enviado al AS400 exitosamente!');
+  setIsOrderModalOpen(false);
+  setSelectedQuotationForOrder(null);
+};
 
   const openGenerateOrderModal = (quotation) => {
-    if (quotation.estado === 'convertida') {
-      toast.error('Esta cotización ya fue convertida a pedido');
-      return;
-    }
-    setSelectedQuotationForOrder({
-      ...quotation,
-      clienteId:     quotation.id,
-      clienteNombre: quotation.cliente,
-      clienteRuc:    quotation.ruc
-    });
-    setIsOrderModalOpen(true);
-  };
+  if (quotation.estado === 'enviado') {  // ✅ antes era 'convertida'
+    toast.error('Esta cotización ya fue enviada al AS400');
+    return;
+  }
+  setSelectedQuotationForOrder({
+    ...quotation,
+    clienteId:     quotation.id,
+    clienteNombre: quotation.cliente,
+    clienteRuc:    quotation.ruc
+  });
+  setIsOrderModalOpen(true);
+};
 
   // ── Filtrado por búsqueda + estado + fecha ────────────────────
   const filteredQuotations = quotations.filter(q => {
@@ -437,8 +438,8 @@ const handleDuplicateQuotation = async (quotation) => {
               >
                 <option value="all">Todos los estados</option>
                 <option value="pendiente">Pendiente</option>
-                <option value="convertida">Convertida a Pedido</option>
-                <option value="rechazada">Rechazada</option>
+                <option value="enviado">Enviado al AS400</option>
+                <option value="anulado">Cotización Anulada</option>
               </select>
             </div>
 
@@ -496,7 +497,7 @@ const handleDuplicateQuotation = async (quotation) => {
       </div>
 
       {/* ── KPIs ── */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -522,12 +523,24 @@ const handleDuplicateQuotation = async (quotation) => {
         <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-600 text-sm font-medium">Convertidas</p>
+              <p className="text-green-600 text-sm font-medium">Enviadas al AS400</p>
               <p className="text-2xl font-bold text-green-900 mt-1">
-                {filteredQuotations.filter(q => q.estado === 'convertida').length}
+                {filteredQuotations.filter(q => q.estado === 'enviado').length}
               </p>
             </div>
             <Package className="w-10 h-10 text-green-600 opacity-50" />
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-red-600 text-sm font-medium">Anuladas</p>
+              <p className="text-2xl font-bold text-red-900 mt-1">
+                {filteredQuotations.filter(q => q.estado === 'anulado').length}
+              </p>
+            </div>
+            <FileText className="w-10 h-10 text-red-600 opacity-50" />
           </div>
         </div>
 
@@ -600,15 +613,14 @@ const handleDuplicateQuotation = async (quotation) => {
                           </button>
                         </Tooltip>
 
-                        <Tooltip text="Editar cotización">
-                        <button
-                          onClick={() => handleEditQuotation(quotation)}
-                          disabled={loading}
-                          className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 hover:scale-105 transition inline-flex items-center gap-2 text-sm font-bold shadow disabled:opacity-50"
-                          
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
+                        <Tooltip text={quotation.estado === 'enviado' ? 'Cotización ya enviada al AS400' : 'Editar cotización'}>
+                          <button
+                            onClick={() => handleEditQuotation(quotation)}
+                            disabled={loading || quotation.estado === 'enviado' || quotation.estado === 'anulado'}  
+                            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 hover:scale-105 transition inline-flex items-center gap-2 text-sm font-bold shadow disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
                         </Tooltip>
 
                         <Tooltip text="Vista previa PDF">
@@ -623,21 +635,20 @@ const handleDuplicateQuotation = async (quotation) => {
                         </Tooltip>
 
                         <Tooltip
-    text={quotation.estado === 'convertida' ? 'Ya convertida a pedido' : 'Generar pedido'}
-    position="top"
-  >
-                        <button
-                          onClick={() => openGenerateOrderModal(quotation)}
-                          disabled={quotation.estado === 'convertida'}
-                          className={`px-3 py-2 rounded-lg font-medium transition inline-flex items-center gap-2 text-sm ${
-                            quotation.estado === 'convertida'
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-md hover:shadow-lg'
-                          }`}
-                          title="Generar Pedido"
+                          text={quotation.estado === 'enviado' ? 'Ya enviada al AS400' : 'Generar pedido'}
+                          position="top"
                         >
-                          <Package className="w-4 h-4" />
-                        </button>
+                          <button
+                            onClick={() => openGenerateOrderModal(quotation)}
+                            disabled={quotation.estado === 'enviado' || quotation.estado === 'anulado'}  
+                            className={`px-3 py-2 rounded-lg font-medium transition inline-flex items-center gap-2 text-sm ${
+                              quotation.estado === 'enviado'
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-md hover:shadow-lg'
+                            }`}
+                          >
+                            <Package className="w-4 h-4" />
+                          </button>
                         </Tooltip>
                       </div>
                     </td>
