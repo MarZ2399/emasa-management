@@ -1,330 +1,186 @@
-// src/components/orders/OrdersList.jsx
 import React, { useState } from 'react';
-import { 
-  Search, Filter, Package, Calendar, User, 
-  DollarSign, Eye, Truck, ChevronDown, ChevronUp 
+import {
+  Search, Package, Calendar, Eye,
+  ChevronDown, ChevronUp, Loader
 } from 'lucide-react';
-import OrderStatusBadge from './OrderStatusBadge';
-import OrderDetails from './OrderDetails';
-import { orderStatuses } from '../../data/ordersData';
 
-const OrdersList = ({ orders, onUpdateStatus }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [showDetails, setShowDetails] = useState(false);
-  const [sortField, setSortField] = useState('fechaPedido');
-  const [sortDirection, setSortDirection] = useState('desc');
+// Mapa de fases para mostrar etiqueta + color
+const FASES = {
+  5:  { label: 'Anulado',             color: 'bg-red-100 text-red-700' },
+  10: { label: 'Pendiente',           color: 'bg-yellow-100 text-yellow-700' },
+  15: { label: 'Bloqueado créditos',  color: 'bg-orange-100 text-orange-700' },
+  16: { label: 'En observación',      color: 'bg-purple-100 text-purple-700' },
+  30: { label: 'En despacho',         color: 'bg-blue-100 text-blue-700' },
+  40: { label: 'En WMS',              color: 'bg-indigo-100 text-indigo-700' },
+  45: { label: 'Despachado parcial',  color: 'bg-teal-100 text-teal-700' },
+  50: { label: 'Despachado',          color: 'bg-green-100 text-green-700' },
+};
 
-  // Filtrar pedidos
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = 
-      order.numeroPedido.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.clienteNombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.ordenCompra.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
+const FaseBadge = ({ codfase }) => {
+  const fase = FASES[codfase] || { label: `Fase ${codfase}`, color: 'bg-gray-100 text-gray-700' };
+  return (
+    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${fase.color}`}>
+      {fase.label}
+    </span>
+  );
+};
+
+const formatFecha = (fechaInt) => {
+  if (!fechaInt) return '—';
+  const s = String(fechaInt).padStart(8, '0');
+  return `${s.substring(6, 8)}/${s.substring(4, 6)}/${s.substring(0, 4)}`;
+};
+
+const OrdersList = ({ orders, loading }) => {
+  const [searchTerm,   setSearchTerm]   = useState('');
+  const [faseFilter,   setFaseFilter]   = useState('all');
+  const [sortField,    setSortField]    = useState('fecped');
+  const [sortDir,      setSortDir]      = useState('desc');
+
+  const filtered = orders.filter(o => {
+    const matchSearch =
+      String(o.reg   || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(o.nomc  || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(o.rucc  || '').includes(searchTerm);
+
+    const matchFase = faseFilter === 'all' || String(o.codfase) === faseFilter;
+
+    return matchSearch && matchFase;
   });
 
-  // Ordenar pedidos
-  const sortedOrders = [...filteredOrders].sort((a, b) => {
-    let aValue = a[sortField];
-    let bValue = b[sortField];
-
-    if (sortField === 'fechaPedido' || sortField === 'fechaEntrega') {
-      aValue = new Date(aValue);
-      bValue = new Date(bValue);
-    }
-
-    if (sortDirection === 'asc') {
-      return aValue > bValue ? 1 : -1;
-    } else {
-      return aValue < bValue ? 1 : -1;
-    }
+  const sorted = [...filtered].sort((a, b) => {
+    const av = a[sortField] ?? '';
+    const bv = b[sortField] ?? '';
+    if (sortDir === 'asc') return av > bv ? 1 : -1;
+    return av < bv ? 1 : -1;
   });
 
   const handleSort = (field) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('desc');
-    }
-  };
-
-  const handleViewDetails = (order) => {
-    setSelectedOrder(order);
-    setShowDetails(true);
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortDir('desc'); }
   };
 
   const SortIcon = ({ field }) => {
     if (sortField !== field) return null;
-    return sortDirection === 'asc' ? 
-      <ChevronUp className="w-4 h-4" /> : 
-      <ChevronDown className="w-4 h-4" />;
+    return sortDir === 'asc'
+      ? <ChevronUp className="w-3 h-3" />
+      : <ChevronDown className="w-3 h-3" />;
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader className="w-8 h-8 text-green-600 animate-spin" />
+        <span className="ml-3 text-gray-500">Cargando pedidos...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
-      {/* Barra de búsqueda y filtros */}
-      <div className="flex flex-col md:flex-row gap-4">
-        {/* Buscador */}
+
+      {/* Filtros */}
+      <div className="flex flex-col md:flex-row gap-3">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Buscar por N° Pedido, Cliente, OC..."
+            placeholder="Buscar por N° Pedido, cliente o RUC..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent"
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-sm"
           />
         </div>
 
-        {/* Filtro por estado */}
-        <div className="w-full md:w-64">
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white"
-            >
-              <option value="all">Todos los estados</option>
-              {Object.values(orderStatuses).map(status => (
-                <option key={status.value} value={status.value}>
-                  {status.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        <select
+          value={faseFilter}
+          onChange={e => setFaseFilter(e.target.value)}
+          className="md:w-56 px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-sm"
+        >
+          <option value="all">Todas las fases</option>
+          {Object.entries(FASES).map(([cod, { label }]) => (
+            <option key={cod} value={cod}>{label}</option>
+          ))}
+        </select>
       </div>
 
-      {/* Contador de resultados */}
-      <div className="flex items-center justify-between text-sm text-gray-600">
-        <span>
-          Mostrando <strong>{sortedOrders.length}</strong> de <strong>{orders.length}</strong> pedidos
-        </span>
-      </div>
+      {/* Contador */}
+      <p className="text-sm text-gray-500">
+        Mostrando <strong>{sorted.length}</strong> de <strong>{orders.length}</strong> pedidos
+      </p>
 
-      {/* Tabla de pedidos - Desktop */}
-      <div className="hidden lg:block bg-white border border-gray-200 rounded-lg overflow-hidden">
+      {/* Tabla */}
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th 
-                  onClick={() => handleSort('numeroPedido')}
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition"
-                >
-                  <div className="flex items-center gap-1">
-                    N° Pedido
-                    <SortIcon field="numeroPedido" />
-                  </div>
-                </th>
-                <th 
-                  onClick={() => handleSort('clienteNombre')}
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition"
-                >
-                  <div className="flex items-center gap-1">
-                    Cliente
-                    <SortIcon field="clienteNombre" />
-                  </div>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  N° Cotización
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  Orden Compra
-                </th>
-                <th 
-                  onClick={() => handleSort('fechaPedido')}
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition"
-                >
-                  <div className="flex items-center gap-1">
-                    Fecha Pedido
-                    <SortIcon field="fechaPedido" />
-                  </div>
-                </th>
-                <th 
-                  onClick={() => handleSort('fechaEntrega')}
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition"
-                >
-                  <div className="flex items-center gap-1">
-                    Fecha Entrega
-                    <SortIcon field="fechaEntrega" />
-                  </div>
-                </th>
-                <th 
-                  onClick={() => handleSort('total')}
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition"
-                >
-                  <div className="flex items-center gap-1">
-                    Total (USD)
-                    <SortIcon field="total" />
-                  </div>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  Estado
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  Acciones
-                </th>
+                {[
+                  { label: 'N° Pedido',  field: 'reg'     },
+                  { label: 'Fecha',      field: 'fecped'  },
+                  { label: 'RUC',        field: 'rucc'    },
+                  { label: 'Cliente',    field: 'nomc'    },
+                  { label: 'Vendedor',   field: 'vend'    },
+                  { label: 'Jefe Venta', field: 'jvta'    },
+                  { label: 'Almacén',    field: 'almdes'  },
+                  { label: 'Neto S/',    field: 'netos'   },
+                  { label: 'Neto USD',   field: 'netod'   },
+                  { label: 'Fase',       field: 'codfase' },
+                ].map(({ label, field }) => (
+                  <th
+                    key={field}
+                    onClick={() => handleSort(field)}
+                    className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition whitespace-nowrap"
+                  >
+                    <div className="flex items-center gap-1">
+                      {label}
+                      <SortIcon field={field} />
+                    </div>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {sortedOrders.length > 0 ? (
-                sortedOrders.map(order => (
-                  <tr key={order.id} className="hover:bg-gray-50 transition">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Package className="w-4 h-4 text-gray-400" />
-                        <span className="font-medium text-gray-900">{order.numeroPedido}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm">
-                        <div className="font-medium text-gray-900">{order.clienteNombre}</div>
-                        <div className="text-gray-500">RUC: {order.clienteRuc}</div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      COT-{String(order.quotationId).padStart(4, '0')}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-gray-900">{order.ordenCompra}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1 text-sm text-gray-600">
-                        <Calendar className="w-4 h-4" />
-                        {new Date(order.fechaPedido).toLocaleDateString('es-ES')}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1 text-sm text-gray-600">
-                        <Calendar className="w-4 h-4" />
-                        {new Date(order.fechaEntrega).toLocaleDateString('es-ES')}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
+              {sorted.length === 0 ? (
+                <tr>
+                  <td colSpan="10" className="px-4 py-12 text-center text-gray-400">
+                    <Package className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                    <p>No se encontraron pedidos</p>
+                  </td>
+                </tr>
+              ) : (
+                sorted.map((order, idx) => (
+                  <tr key={`${order.reg}-${idx}`} className="hover:bg-gray-50 transition">
+                    <td className="px-4 py-3 font-semibold text-green-700">{order.reg}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-600">
                       <div className="flex items-center gap-1">
-                        
-                        <span className="font-semibold text-gray-900">
-                          {order.total.toFixed(2)}
-                        </span>
+                        <Calendar className="w-3 h-3" />
+                        {formatFecha(order.fecped)}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <OrderStatusBadge status={order.status} size="sm" />
+                    <td className="px-4 py-3 text-gray-600">{order.rucc}</td>
+                    <td className="px-4 py-3 font-medium text-gray-900 max-w-[200px] truncate">
+                      {order.nomc}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{order.vend}</td>
+                    <td className="px-4 py-3 text-gray-600">{order.jvta}</td>
+                    <td className="px-4 py-3 text-gray-600">{order.almdes}</td>
+                    <td className="px-4 py-3 text-gray-700">
+                      S/ {Number(order.netos || 0).toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-green-700">
+                      $ {Number(order.netod || 0).toFixed(2)}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => handleViewDetails(order)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                          title="Ver detalles"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                      </div>
+                      <FaseBadge codfase={order.codfase} />
                     </td>
                   </tr>
                 ))
-              ) : (
-                <tr>
-                  <td colSpan="8" className="px-4 py-12 text-center">
-                    <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500">No se encontraron pedidos</p>
-                  </td>
-                </tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
-
-      {/* Cards de pedidos - Mobile */}
-      <div className="lg:hidden space-y-3">
-        {sortedOrders.length > 0 ? (
-          sortedOrders.map(order => (
-            <div key={order.id} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Package className="w-4 h-4 text-gray-400" />
-                    <span className="font-bold text-gray-900">{order.numeroPedido}</span>
-                  </div>
-                  <p className="text-sm text-gray-600">{order.clienteNombre}</p>
-                </div>
-                <OrderStatusBadge status={order.status} size="sm" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <span className="text-gray-500">OC:</span>
-                  <p className="font-medium text-gray-900">{order.ordenCompra}</p>
-                </div>
-                
-                <div>
-  <span className="text-gray-500">Total:</span>
-  <p className="font-semibold text-green-600 flex items-center gap-1">
-    <DollarSign className="w-4 h-4" />
-    {order.tipoMoneda === 'USD' ? '$' : 'S/'} {order.total.toFixed(2)}
-  </p>
-</div>
-
-
-// Y en la versión mobile:
-<div>
-  <span className="text-gray-500">Total:</span>
-  <p className="font-semibold text-green-600">
-    {order.tipoMoneda === 'USD' ? '$' : 'S/'} {order.total.toFixed(2)}
-  </p>
-</div>
-                <div>
-                  <span className="text-gray-500">Fecha Pedido:</span>
-                  <p className="font-medium text-gray-900">
-                    {new Date(order.fechaPedido).toLocaleDateString('es-ES')}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-gray-500">Entrega:</span>
-                  <p className="font-medium text-gray-900">
-                    {new Date(order.fechaEntrega).toLocaleDateString('es-ES')}
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => handleViewDetails(order)}
-                className="w-full py-2 text-sm text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition font-medium flex items-center justify-center gap-2"
-              >
-                <Eye className="w-4 h-4" />
-                Ver Detalles
-              </button>
-            </div>
-          ))
-        ) : (
-          <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
-            <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">No se encontraron pedidos</p>
-          </div>
-        )}
-      </div>
-
-      {/* Modal de detalles */}
-      {showDetails && selectedOrder && (
-        <OrderDetails
-          order={selectedOrder}
-          onClose={() => {
-            setShowDetails(false);
-            setSelectedOrder(null);
-          }}
-          onUpdateStatus={onUpdateStatus}
-        />
-      )}
     </div>
   );
 };

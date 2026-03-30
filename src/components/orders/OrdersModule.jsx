@@ -1,51 +1,43 @@
-// src/components/orders/OrdersModule.jsx
-import React, { useState } from 'react';
-import { Package, Plus, TrendingUp, Clock, CheckCircle, XCircle } from 'lucide-react';
-import OrdersList from './OrdersList';
-import { initialOrders, orderStatuses } from '../../data/ordersData';
-import SectionHeader from '../common/SectionHeader'; 
+import React from 'react';
+import {
+  Package, TrendingUp, Clock, CheckCircle, DollarSign, RefreshCw
+} from 'lucide-react';
+import OrdersList    from './OrdersList';
+import SectionHeader from '../common/SectionHeader';
+import useOrders     from '../../hooks/useOrders';
+import toast         from 'react-hot-toast';
 
 const OrdersModule = () => {
-  const [orders, setOrders] = useState(initialOrders);
+  const { orders, loading, error, refetch } = useOrders({ diasAtras: 7 });
 
-  // Actualizar estado del pedido
-  const handleUpdateStatus = (orderId, newStatus) => {
-    setOrders(prevOrders =>
-      prevOrders.map(order =>
-        order.id === orderId
-          ? { ...order, status: newStatus, updatedAt: new Date().toISOString() }
-          : order
-      )
-    );
+  const handleRefresh = () => {
+    toast.promise(refetch(), {
+      loading: 'Actualizando...',
+      success: 'Lista actualizada',
+      error:   'Error al actualizar',
+    });
   };
 
-  // Calcular estadísticas
+  // KPIs basados en codfase
   const stats = {
-    total: orders.length,
-    pending: orders.filter(o => o.status === 'pending').length,
-    inProgress: orders.filter(o => 
-      ['confirmed', 'in_production', 'ready'].includes(o.status)
-    ).length,
-    completed: orders.filter(o => o.status === 'delivered').length,
-    cancelled: orders.filter(o => o.status === 'cancelled').length,
-    totalAmount: orders
-      .filter(o => o.status !== 'cancelled')
-      .reduce((sum, order) => sum + order.total, 0)
+    total:       orders.length,
+    pendientes:  orders.filter(o => o.codfase === 10).length,
+    enProceso:   orders.filter(o => [30, 40, 45].includes(o.codfase)).length,
+    despachados: orders.filter(o => o.codfase === 50).length,
+    totalNetos:  orders.reduce((s, o) => s + (o.netod || 0), 0), // en USD
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <SectionHeader
         icon={Package}
         title="Gestión de Pedidos"
         subtitle="Administra y da seguimiento a todos los pedidos generados"
-        showButton={false} // Si no necesitas botón
+        showButton={false}
       />
 
-      {/* Tarjetas de Estadísticas */}
+      {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Total de Pedidos */}
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-5 shadow-lg">
           <div className="flex items-center justify-between mb-3">
             <Package className="w-8 h-8 opacity-80" />
@@ -54,51 +46,61 @@ const OrdersModule = () => {
           <p className="text-sm opacity-90">Total Pedidos</p>
         </div>
 
-        {/* Pendientes */}
         <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-lg p-5 shadow-lg">
           <div className="flex items-center justify-between mb-3">
             <Clock className="w-8 h-8 opacity-80" />
-            <span className="text-3xl font-bold">{stats.pending}</span>
+            <span className="text-3xl font-bold">{stats.pendientes}</span>
           </div>
           <p className="text-sm opacity-90">Pendientes</p>
         </div>
 
-        {/* En Proceso */}
         <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg p-5 shadow-lg">
           <div className="flex items-center justify-between mb-3">
             <TrendingUp className="w-8 h-8 opacity-80" />
-            <span className="text-3xl font-bold">{stats.inProgress}</span>
+            <span className="text-3xl font-bold">{stats.enProceso}</span>
           </div>
           <p className="text-sm opacity-90">En Proceso</p>
         </div>
 
-        {/* Completados */}
         <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-5 shadow-lg">
           <div className="flex items-center justify-between mb-3">
             <CheckCircle className="w-8 h-8 opacity-80" />
-            <span className="text-3xl font-bold">{stats.completed}</span>
+            <span className="text-3xl font-bold">{stats.despachados}</span>
           </div>
-          <p className="text-sm opacity-90">Completados</p>
+          <p className="text-sm opacity-90">Despachados</p>
         </div>
 
-        {/* Monto Total */}
         <div className="bg-gradient-to-br from-[#2ecc70] to-[#27ae60] text-white rounded-lg p-5 shadow-lg">
           <div className="flex items-center justify-between mb-3">
-            {/* <span className="text-2xl font-bold">S/</span> */}
+            <DollarSign className="w-8 h-8 opacity-80" />
             <span className="text-2xl font-bold">
-              {(stats.totalAmount / 1000).toFixed(1)}K
+              ${(stats.totalNetos / 1000).toFixed(1)}K
             </span>
           </div>
-          <p className="text-sm opacity-90">Monto Total</p>
+          <p className="text-sm opacity-90">Monto Total USD</p>
         </div>
       </div>
 
-      {/* Lista de Pedidos */}
+      {/* Lista */}
       <div className="bg-white rounded-lg shadow-sm p-6">
-        <OrdersList 
-          orders={orders} 
-          onUpdateStatus={handleUpdateStatus}
-        />
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={handleRefresh}
+            disabled={loading}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold text-sm disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Actualizar
+          </button>
+        </div>
+
+        {error ? (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            ⚠ {error}
+          </div>
+        ) : (
+          <OrdersList orders={orders} loading={loading} />
+        )}
       </div>
     </div>
   );
