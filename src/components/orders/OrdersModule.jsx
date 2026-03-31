@@ -97,23 +97,30 @@ const OrdersModule = () => {
   };
 
   const contadores = React.useMemo(
-    () => FASES.reduce((acc, f) => {
-      acc[f.codfase] = allOrders.filter(o => o.codfase === f.codfase).length;
-      return acc;
-    }, {}),
-    [allOrders]
-  );
+  () => FASES.reduce((acc, f) => {
+    const fasesAContar = f.fases ?? [f.codfase]; // ← usa array si existe, sino el codfase simple
+    acc[f.codfase] = allOrders.filter(o => fasesAContar.includes(o.codfase)).length;
+    return acc;
+  }, {}),
+  [allOrders]
+);
 
   // ← stats simplificado: solo lo que aún se usa (contador toolbar)
   const totalVisible = orders.length;
   const totalGeneral = allOrders.length;
 
   const ordenesMostradas = React.useMemo(() => {
-    let lista = orders;
-    if (faseActiva !== null) lista = lista.filter(o => o.codfase === faseActiva);
-    if (ocultarAnulados)      lista = lista.filter(o => o.codfase !== 15); 
-    return lista;
-  }, [orders, faseActiva,ocultarAnulados]);
+  let lista = orders;
+
+  if (faseActiva !== null) {
+    const faseDef = FASES.find(f => f.codfase === faseActiva);
+    const fasesAFiltrar = faseDef?.fases ?? [faseActiva]; // ← filtra 20+22+24 si aplica
+    lista = lista.filter(o => fasesAFiltrar.includes(o.codfase));
+  }
+
+  if (ocultarAnulados) lista = lista.filter(o => o.codfase !== 15);
+  return lista;
+}, [orders, faseActiva, ocultarAnulados]);
 
   const handleKpiClick = (codfase) => {
     setFaseActiva(prev => (prev === codfase ? null : codfase));

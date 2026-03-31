@@ -5,15 +5,20 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   CalendarDays
 } from 'lucide-react';
+import WmsTrackingModal from '../orders/WmsTrackingModal';
 
 const FASES = {
   50: { label: 'FACTURADO',   color: 'bg-green-100  text-green-800'  },
   45: { label: 'PICKEADO',    color: 'bg-teal-100   text-teal-800'   },
   40: { label: 'EN ALMACÉN',  color: 'bg-blue-100   text-blue-800'   },
-  30: { label: 'OBS CXC',     color: 'bg-amber-100  text-amber-800'  },
-  20: { label: 'OBS VTA',     color: 'bg-orange-100 text-orange-800' },
+  30: { label: 'OBS CXC',     color: 'bg-purple-100 text-purple-800'  },
+  24: { label: 'OBS GV',      color: 'bg-orange-200 text-orange-800' },
+  22: { label: 'OBS JDV',     color: 'bg-orange-200 text-orange-800' },
+  20: { label: 'OBS VTA',     color: 'bg-orange-200 text-orange-800' },
   15: { label: 'ANULADO',     color: 'bg-red-100    text-red-800'    },
+  10: { label: 'CERRADO',     color: 'bg-gray-100   text-gray-600'   },
    5: { label: 'ABR/RCH VTA', color: 'bg-pink-100   text-pink-800'   },
+  
 };
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100];
@@ -155,7 +160,7 @@ const buildColumns = (nivelAcceso) => {
       key: 'nomc', label: 'Cliente', field: 'nomc', niveles: [0, 1, 2],
       thClass: 'min-w-[180px]',
       renderCell: (o) => (
-        <span className="font-medium text-gray-900 block max-w-[220px] truncate" title={o.nomc}>
+        <span className="font-medium text-gray-900 block max-w-[320px] truncate" title={o.nomc}>
           {o.nomc || '—'}
         </span>
       ),
@@ -210,12 +215,22 @@ const buildColumns = (nivelAcceso) => {
       ),
     },
     {
-      key: 'nrowms', label: 'WMS', field: 'nrowms', niveles: [0, 1, 2],
-      thClass: 'w-24 text-center',
-      renderCell: (o) => (
-        <span className="text-gray-500 tabular-nums">{o.nrowms || '—'}</span>
-      ),
-    },
+  key: 'nrowms', label: 'WMS', field: 'nrowms', niveles: [0, 1, 2],
+  thClass: 'w-24 text-center',
+  renderCell: (o, onTrackingClick) => {          // ← recibe el callback
+    const wms = o.nrowms?.toString().trim();
+    if (!wms || wms === '0') return <span className="text-gray-300">—</span>;
+    return (
+      <button
+        onClick={() => onTrackingClick(o.reg)}   // ← o.reg = N° Pedido
+        className="text-teal-600 font-semibold hover:underline hover:text-teal-700 transition-colors tabular-nums"
+        title="Ver tracking WMS"
+      >
+        {wms}
+      </button>
+    );
+  },
+},
     {
       key: 'codfase', label: 'Fase', field: 'codfase', niveles: [0, 1, 2],
       thClass: 'w-32',
@@ -234,6 +249,7 @@ const OrdersList = ({ orders, loading, nivelAcceso = 2 }) => {
   const [sortDir,    setSortDir]    = useState('desc');
   const [page,       setPage]       = useState(1);
   const [pageSize,   setPageSize]   = useState(20);
+  const [trackingPedido, setTrackingPedido] = useState(null);
 
   // ── Filtro de fechas ────────────────────────────────────────────────────────
   const hoy = todayInt();
@@ -446,7 +462,7 @@ const OrdersList = ({ orders, loading, nivelAcceso = 2 }) => {
                 >
                   {columns.map(({ key, renderCell }) => (
                     <td key={key} className="px-4 py-3">
-                      {renderCell(order)}
+                     {renderCell(order, setTrackingPedido)}
                     </td>
                   ))}
                 </tr>
@@ -464,7 +480,16 @@ const OrdersList = ({ orders, loading, nivelAcceso = 2 }) => {
             onPageSize={handlePageSize}
           />
         </div>
+
+        {/* Modal Tracking WMS */}
+      {trackingPedido && (
+        <WmsTrackingModal
+          numeroPedido={trackingPedido}
+          onClose={() => setTrackingPedido(null)}
+        />
+      )}
       </div>
+
     </div>
   );
 };
