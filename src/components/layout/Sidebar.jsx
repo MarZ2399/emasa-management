@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 // 1. Agregamos 'Users' para diferenciar Clientes de Llamadas
-import { Phone, BarChart3, Package, FileText, ChevronLeft, Users, Layers  } from 'lucide-react';
+import { Phone, BarChart3, Package, FileText, ChevronLeft, Users, Layers ,Receipt } from 'lucide-react';
 import logoImage from "../../assets/logo-emasa1.png";
 
 const menuItems = [
@@ -13,6 +13,7 @@ const menuItems = [
   { icon: Phone,     label: 'Gestión de Televentas', path: '/llamadas' },        
   { icon: FileText,  label: 'Gestión de Cotización', path: '/ventas/cotizaciones' }, 
   { icon: Package,   label: 'Gestión de Pedidos',    path: '/ventas/pedidos' },
+  { icon: Receipt,   label: 'Facturación Cliente',            path: '/facturacion' }, 
   
 ];
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom'; // <--- IMPORTANTE
-import { Users, Phone, BarChart3, FileText, Package, X , Layers } from 'lucide-react';
+import { Users, Phone, BarChart3, FileText, Package, X , Layers, Receipt } from 'lucide-react';
 import logoImage from "../../assets/logo-emasa1.png";
 
 const menuItems = [
@@ -12,6 +12,7 @@ const menuItems = [
   { icon: Phone,     label: 'Gestión de Televentas', path: '/llamadas' },        
   { icon: FileText,  label: 'Gestión de Cotización', path: '/ventas/cotizaciones' }, 
   { icon: Package,   label: 'Gestión de Pedidos',    path: '/ventas/pedidos' },
+   { icon: Receipt,   label: 'Facturación Cliente',            path: '/facturacion' },
   
 ];
 
