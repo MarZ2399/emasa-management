@@ -39,7 +39,6 @@ const transformData = (rawData) => {
 
   const first = rawData[0];
 
-  // Mapeo de campos de contacto combinados para Números Únicos (ECTELNUU | ECCELNUU)
   const telNumUnico = clean(first.ECTELNUU);
   const celNumUnico = clean(first.ECCELNUU);
   const numUnicoFinal = [telNumUnico, celNumUnico].filter(v => v && v !== '0').join(' | ');
@@ -131,8 +130,9 @@ export const generateStatementPDF = async (ruc, rawData) => {
   let curY = 10;
 
   const BLACK    = [0, 0, 0];
-  const LINE_CLR = [180, 180, 180];
+  const GRAY     = [120, 120, 120];
   const WHITE    = [255, 255, 255];
+  const LINE_CLR = [180, 180, 180];
 
   // ── 1. Header (Logo + Título) ─────────────────────────────
   try {
@@ -207,7 +207,7 @@ export const generateStatementPDF = async (ruc, rawData) => {
   autoTable(doc, {
     startY: curY,
     margin: { left: ML, right: MR },
-    head: [['Facturas', 'Emisión', 'Vencimiento', 'Importe S/.', 'Importe US$', 'Saldo S/.', 'Saldo US$', 'Atraso', 'F. Pago', 'O. Compra', 'Línea Vend.', 'Vend.']],
+    head: [['Facturas', 'Emisión', 'Vencimiento', 'Importe S/.', 'Importe US$', 'Saldo S/.', 'Saldo US$', 'Atraso', 'F. Pago', 'O. Compra', 'Línea', 'Vend.']],
     body: facturas.map(r => [r.doc, r.emision, r.vencimiento, r.importeS, r.importeUS, r.saldoS, r.saldoUS, r.atraso, r.fpago, r.ocompra, r.lineaVend, r.vend]),
     foot: [['', 'Total', '', fmt(facturas.reduce((s, r) => s + r._impSNum, 0)), fmt(facturas.reduce((s, r) => s + r._impUSNum, 0)), fmt(facturas.reduce((s, r) => s + r._saldoSNum, 0)), fmt(facturas.reduce((s, r) => s + r._saldoUSNum, 0)), '', '', '', '', '']],
     styles: TABLE_STYLES, headStyles: HEAD_STYLES, footStyles: FOOT_STYLES,
@@ -253,11 +253,10 @@ export const generateStatementPDF = async (ruc, rawData) => {
     didDrawPage: (data) => { curY = data.cursor.y; }
   });
 
-  // ── 8. Resumen e Importante (Dos columnas) ───────────────────────────────────
+  // ── 8. Resumen e Importante ───────────────────────────────────
   curY = (doc.lastAutoTable?.finalY ?? curY) + 6;
   const resumenY = curY;
 
-  // Cálculos de totales para la tabla de resumen
   const totFactIS = facturas.reduce((s, r) => s + r._impSNum, 0);
   const totFactIU = facturas.reduce((s, r) => s + r._impUSNum, 0);
   const totFactS  = facturas.reduce((s, r) => s + r._saldoSNum, 0);
@@ -307,5 +306,7 @@ export const generateStatementPDF = async (ruc, rawData) => {
     doc.text(`Pagina ${i} de ${totalPages}`, PW - MR, PH - 6, { align: 'right' });
   }
 
-  window.open(URL.createObjectURL(doc.output('blob')), '_blank');
+  // ── DESCARGA DIRECTA ──────────────────────────────────────────────────────
+  // Cambiamos window.open por doc.save con el nombre dinámico
+  doc.save(`ec${ruc}.pdf`);
 };
