@@ -45,7 +45,7 @@ const BillingModule = () => {
                 type="text"
                 inputMode="numeric"
                 maxLength={11}
-                placeholder="7 – 10 dígitos"
+                placeholder="7 – 11 dígitos"
                 value={ruc}
                 onChange={e => setRuc(e.target.value.replace(/\D/g, ''))}
                 onKeyDown={handleKeyDown}

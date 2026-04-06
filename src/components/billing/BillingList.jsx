@@ -1,6 +1,8 @@
 // src/components/billing/BillingList.jsx
 import React from 'react';
 import { FileText, CalendarDays, ChevronDown, ChevronUp } from 'lucide-react';
+import StatementButton from '../statement/StatementButton';
+
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const formatFecha = (n) => {
@@ -9,11 +11,13 @@ const formatFecha = (n) => {
   return `${s.slice(6, 8)}/${s.slice(4, 6)}/${s.slice(0, 4)}`;
 };
 
+
 const formatMonto = (val, prefijo = 'S/') =>
   `${prefijo} ${Number(val || 0).toLocaleString('es-PE', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+
 
 // ── Columnas ───────────────────────────────────────────────────────────────────
 const COLUMNS = [
@@ -77,10 +81,12 @@ const COLUMNS = [
   { key: 'jvtcod',   label: 'Jefe Vta',  render: (r) => <span className="text-gray-500 text-xs">{r.jvtcod  ?? '—'}</span> },
 ];
 
+
 // ── Componente ─────────────────────────────────────────────────────────────────
 const BillingList = ({ data, total, ruc, esFiltroFechaActivo, onResetFecha }) => {
   const [sortField, setSortField] = React.useState('ddcmt');
   const [sortDir,   setSortDir]   = React.useState('desc');
+
 
   const sorted = React.useMemo(() => {
     return [...data].sort((a, b) => {
@@ -90,19 +96,29 @@ const BillingList = ({ data, total, ruc, esFiltroFechaActivo, onResetFecha }) =>
     });
   }, [data, sortField, sortDir]);
 
+
   const handleSort = (field) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortField(field); setSortDir('desc'); }
   };
 
+
   return (
     <div className="bg-white rounded-2xl shadow-sm p-6">
-      <p className="text-sm text-gray-500 mb-4">
-        Mostrando <strong className="text-gray-800">{total}</strong> documento(s)
+
+      {/* ── Header: texto + botón ── */}
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-gray-500">
+          Mostrando <strong className="text-gray-800">{total}</strong> documento(s)
+          {ruc && (
+            <> para RUC <span className="font-semibold text-green-700">{ruc}</span></>
+          )}
+        </p>
+
         {ruc && (
-          <> para RUC <span className="font-semibold text-green-700">{ruc}</span></>
+          <StatementButton ruc={ruc} disabled={!ruc} />
         )}
-      </p>
+      </div>
 
       <div className="border border-gray-200 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
@@ -167,5 +183,6 @@ const BillingList = ({ data, total, ruc, esFiltroFechaActivo, onResetFecha }) =>
     </div>
   );
 };
+
 
 export default BillingList;
