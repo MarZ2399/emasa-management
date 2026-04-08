@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   FileText, Search, Calendar, DollarSign, Package,
-  Eye, Pencil, Loader, RefreshCw, ChevronLeft, ChevronRight, Copy, Ban
+  Eye, Pencil, Loader, RefreshCw, Copy, Ban
 } from 'lucide-react';
 import QuotationEditModal from './QuotationEditModal';
 import QuotationStatusBadge from './QuotationStatusBadge';
@@ -12,9 +12,55 @@ import SectionHeader from '../common/SectionHeader';
 import quotationService from '../../services/quotationService';
 import toast from 'react-hot-toast';
 import Tooltip from '../common/Tooltip';
+import TablePaginator from '../common/TablePaginator';
 import { logActivity, EVENTOS } from '../../services/activityLogService';
 
 const PAGE_SIZE = 10;
+
+// ── KPI Cards config ──────────────────────────────────────────────────────────
+const KPI_CARDS = [
+  {
+    key: 'total',
+    label: 'Total Cotizaciones',
+    icon: FileText,
+    iconBg: 'bg-blue-900/40',
+    iconText: 'text-blue-300',
+    getValue: (list) => list.length,
+  },
+  {
+    key: 'pendiente',
+    label: 'Pendientes',
+    icon: Calendar,
+    iconBg: 'bg-amber-900/40',
+    iconText: 'text-amber-300',
+    getValue: (list) => list.filter(q => q.estado === 'pendiente').length,
+  },
+  {
+    key: 'enviado',
+    label: 'Enviadas al AS400',
+    icon: Package,
+    iconBg: 'bg-green-900/40',
+    iconText: 'text-green-300',
+    getValue: (list) => list.filter(q => q.estado === 'enviado').length,
+  },
+  {
+    key: 'anulado',
+    label: 'Anuladas',
+    icon: FileText,
+    iconBg: 'bg-red-900/40',
+    iconText: 'text-red-300',
+    getValue: (list) => list.filter(q => q.estado === 'anulado').length,
+  },
+  {
+    key: 'valor',
+    label: 'Valor Total',
+    icon: DollarSign,
+    iconBg: 'bg-purple-900/40',
+    iconText: 'text-purple-300',
+    getValue: (list) => `$${list.reduce((s, q) => s + q.total, 0).toFixed(2)}`,
+  },
+];
+
 
 const QuotationsModule = () => {
   const [quotations, setQuotations]   = useState([]);
@@ -90,7 +136,9 @@ const parseFecha = (fechaRaw) => {
       const response = await quotationService.listQuotations({ limit: 500, offset: 0 });
 
       if (response.success) {
-        console.log('🔍 Primera cotización RAW:', response.data[0]);         // ← AQUÍ
+        console.log('🔍 Primera cotización RAW:', response.data[0]);
+        console.log('🔍 forpag RAW:', response.data[0]?.forpag);
+console.log('🔍 forma_pago RAW:', response.data[0]?.forma_pago);         // ← AQUÍ
       console.log('🔍 fechac RAW:', response.data[0]?.fechac);             // ← AQUÍ
       console.log('🔍 typeof fechac:', typeof response.data[0]?.fechac);   // ← AQUÍ
         const transformed = response.data.map(q => ({
@@ -103,7 +151,8 @@ const parseFecha = (fechaRaw) => {
           total:            parseFloat(q.total) || 0,
           estado:           mapEstadoBackendToFrontend(q.estado_transmision),
           monedc:           q.monedc,
-          currency:         q.monedc === 2 ? 'USD' : 'PEN'
+          currency:         q.monedc === 2 ? 'USD' : 'PEN',
+          formaPago:        q.forpag || 'ADE',
         }));
         setQuotations(transformed);
         setCurrentPage(1);
@@ -381,12 +430,17 @@ const handleCancelQuotation = async (quotation) => {
   if (quotation.estado === 'enviado') {  // ✅ antes era 'convertida'
     toast.error('Esta cotización ya fue enviada al AS400');
     return;
+
+    
   }
+
+    console.log('🧾 quotation.formaPago antes del modal:', quotation.formaPago);  // ← AGREGAR
   setSelectedQuotationForOrder({
     ...quotation,
     clienteId:     quotation.id,
     clienteNombre: quotation.cliente,
-    clienteRuc:    quotation.ruc
+    clienteRuc:    quotation.ruc,
+    formaPago:     quotation.formaPago || 'ADE',
   });
   setIsOrderModalOpen(true);
 };
@@ -525,65 +579,35 @@ const handleCancelQuotation = async (quotation) => {
       </div>
 
       {/* ── KPIs ── */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-600 text-sm font-medium">Total Cotizaciones</p>
-              <p className="text-2xl font-bold text-blue-900 mt-1">{filteredQuotations.length}</p>
-            </div>
-            <FileText className="w-10 h-10 text-blue-600 opacity-50" />
+<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+  {KPI_CARDS.map(kpi => {
+    const Icon = kpi.icon;
+    return (
+      <div
+        key={kpi.key}
+        className="
+          bg-gradient-to-br from-[#5982A6] to-[#1a2f3d]
+          rounded-2xl border border-white/10
+          shadow-sm p-4
+        "
+      >
+        <div className="flex items-center gap-3">
+          <div className={`w-11 h-11 rounded-2xl ${kpi.iconBg} flex items-center justify-center shrink-0`}>
+            <Icon className={`w-5 h-5 ${kpi.iconText}`} />
           </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 border border-yellow-200 rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-yellow-600 text-sm font-medium">Pendientes</p>
-              <p className="text-2xl font-bold text-yellow-900 mt-1">
-                {filteredQuotations.filter(q => q.estado === 'pendiente').length}
-              </p>
-            </div>
-            <Calendar className="w-10 h-10 text-yellow-600 opacity-50" />
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-600 text-sm font-medium">Enviadas al AS400</p>
-              <p className="text-2xl font-bold text-green-900 mt-1">
-                {filteredQuotations.filter(q => q.estado === 'enviado').length}
-              </p>
-            </div>
-            <Package className="w-10 h-10 text-green-600 opacity-50" />
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-red-600 text-sm font-medium">Anuladas</p>
-              <p className="text-2xl font-bold text-red-900 mt-1">
-                {filteredQuotations.filter(q => q.estado === 'anulado').length}
-              </p>
-            </div>
-            <FileText className="w-10 h-10 text-red-600 opacity-50" />
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-purple-600 text-sm font-medium">Valor Total</p>
-              <p className="text-2xl font-bold text-purple-900 mt-1">
-                ${filteredQuotations.reduce((s, q) => s + q.total, 0).toFixed(2)}
-              </p>
-            </div>
-            <DollarSign className="w-10 h-10 text-purple-600 opacity-50" />
+          <div className="min-w-0 flex-1">
+            <p className="text-2xl font-bold text-white leading-tight tabular-nums">
+              {kpi.getValue(filteredQuotations)}
+            </p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-white/70 truncate mt-0.5">
+              {kpi.label}
+            </p>
           </div>
         </div>
       </div>
+    );
+  })}
+</div>
 
       {/* ── Tabla ── */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -706,69 +730,16 @@ const handleCancelQuotation = async (quotation) => {
         </div>
 
         {/* ── Paginación ── */}
-        {filteredQuotations.length > 0 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50">
-            <p className="text-sm text-gray-600">
-              Mostrando{' '}
-              <span className="font-semibold">{pageStart + 1}</span>
-              {' – '}
-              <span className="font-semibold">{Math.min(pageEnd, filteredQuotations.length)}</span>
-              {' de '}
-              <span className="font-semibold">{filteredQuotations.length}</span>
-              {' cotizaciones'}
-            </p>
-
-            <div className="flex items-center gap-1">
-              {/* Anterior */}
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={safePage === 1}
-                className="p-2 rounded-lg border border-gray-300 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-
-              {/* Números de página */}
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter(p =>
-                  p === 1 || p === totalPages ||
-                  Math.abs(p - safePage) <= 1
-                )
-                .reduce((acc, p, i, arr) => {
-                  if (i > 0 && p - arr[i - 1] > 1) acc.push('...');
-                  acc.push(p);
-                  return acc;
-                }, [])
-                .map((p, i) =>
-                  p === '...' ? (
-                    <span key={`ellipsis-${i}`} className="px-2 text-gray-400 text-sm">…</span>
-                  ) : (
-                    <button
-                      key={p}
-                      onClick={() => setCurrentPage(p)}
-                      className={`w-9 h-9 rounded-lg text-sm font-medium transition border ${
-                        safePage === p
-                          ? 'bg-green-600 text-white border-green-600'
-                          : 'border-gray-300 hover:bg-white text-gray-700'
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  )
-                )
-              }
-
-              {/* Siguiente */}
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={safePage === totalPages}
-                className="p-2 rounded-lg border border-gray-300 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        {/* ── Paginación ── */}
+{filteredQuotations.length > 0 && (
+  <TablePaginator
+    page={safePage}
+    totalPages={totalPages}
+    total={filteredQuotations.length}
+    pageSize={PAGE_SIZE}
+    onPage={setCurrentPage}
+  />
+)}
       </div>
 
       {/* ── Modales ── */}

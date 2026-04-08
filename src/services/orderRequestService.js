@@ -51,6 +51,14 @@ export const transmitOrder = async (idCotizac, formData) => {
     deptoNombre:              formData.deptoNombre            || '',
     provinciaNombre:          formData.provinciaNombre        || '',
     distritoNombre:           formData.distritoNombre         || '',
+
+    formaPago:                formData.formaPago              || 'ADE',  // → OBREPW + order_request_details
+    pagoTransporte:           formData.pagoTransporte         || '',     // → order_request_details (label)
+    agenciaDespacho: {
+      nombre:   formData.agenciaDespacho?.nombre   || '',
+      dni:      formData.agenciaDespacho?.dni      || '',
+      telefono: formData.agenciaDespacho?.telefono || '',
+    }, 
   };
 
   const { data } = await api.post(`/order-requests/transmit/${idCotizac}`, payload);

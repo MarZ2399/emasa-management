@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { fetchTrackingPedido } from '../../services/wmsTrackingService';
 import { X, Package, Clock, Truck, MapPin, AlertCircle, ListOrdered, History } from 'lucide-react';
+
 
 const TIMELINE_STEPS = [
   { key: 'fechaEmision',       label: 'Pedido Recibido', icon: Package },
@@ -11,6 +13,7 @@ const TIMELINE_STEPS = [
   { key: 'fechaDespacho',      label: 'Despachado',      icon: Truck   },
 ];
 
+
 function formatDate(dateStr) {
   if (!dateStr) return null;
   const d = new Date(dateStr.replace('T', ' ').replace('Z', ''));
@@ -20,6 +23,7 @@ function formatDate(dateStr) {
     hour: '2-digit', minute: '2-digit',
   });
 }
+
 
 function EstadoBadge({ estado }) {
   const colors = {
@@ -36,6 +40,7 @@ function EstadoBadge({ estado }) {
     </span>
   );
 }
+
 
 function TimelineStep({ step, date, isCompleted, isLast, animDelay }) {
   const Icon = step.icon;
@@ -71,6 +76,7 @@ function TimelineStep({ step, date, isCompleted, isLast, animDelay }) {
   );
 }
 
+
 function InfoRow({ label, value, icon }) {
   return (
     <div>
@@ -82,6 +88,7 @@ function InfoRow({ label, value, icon }) {
     </div>
   );
 }
+
 
 // ── Panel izquierdo: info + artículos ──────────────────────────────────────
 function PanelInfo({ cabecera, detalle }) {
@@ -154,6 +161,7 @@ function PanelInfo({ cabecera, detalle }) {
   );
 }
 
+
 // ── Panel derecho: timeline ───────────────────────────────────────────────
 function PanelTimeline({ cabecera }) {
   return (
@@ -177,12 +185,14 @@ function PanelTimeline({ cabecera }) {
   );
 }
 
+
 // ── Modal principal ───────────────────────────────────────────────────────
 export default function WmsTrackingModal({ numeroPedido, onClose }) {
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
-  const [tab,     setTab]     = useState('info'); // solo usado en móvil
+  const [tab,     setTab]     = useState('info');
+
 
   useEffect(() => {
     if (!numeroPedido) return;
@@ -197,16 +207,13 @@ export default function WmsTrackingModal({ numeroPedido, onClose }) {
       .finally(() => setLoading(false));
   }, [numeroPedido]);
 
-  return (
+
+  return createPortal(
     <>
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4"
         onClick={onClose}
       >
-        {/*
-          En móvil: sheet desde abajo (rounded-t-2xl, max-h-[92vh])
-          En desktop: modal centrado (rounded-2xl, max-w-4xl)
-        */}
         <div
           className="bg-white w-full sm:max-w-4xl sm:rounded-2xl rounded-t-2xl shadow-2xl
                      max-h-[92vh] sm:max-h-[90vh] overflow-hidden flex flex-col"
@@ -313,6 +320,7 @@ export default function WmsTrackingModal({ numeroPedido, onClose }) {
           to   { opacity: 1; transform: scale(1) translateY(0); }
         }
       `}</style>
-    </>
+    </>,
+    document.body
   );
 }

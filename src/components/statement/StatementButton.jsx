@@ -32,7 +32,7 @@ const StatementButton = ({ ruc, disabled }) => {
       <button
         onClick={handleGenerate}
         disabled={disabled || loading}
-        className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white
+        className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#334a5e]  text-white
           rounded-lg hover:bg-blue-700 transition font-semibold text-sm
           disabled:opacity-50 disabled:cursor-not-allowed"
         title="Generar Estado de Cuenta PDF"

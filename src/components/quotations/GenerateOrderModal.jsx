@@ -1,5 +1,5 @@
 // src/components/quotations/GenerateOrderModal.jsx
-import React, { useState, useEffect, useRef } from 'react'; // ✅ agregar useRef
+import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import {
   ShoppingCart, FileText, Truck, MapPin,
@@ -14,10 +14,21 @@ import useClientShippingAddresses    from '../../hooks/useClientShippingAddresse
 import { transmitOrder }             from '../../services/orderRequestService';
 import toast                         from 'react-hot-toast';
 
+
 const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
+
+  // ── Opciones de Forma de Pago derivadas del forpag de la cotización ──────────
+  // Se calculan fuera del estado: forpag de la cotización + 'ADE' siempre presente.
+  // Si forpag es 'ADE' o vacío → solo ['ADE']. Si es distinto → [forpag, 'ADE'].
+ 
+const fpActual = String(quotation?.formaPago || quotation?.forpag || '').trim();
+const forpagOpciones = fpActual && fpActual !== 'ADE'
+  ? ['ADE', fpActual]
+  : ['ADE'];
 
   const [formData, setFormData] = useState({
     ordenCompra:            '',
+    formaPago:              forpagOpciones[0], // ✅ precarga con forpag de la cotización
     pagoTransporte:         '',
     transporteZona:         'lima_callao',
     tipoEntrega:            'despacho',
@@ -38,7 +49,7 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
   const [selectedAddressId, setSelectedAddressId] = useState('');
   const [errors, setErrors]                       = useState({});
   const [isSubmitting, setIsSubmitting]           = useState(false);
-  const isSubmittingRef                           = useRef(false); // ✅ guard doble submit
+  const isSubmittingRef                           = useRef(false);
 
   const rucCli = String(quotation?.clienteRuc ?? quotation?.ruc ?? '').substring(0, 10);
 
@@ -66,7 +77,7 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
     if (formData.transporteZona === 'lima_callao' && !formData.pagoTransporte) {
       setFormData(prev => ({ ...prev, pagoTransporte: transportOptions[0].value }));
     }
-  }, [transportOptions]); // solo depende de transportOptions
+  }, [transportOptions]);
 
   // ── Bloquear scroll ───────────────────────────────────────────────────
   useEffect(() => {
@@ -85,11 +96,16 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
   // ── Reset form al abrir ───────────────────────────────────────────────
   useEffect(() => {
     if (isOpen) {
-      isSubmittingRef.current = false; // ✅ resetear ref al abrir
+      const fpCotizacion = String(quotation?.formaPago || quotation?.forpag || '').trim();
+    const fpOpciones   = fpCotizacion && fpCotizacion !== 'ADE'
+      ? ['ADE', fpCotizacion]
+      : ['ADE'];
+
+      isSubmittingRef.current = false;
       setFormData({
         ordenCompra:            '',
-        // ✅ precarga transportista si options ya están disponibles (2da+ apertura)
-        pagoTransporte: transportOptions.length > 0 ? transportOptions[0].value : '',
+        formaPago:              fpOpciones[0],  
+        pagoTransporte:         transportOptions.length > 0 ? transportOptions[0].value : '',
         transporteZona:         'lima_callao',
         tipoEntrega:            'despacho',
         direccionDespacho:      '',
@@ -109,7 +125,7 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
       setErrors({});
       resetUbigeo();
     }
-  }, [isOpen]);
+  }, [isOpen, quotation]);
 
   if (!isOpen || !quotation) return null;
 
@@ -144,7 +160,7 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
     setFormData(prev => ({
       ...prev,
       transporteZona: zona,
-      pagoTransporte: '', // limpia — el useEffect lo rellenará si es lima_callao
+      pagoTransporte: '',
     }));
   };
 
@@ -250,13 +266,12 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // ✅ Guard imperativo — bloquea doble submit sin importar re-renders
     if (isSubmittingRef.current) return;
     isSubmittingRef.current = true;
 
     if (!validate()) {
       toast.error('Por favor complete todos los campos requeridos');
-      isSubmittingRef.current = false; // ✅ liberar si no pasa validación
+      isSubmittingRef.current = false;
       return;
     }
 
@@ -273,7 +288,7 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
       console.error(error);
     } finally {
       setIsSubmitting(false);
-      isSubmittingRef.current = false; // ✅ liberar al terminar
+      isSubmittingRef.current = false;
     }
   };
 
@@ -331,7 +346,8 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
               <FileText className="w-5 h-5 text-gray-700" />
               Datos de la Orden
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* N° Orden de Compra */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   N° Orden de Compra
@@ -344,6 +360,8 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent transition"
                 />
               </div>
+
+              {/* Fecha de Entrega */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Fecha de Entrega <span className="text-red-500">*</span>
@@ -365,6 +383,22 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
                     <AlertCircle className="w-3 h-3" />{errors.fechaEntrega}
                   </p>
                 )}
+              </div>
+
+              {/* ✅ Forma de Pago */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Forma de Pago
+                </label>
+                <select
+                  value={formData.formaPago}
+                  onChange={(e) => handleChange('formaPago', e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white"
+                >
+                  {forpagOpciones.map(op => (
+                    <option key={op} value={op}>{op}</option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
