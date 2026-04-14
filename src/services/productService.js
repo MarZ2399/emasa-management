@@ -137,6 +137,15 @@ getAlmacenesStock: async () => {
   }
 },
 
+getCarteras: async (codigo) => {
+  try {
+    const { data } = await api.get(`/products/${codigo.trim()}/carteras`);
+    return data;
+  } catch (error) {
+    return { success: false, data: [], msgerror: error.message };
+  }
+},
+
 };
 
 

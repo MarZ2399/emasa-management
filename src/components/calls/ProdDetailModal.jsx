@@ -16,6 +16,9 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
   const [fases,          setFases]          = useState([]);
   const [loadingFases,   setLoadingFases]   = useState(false);
 
+  const [carteras,       setCarteras]       = useState([]);
+const [loadingCarteras,setLoadingCarteras]= useState(false);
+
   // ── Normalizar almacenes ──────────────────────────────────────────────────────
   const almacenes = (
     product.almacenesAll ??
@@ -36,11 +39,13 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
     if (isOpen && product) {
       if (clienteRuc) fetchPrecios();
       fetchFases();
+      fetchCarteras(); 
     }
     if (!isOpen) {
       setPreciosData(null);
       setErrorPrecios(null);
       setFases([]);
+      setCarteras([]); 
     }
   }, [isOpen, product?.codigo, clienteRuc]);
 
@@ -80,6 +85,19 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
       setLoadingFases(false);
     }
   };
+
+  // ── Fetch carteras ────────────────────────────────────────────────────────────
+const fetchCarteras = async () => {
+  try {
+    setLoadingCarteras(true);
+    const response = await productService.getCarteras(product.codigo.trim());
+    if (response.success) setCarteras(response.data || []);
+  } catch (error) {
+    console.error('❌ Error al obtener carteras:', error);
+  } finally {
+    setLoadingCarteras(false);
+  }
+};
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
   const getStockStyle = (stock) => {
@@ -349,6 +367,113 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
                   </div>
                 )}
               </div>
+              
+              {/* ── Carteras / Tránsito detallado ── */}
+              {/* ── Carteras / Tránsito detallado ── */}
+<div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+  <div className="bg-[#1e3a4f] text-white px-4 py-3 flex items-center gap-2">
+    <Ship className="w-5 h-5" />
+    <h3 className="font-bold text-sm uppercase tracking-wide">Detalle de Tránsito (Cartera)</h3>
+  </div>
+
+  {loadingCarteras ? (
+    <div className="flex items-center gap-3 p-4 text-blue-700 bg-blue-50 animate-pulse">
+      <Loader2 className="w-4 h-4 animate-spin" />
+      <span className="text-sm font-medium">Cargando cartera...</span>
+    </div>
+
+  ) : carteras.length > 0 ? (
+
+    // ── ESTO ES LO QUE CAMBIA — de tabla horizontal a cards verticales ──
+    <div className="p-4 space-y-4">
+      {carteras.map((r, i) => (
+        <div key={i} className="border border-gray-200 rounded-lg overflow-hidden">
+
+          {/* Encabezado de la card */}
+          <div className="bg-gray-100 px-4 py-2 flex items-center justify-between border-b border-gray-200">
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+              Registro #{i + 1}
+            </span>
+            <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5">
+              FASE: {r.fase ?? '—'}
+            </span>
+          </div>
+
+          {/* Campos siempre visibles */}
+          <div className="divide-y divide-gray-100">
+            {[
+              { label: 'N° Solicitud.',  value: r.nsolic                                                },
+              { label: 'Ped. Origen.',  value: r.pedori                                                },
+              { label: 'N° Ped.',   value: r.nvoped                                                },
+              // { label: 'Item',       value: r.item                                                  },
+              { label: 'Cantidad',   value: r.cantidad, cls: 'font-bold text-blue-700'              },
+              { label: 'Fecha',      value: r.fecha                                                 },
+              { label: 'F. Bodega',  value: r.fbodega                                               },
+              { label: 'TCOMEP',     value: r.tcomep                                                },
+            ].map((row, j) => (
+              <div key={j} className="grid grid-cols-[160px_1fr] text-xs">
+                <div className="bg-gray-50 px-4 py-2 font-semibold text-gray-500">{row.label}</div>
+                <div className={`px-4 py-2 ${row.cls ?? 'text-gray-800'}`}>{row.value ?? '—'}</div>
+              </div>
+            ))}
+
+            {/* Campos condicionales — solo si tienen data */}
+            {r.carcanstkd != null && (
+              <div className="grid grid-cols-[160px_1fr] text-xs">
+                <div className="bg-gray-50 px-4 py-2 font-semibold text-gray-500">Stk. CD</div>
+                <div className="px-4 py-2 tabular-nums text-gray-800">{r.carcanstkd}</div>
+              </div>
+            )}
+            {r.carcantra1 != null && (
+              <div className="grid grid-cols-[160px_1fr] text-xs">
+                <div className="bg-gray-50 px-4 py-2 font-semibold text-gray-500">Cant. Trán. 1</div>
+                <div className="px-4 py-2 font-semibold tabular-nums text-indigo-700">{r.carcantra1}</div>
+              </div>
+            )}
+            {r.carfectra1 != null && (
+              <div className="grid grid-cols-[160px_1fr] text-xs">
+                <div className="bg-gray-50 px-4 py-2 font-semibold text-gray-500">Fec. Trán. 1</div>
+                <div className="px-4 py-2 text-gray-800">{r.carfectra1}</div>
+              </div>
+            )}
+            {r.carcantra2 != null && (
+              <div className="grid grid-cols-[160px_1fr] text-xs">
+                <div className="bg-gray-50 px-4 py-2 font-semibold text-gray-500">Cant. Trán. 2</div>
+                <div className="px-4 py-2 font-semibold tabular-nums text-indigo-700">{r.carcantra2}</div>
+              </div>
+            )}
+            {r.carfectra2 != null && (
+              <div className="grid grid-cols-[160px_1fr] text-xs">
+                <div className="bg-gray-50 px-4 py-2 font-semibold text-gray-500">Fec. Trán. 2</div>
+                <div className="px-4 py-2 text-gray-800">{r.carfectra2}</div>
+              </div>
+            )}
+            {r.carcantra3 != null && (
+              <div className="grid grid-cols-[160px_1fr] text-xs">
+                <div className="bg-gray-50 px-4 py-2 font-semibold text-gray-500">Cant. Trán. 3</div>
+                <div className="px-4 py-2 font-semibold tabular-nums text-indigo-700">{r.carcantra3}</div>
+              </div>
+            )}
+            {r.carfectra3 != null && (
+              <div className="grid grid-cols-[160px_1fr] text-xs">
+                <div className="bg-gray-50 px-4 py-2 font-semibold text-gray-500">Fec. Trán. 3</div>
+                <div className="px-4 py-2 text-gray-800">{r.carfectra3}</div>
+              </div>
+            )}
+          </div>
+
+        </div>
+      ))}
+    </div>
+    // ── FIN DEL CAMBIO ──
+
+  ) : (
+    <div className="text-center py-8 text-gray-400">
+      <Ship className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+      <p className="text-sm font-medium">Sin datos de cartera</p>
+    </div>
+  )}
+</div>
 
             </div>
           </div>

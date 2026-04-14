@@ -15,6 +15,8 @@ import CallTableRow from './CallTableRow';
 import ConfirmDialog from '../common/ConfirmDialog';
 import { logActivity, EVENTOS } from '../../services/activityLogService';
 import CallDetailModal from './CallDetailModal';
+import { useContext } from 'react';
+import { AuthContext } from '../../context/AuthContext';
 
 // ── Formulario vacío alineado al schema ems.llamada ───────────────────────────
 const EMPTY_FORM = {
@@ -35,6 +37,8 @@ const EMPTY_FORM = {
 };
 
 const CallHistoryTab = ({ selectedClient }) => {
+
+  const { user } = useContext(AuthContext);
 
   // ── Estado principal ──────────────────────────────────────────────────────────
   const [calls,         setCalls]         = useState([]);
@@ -65,7 +69,12 @@ const CallHistoryTab = ({ selectedClient }) => {
     getCatalogos(['TIPO_CONTACTO', 'RESULTADO_GESTION'])
       .then(r => {
         setTiposContacto(r.data?.TIPO_CONTACTO     ?? []);
-        setResultados(r.data?.RESULTADO_GESTION    ?? []);
+        setResultados(
+  (r.data?.RESULTADO_GESTION ?? []).map(r => ({
+    value:        r.value,
+    nombre_largo: r.descripcion ?? r.label,  // ← descripcion es el alias de nombre_largo
+  }))
+);
       })
       .catch(() => toast.error('Error al cargar catálogos', { position: 'top-right' }));
   }, []);
@@ -134,16 +143,24 @@ const CallHistoryTab = ({ selectedClient }) => {
         
       });
     } else {
-      console.log('➕ Nueva llamada para cliente:', selectedClient?.ruc);
-      setEditingRecord(null);
-      setFormData({
-        ...EMPTY_FORM,
-        ruc_emp_contacto: selectedClient?.ruc           || '',
-        raz_social:       selectedClient?.nombreCliente || '',
-        telefono_1:       selectedClient?.telefPadron   || '',
-        telefono_2:       selectedClient?.telefTV       || '',
-        nom_asesor:       selectedClient?.vendedor       || ''
-      });
+  console.log('➕ Nueva llamada para cliente:', selectedClient?.ruc);
+  setEditingRecord(null);
+
+  const codVend   = user?.empresa?.codigo_vendedor?.trim() ?? user?.codigo_sis?.trim() ?? '';
+  const nomAsesor = codVend && user?.nombreCompleto
+    ? `${codVend} - ${user.nombreCompleto.toUpperCase()}`
+    : user?.nombreCompleto?.toUpperCase() ?? '';
+
+  setFormData({
+    ...EMPTY_FORM,
+    ruc_emp_contacto: selectedClient?.ruc           || '',
+    raz_social:       selectedClient?.nombreCliente || '',
+    telefono_1:       selectedClient?.telefPadron   || '',
+    telefono_2:       selectedClient?.telefTV       || '',
+    id_asesor:        user?.id_usuario              ?? '',  // → 4
+    codigo_vend:      codVend,                              // → "DM1"
+    nom_asesor:       nomAsesor,                            // → "DM1 - DAVID MEJIA"
+  });
     }
     setIsModalOpen(true);
   };
@@ -359,8 +376,8 @@ const CallHistoryTab = ({ selectedClient }) => {
                   >
                     <option value="">Todos</option>
                     {resultados.map(r => (
-                      <option key={r.value} value={r.value}>{r.label}</option>
-                    ))}
+  <option key={r.value} value={r.value}>{r.nombre_largo}</option>
+))}
                   </select>
                 </div>
               </div>

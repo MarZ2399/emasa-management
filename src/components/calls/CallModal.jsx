@@ -3,6 +3,21 @@ import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import { X, Loader2, AlertTriangle } from 'lucide-react';
 
+const HighlightText = ({ texto, busqueda }) => {
+  if (!busqueda.trim()) return <span>{texto}</span>;
+  const regex  = new RegExp(`(${busqueda.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  const partes = texto.split(regex);
+  return (
+    <span>
+      {partes.map((p, i) =>
+        regex.test(p)
+          ? <mark key={i} className="bg-yellow-100 text-yellow-800 rounded px-0.5">{p}</mark>
+          : <span key={i}>{p}</span>
+      )}
+    </span>
+  );
+};
+
 const CallModal = ({
   isOpen, onClose, formData, setFormData,
   onSubmit, saving, isEditing,
@@ -23,15 +38,7 @@ const CallModal = ({
     }));
   };
 
-  const handleResultado = (e) => {
-    const idSeleccionado = Number(e.target.value);
-    const selected       = resultados.find(r => r.value === idSeleccionado);
-    setFormData(prev => ({
-      ...prev,
-      id_resultado_gestion:  idSeleccionado,
-      resultado_gestion_nom: selected?.label ?? ''
-    }));
-  };
+ 
 
   const handleContactoSelect = (e) => {
     const selected = clienteContactos.find(c => c.fullName === e.target.value);
@@ -45,6 +52,8 @@ const CallModal = ({
   const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm';
   const labelCls = 'block text-sm font-medium text-gray-700 mb-1';
   const [showConfirm, setShowConfirm] = useState(false);
+  const [busquedaResultado, setBusquedaResultado] = useState('');
+const [resultadoAbierto,  setResultadoAbierto]  = useState(false);
 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
@@ -130,21 +139,75 @@ const CallModal = ({
           <div>
             <h3 className="text-sm font-bold text-gray-800 mb-3 pb-1 border-b">Gestión y Seguimiento</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className={labelCls}>Resultado de Gestión <span className="text-red-500">*</span></label>
-                {/* ✅ Mismo patrón que Tipo de Contacto */}
-                <select
-                  className={inputCls}
-                  value={formData.id_resultado_gestion ?? ''}
-                  onChange={handleResultado}
-                >
-                  <option value="">Seleccione...</option>
-                  {resultados.map(r => (
-                    <option key={r.value} value={r.value}>{r.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
+              <div className="md:col-span-2 relative">
+  <label className={labelCls}>
+    Resultado de Gestión <span className="text-red-500">*</span>
+  </label>
+  <input
+    className={inputCls}
+    placeholder="Buscar... ej: cotización, precio alto, no contesta..."
+    value={busquedaResultado}
+    onChange={e => {
+      setBusquedaResultado(e.target.value);
+      setResultadoAbierto(true);
+      if (!e.target.value.trim()) {
+        setFormData(prev => ({ ...prev, id_resultado_gestion: '', resultado_gestion_nom: '' }));
+      }
+    }}
+    onFocus={() => setResultadoAbierto(true)}
+    onBlur={() => setTimeout(() => setResultadoAbierto(false), 150)}
+  />
+
+  {/* Badge del valor seleccionado */}
+  {formData.resultado_gestion_nom && !resultadoAbierto && (
+    <div className="mt-1.5 flex items-center gap-2">
+      <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-3 py-1 font-medium">
+        ✓ {formData.resultado_gestion_nom}
+      </span>
+      <button type="button"
+        onClick={() => {
+          setBusquedaResultado('');
+          setFormData(prev => ({ ...prev, id_resultado_gestion: '', resultado_gestion_nom: '' }));
+        }}
+        className="text-xs text-red-400 hover:text-red-600">
+        ✕ limpiar
+      </button>
+    </div>
+  )}
+
+  {/* Dropdown */}
+  {resultadoAbierto && (
+    <ul className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+      {(resultados ?? [])
+        .filter(r =>
+          !busquedaResultado.trim() ||
+          r.nombre_largo.toLowerCase().includes(busquedaResultado.toLowerCase())
+        )
+        .map(r => (
+          <li key={r.value}
+            onMouseDown={() => {
+              setBusquedaResultado('');
+              setResultadoAbierto(false);
+              setFormData(prev => ({
+                ...prev,
+                id_resultado_gestion:  r.value,
+                resultado_gestion_nom: r.nombre_largo,
+              }));
+            }}
+            className="px-4 py-2.5 text-sm cursor-pointer hover:bg-blue-50 transition border-b border-gray-50 last:border-0">
+            <HighlightText texto={r.nombre_largo} busqueda={busquedaResultado} />
+          </li>
+        ))}
+      {(resultados ?? []).filter(r =>
+        !busquedaResultado.trim() ||
+        r.nombre_largo.toLowerCase().includes(busquedaResultado.toLowerCase())
+      ).length === 0 && (
+        <li className="px-4 py-3 text-sm text-gray-400 text-center">Sin resultados</li>
+      )}
+    </ul>
+  )}
+</div>
+              <div className="md:col-span-1">
                 <label className={labelCls}>Próxima Llamada</label>
                 <input type="datetime-local" className={inputCls}
                   value={formData.fecha_prox_llamada ?? ''}
@@ -152,7 +215,7 @@ const CallModal = ({
               </div>
 
               {/* ✅ Campo Asesor */}
-              <div className="md:col-span-2">
+              <div className="md:col-span-1">
                 <label className={labelCls}>Asesor</label>
                 <input className={inputCls} value={formData.nom_asesor ?? ''}
                   onChange={e => set('nom_asesor', e.target.value)}
