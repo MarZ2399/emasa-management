@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }) => {
 
       console.log('✅ Login exitoso, token guardado');
 
-      return { success: true };
+      return { success: true, user: normalizedUser };
     } catch (error) {
       console.error('❌ Error en login:', error);
 

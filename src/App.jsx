@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 
 // Context
 import { AuthProvider } from './context/AuthContext';
 
 // Auth
 import LoginForm from './components/auth/LoginForm';
-import ForgotPassword from './components/auth/ForgotPassword';  // ← NUEVO
-import ResetPassword from './components/auth/ResetPassword';    // ← NUEVO
+import ForgotPassword from './components/auth/ForgotPassword';
+import ResetPassword from './components/auth/ResetPassword';
 import ProtectedRoute from './components/common/ProtectedRoute';
 
 // Layouts
@@ -26,14 +26,41 @@ import CatalogoDebug from './components/common/CatalogoDebug';
 import FindStockProduct from './components/products/FindStockProduct';
 import BillingModule from './components/billing/BillingModule';
 
+import { useAuth } from './hooks/useAuth';
+
 // Data Mock
 import { initialCallRecords } from './data/callsData';
 
+// ── Página Sin Acceso (inline) ────────────────────────────────────
+const SinAccesoPage = () => {
+  const navigate = useNavigate();
+  return (
+    <div className="max-w-7xl mx-auto">
+      <div className="bg-white rounded-lg shadow-md p-12 text-center">
+        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+          </svg>
+        </div>
+        <h2 className="text-2xl font-bold text-red-600 mb-2">Acceso denegado</h2>
+        <p className="text-gray-500 mb-6">No tienes permisos para ver esta sección.</p>
+        <button
+          onClick={() => navigate(-1)}
+          className="px-6 py-2 bg-[#334a5e] text-white rounded-lg hover:bg-blue-700 transition font-medium"
+        >
+          Volver
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ── App principal ─────────────────────────────────────────────────
 const App = () => {
   return (
     <AuthProvider>
-      {/* Toaster con configuración personalizada */}
-      <Toaster 
+      <Toaster
         position="top-right"
         reverseOrder={false}
         gutter={8}
@@ -49,49 +76,33 @@ const App = () => {
           },
           success: {
             duration: 3000,
-            iconTheme: {
-              primary: '#10b981',
-              secondary: '#fff',
-            },
-            style: {
-              border: '1px solid #10b981',
-            },
+            iconTheme: { primary: '#10b981', secondary: '#fff' },
+            style: { border: '1px solid #10b981' },
           },
           error: {
             duration: 4000,
-            iconTheme: {
-              primary: '#ef4444',
-              secondary: '#fff',
-            },
-            style: {
-              border: '1px solid #ef4444',
-            },
+            iconTheme: { primary: '#ef4444', secondary: '#fff' },
+            style: { border: '1px solid #ef4444' },
           },
         }}
       />
 
       <Routes>
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        {/* RUTAS PÚBLICAS */}
+        {/* RUTAS PÚBLICAS                                   */}
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         <Route path="/debug/catalogos" element={<CatalogoDebug />} />
-        
-        {/* Login */}
-        <Route path="/login" element={<LoginForm />} />
-        
-        {/* Recuperación de contraseña */}
-        <Route path="/forgot-password" element={<ForgotPassword />} />  {/* ← NUEVO */}
-        <Route path="/reset-password" element={<ResetPassword />} />    {/* ← NUEVO */}
+        <Route path="/login"           element={<LoginForm />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password"  element={<ResetPassword />} />
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        {/* RUTAS PROTEGIDAS */}
+        {/* RUTAS PROTEGIDAS                                 */}
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        
         <Route
           path="/*"
           element={
             <ProtectedRoute>
-              {/* ✅ MainLayoutWrapper envuelve todo el contenido autenticado */}
               <MainLayoutWrapper />
             </ProtectedRoute>
           }
@@ -101,99 +112,81 @@ const App = () => {
   );
 };
 
-// ✅ Componente interno que maneja el estado de CallReminders
+// ── MainLayoutWrapper ─────────────────────────────────────────────
 const MainLayoutWrapper = () => {
   const [showReminderPanel, setShowReminderPanel] = useState(false);
+  const { user } = useAuth();
+
+  const rutaInicial = user?.modulos?.[0]?.ruta ?? '/dashboard';
 
   return (
     <>
       <MainLayout onOpenReminders={() => setShowReminderPanel(true)}>
         <Routes>
-          {/* Dashboard */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<DashboardModule />} />
 
-          {/* Gestión Comercial */}
-          <Route path="/ventas/clientes" element={<ClientsModule />} />
-          <Route path="/ventas/cotizaciones" element={<QuotationsModule />} />
-          <Route path="/ventas/pedidos" element={<OrdersModule />} />
+          {/* Redirect raíz */}
+           <Route path="/" element={<Navigate to={rutaInicial} replace />} />
 
-          {/* Llamadas */}
-          <Route path="/llamadas" element={<CallsModule />} />
+          {/* ── Dashboard ── */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute ruta="/dashboard">
+              <DashboardModule />
+            </ProtectedRoute>
+          } />
 
-          {/* Stock */}
+          {/* ── Gestión Comercial ── */}
+          <Route path="/ventas/clientes" element={
+            <ProtectedRoute ruta="/ventas/clientes">
+              <ClientsModule />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/ventas/cotizaciones" element={
+            <ProtectedRoute ruta="/ventas/cotizaciones">
+              <QuotationsModule />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/ventas/pedidos" element={
+            <ProtectedRoute ruta="/ventas/pedidos">
+              <OrdersModule />
+            </ProtectedRoute>
+          } />
+
+          {/* ── Llamadas ── */}
+          <Route path="/llamadas" element={
+            <ProtectedRoute ruta="/llamadas">
+              <CallsModule />
+            </ProtectedRoute>
+          } />
+
+          {/* ── Facturación ── */}
+          <Route path="/facturacion" element={
+            <ProtectedRoute ruta="/facturacion">
+              <BillingModule />
+            </ProtectedRoute>
+          } />
+
+          {/* ── Stock (sin restricción de módulo) ── */}
           <Route path="/stock" element={<FindStockProduct />} />
 
-          {/* Facturación */}
-<Route path="/facturacion" element={<BillingModule />} />  
+          {/* ── Sin Acceso ── */}
+          <Route path="/sin-acceso" element={<SinAccesoPage />} />
 
-          {/* Administración */}
-          <Route 
-            path="/admin/config" 
-            element={
-              <div className="max-w-7xl mx-auto">
-                <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-4">Configuración</h2>
-                  <p className="text-gray-600">Módulo en desarrollo</p>
-                </div>
+        
+          {/* ── 404 ── */}
+          <Route path="*" element={
+            <div className="max-w-7xl mx-auto">
+              <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                <h2 className="text-2xl font-bold text-red-600 mb-4">404 - No encontrado</h2>
+                <p className="text-gray-600">El módulo solicitado no existe</p>
               </div>
-            } 
-          />
-          
-          <Route 
-            path="/admin/usuarios" 
-            element={
-              <div className="max-w-7xl mx-auto">
-                <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-4">Gestión de Usuarios</h2>
-                  <p className="text-gray-600">Módulo en desarrollo</p>
-                </div>
-              </div>
-            } 
-          />
+            </div>
+          } />
 
-          {/* Reportes */}
-          <Route 
-            path="/reportes" 
-            element={
-              <div className="max-w-7xl mx-auto">
-                <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-4">Reportes</h2>
-                  <p className="text-gray-600">Módulo en desarrollo</p>
-                </div>
-              </div>
-            } 
-          />
-
-          {/* Estadísticas */}
-          <Route 
-            path="/estadisticas" 
-            element={
-              <div className="max-w-7xl mx-auto">
-                <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-4">Estadísticas</h2>
-                  <p className="text-gray-600">Módulo en desarrollo</p>
-                </div>
-              </div>
-            } 
-          />
-
-          {/* 404 */}
-          <Route 
-            path="*" 
-            element={
-              <div className="max-w-7xl mx-auto">
-                <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                  <h2 className="text-2xl font-bold text-red-600 mb-4">404 - No encontrado</h2>
-                  <p className="text-gray-600">El módulo solicitado no existe</p>
-                </div>
-              </div>
-            } 
-          />
         </Routes>
       </MainLayout>
 
-      {/* ✅ CallReminders solo se renderiza cuando el usuario está autenticado */}
       <CallReminders
         callRecords={initialCallRecords}
         isOpen={showReminderPanel}

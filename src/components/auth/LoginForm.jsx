@@ -31,7 +31,8 @@ const LoginForm = () => {
     const result = await login(formData.correo, formData.password);
 
     if (result.success) {
-      navigate('/dashboard');
+      const rutaInicial = result.user?.modulos?.[0]?.ruta ?? '/dashboard';
+    navigate(rutaInicial);
     }
 
     setLoading(false);

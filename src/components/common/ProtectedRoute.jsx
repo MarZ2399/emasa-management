@@ -1,7 +1,7 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children, ruta }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -14,6 +14,11 @@ const ProtectedRoute = ({ children }) => {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (ruta) {
+    const tieneAcceso = user.modulos?.some(m => m.ruta === ruta);
+    if (!tieneAcceso) return <Navigate to="/sin-acceso" replace />;
   }
 
   return children;
