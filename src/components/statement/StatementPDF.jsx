@@ -3,7 +3,6 @@
 
 import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable'; 
-// Importación del logo desde assets
 import logoEmasa from '../../assets/logo-emasa.jpg';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -22,7 +21,6 @@ const nowStr = () => {
   })}`;
 };
 
-// Helper para cargar la imagen antes de generar el PDF
 const loadImage = (url) => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -39,7 +37,6 @@ const transformData = (rawData) => {
 
   const first = rawData[0];
 
-  // Mapeo de campos de contacto combinados para Números Únicos
   const telNumUnico = clean(first.ECTELNUU);
   const celNumUnico = clean(first.ECCELNUU);
   const numUnicoFinal = [telNumUnico, celNumUnico].filter(v => v && v !== '0').join(' | ');
@@ -61,7 +58,19 @@ const transformData = (rawData) => {
     lineaDisponible: first.ECLDICLI   || 0,
     numUnico:        numUnicoFinal,
     fechaCorte:      clean(first.ECFECCOR),
-    venCli:          clean(first.ECVENCLI)
+    venCli:          clean(first.ECNOMVEN),
+    // ── Contacto 1: Clientes Lima, Diesel y Cuentas Clave ──
+    contacto1:       clean(first.ECCONT01),
+    rpc1:            clean(first.ECCELC01),
+    emailC1:         clean(first.ECCORC01),
+    // ── Contacto 2: Clientes Provincia y Televentas ──
+    contacto2:       clean(first.ECCONT02),
+    rpc2:            clean(first.ECCELC02),
+    emailC2:         clean(first.ECCORC02),
+    // ── Contacto 3: Clientes Redes y Talleres y GGSS ──
+    contacto3:       clean(first.ECCONT03),
+    rpc3:            clean(first.ECCELC03),
+    emailC3:         clean(first.ECCORC03),
   };
 
   const facturas = [];
@@ -71,12 +80,10 @@ const transformData = (rawData) => {
   rawData.forEach((r) => {
     const tipoRaw = clean(r.ECTIPDOC);
     
-    // 1. Transformar Tipo Documento (F -> FACTURA, B -> BOLETA)
     let tipoDesc = tipoRaw;
     if (tipoRaw === 'F') tipoDesc = 'FACTURA';
     else if (tipoRaw === 'B') tipoDesc = 'BOLETA';
 
-    // 2. Formatear N° Documento (Padding de ceros a la izquierda para completar 8 caracteres)
     const serie = clean(r.ECSERDOC);
     const numRaw = clean(r.ECNUMDOC);
     const numFormatted = numRaw.padStart(8, '0'); 
@@ -90,7 +97,7 @@ const transformData = (rawData) => {
       fpago:       clean(r.ECFPGDOC),
       estado:      clean(r.ECESTDOC),
       banco:       clean(r.ECNOMBCO),
-      nUnico:      clean(r.ECNUMUNI),
+      nUnico:      clean(r.ECNUNDOC),
       atraso:      r.ECDATDOC ?? 0,
       _impSNum:    Number(r.ECVMEDOC || 0), 
       _saldoSNum:  Number(r.ECSMEDOC || 0), 
@@ -98,7 +105,7 @@ const transformData = (rawData) => {
 
     if (tipoRaw.startsWith('F'))      facturas.push(base);
     else if (tipoRaw.startsWith('L')) letras.push(base);
-    else                           otros.push(base);
+    else                              otros.push(base);
   });
 
   return { cli, facturas, letras, otros };
@@ -135,15 +142,14 @@ export const generateStatementPDF = async (ruc, rawData) => {
   doc.setFontSize(8);
   doc.setTextColor(...BLACK);
   
-  // Fecha de Corte alineada a la derecha
   doc.setFont('helvetica', 'normal');
-  doc.text(`Fecha de corte: ${cli.fechaCorte || '07/04/2026'}`, PW - MR, curY - 5, { align: 'right' });
+  doc.text(`Fecha de corte: ${cli.fechaCorte}`, PW - MR, curY - 5, { align: 'right' });
 
   const clientY = curY;
   doc.setFont('helvetica', 'bold');
   doc.text('CLIENTE:', ML, curY);
   doc.setFont('helvetica', 'normal');
-  doc.text(cli.razonSocial || 'INVERSIONES POLONIA S.A.C.', ML + 15, curY);
+  doc.text(cli.razonSocial || '—', ML + 15, curY);
   
   curY += 5;
   doc.setFont('helvetica', 'bold');
@@ -175,7 +181,14 @@ export const generateStatementPDF = async (ruc, rawData) => {
   doc.setFont('helvetica', 'bold');
   doc.text('REPRESENTANTE DE VENTAS:', ML, curY);
   doc.setFont('helvetica', 'normal');
-  doc.text(cli.venCli || 'DAVID HUAMAN', ML + 45, curY);
+  doc.text(cli.venCli || '—', ML + 45, curY);
+
+  // ── Cálculos dinámicos: documentos y saldo vencido ───────────  ← AQUÍ
+  const allDocs = [...facturas, ...letras, ...otros];
+  const docsVencidos  = allDocs.filter(r => Number(r.atraso) > 0).length;
+  const saldoVencido  = allDocs
+    .filter(r => Number(r.atraso) > 0)
+    .reduce((acc, r) => acc + r._saldoSNum, 0);
 
   // ── Tabla Resumen (Alineada a la derecha) ─────────────────────
   const resTableWidth = 60;
@@ -186,11 +199,11 @@ export const generateStatementPDF = async (ruc, rawData) => {
     styles: { fontSize: 7, cellPadding: 1.2 },
     headStyles: { fillColor: [200, 215, 235], textColor: CORPORATE_BLUE, fontStyle: 'bold' },
     body: [
-      ['Linea de Crédito', fmt(cli.lineaCredito)],
-      ['Crédito Utilizado', fmt(cli.lineaUtilizada)],
-      ['Crédito Disponible', fmt(cli.lineaDisponible)],
-      ['Saldo Vencido', { content: '3,811.02', styles: { fontStyle: 'bold' } }],
-      ['Documentos vencidos:', '1']
+      ['Linea de Crédito',    fmt(cli.lineaCredito)],
+      ['Crédito Utilizado',   fmt(cli.lineaUtilizada)],
+      ['Crédito Disponible',  fmt(cli.lineaDisponible)],
+      ['Saldo Vencido',       { content: fmt(saldoVencido), styles: { fontStyle: 'bold' } }],
+      ['Documentos vencidos:', String(docsVencidos)]
     ],
     head: [['RESUMEN:', 'USD']]
   });
@@ -198,7 +211,6 @@ export const generateStatementPDF = async (ruc, rawData) => {
   curY = Math.max(curY + 8, doc.lastAutoTable.finalY + 10);
 
   // ── 3. Tabla Principal de Documentos ──────────────────────────
-  const allDocs = [...facturas, ...letras, ...otros];
   autoTable(doc, {
     startY: curY,
     margin: { left: ML, right: MR },
@@ -219,8 +231,8 @@ export const generateStatementPDF = async (ruc, rawData) => {
     footStyles: { fillColor: [240, 240, 240], textColor: CORPORATE_BLUE }
   });
 
-  // ── 4. Footer Fijo (Posicionamiento Absoluto) ──────────────────
-  let footerY = PH - 85; 
+  // ── 4. Footer Fijo ────────────────────────────────────────────────────────
+  let footerY = PH - 85;
 
   doc.setFontSize(7.5);
   doc.setFont('helvetica', 'bold');
@@ -233,55 +245,88 @@ export const generateStatementPDF = async (ruc, rawData) => {
   
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...BLACK);
+
   footerY += 5;
-  doc.setFont('helvetica', 'bold'); doc.text('Clientes Lima, Diesel y Cuentas Clave:', ML, footerY);
-  doc.setFont('helvetica', 'normal'); doc.text(' Ingrid Gamarra - 998 140 098 / ingrid.gamarra@emasa.pe', ML + 50, footerY);
-  
-  footerY += 4;
-  doc.setFont('helvetica', 'bold'); doc.text('Clientes Provincia y Televentas:', ML, footerY);
-  doc.setFont('helvetica', 'normal'); doc.text(' Cony Inga - 998 108 223 / cony.inga@emasa.pe', ML + 42, footerY);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Clientes Lima, Diesel y Cuentas Clave:', ML, footerY);
+  doc.setFont('helvetica', 'normal');
+  const cont1Val = [cli.contacto1, cli.rpc1, cli.emailC1].filter(Boolean).join(' - ') || '—';
+  doc.text(` ${cont1Val}`, ML + 50, footerY);
 
   footerY += 4;
-  doc.setFont('helvetica', 'bold'); doc.text('Clientes Redes y Talleres y GGSS:', ML, footerY);
-  doc.setFont('helvetica', 'normal'); doc.text(' Yulisa Garcia - 946 398 204 / yulisa.garcia@emasa.pe', ML + 45, footerY);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Clientes Provincia y Televentas:', ML, footerY);
+  doc.setFont('helvetica', 'normal');
+  const cont2Val = [cli.contacto2, cli.rpc2, cli.emailC2].filter(Boolean).join(' - ') || '—';
+  doc.text(` ${cont2Val}`, ML + 42, footerY);
+
+  footerY += 4;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Clientes Redes y Talleres y GGSS:', ML, footerY);
+  doc.setFont('helvetica', 'normal');
+  const cont3Val = [cli.contacto3, cli.rpc3, cli.emailC3].filter(Boolean).join(' - ') || '—';
+  doc.text(` ${cont3Val}`, ML + 45, footerY);
 
   footerY += 8;
   doc.text('Si a la fecha de recepción de este estado de cuenta usted ya canceló alguna obligación que figure como pendiente, sírvase omitirla.', ML, footerY);
 
-  // Bloque de Cuentas Corrientes
+  // ── Bloque de Cuentas Corrientes ─────────────────────────────────────────
+  // ── Bloque de Cuentas Corrientes ─────────────────────────────────────────
   footerY += 10;
+
+  // Margen simétrico explícito — debe coincidir con ML y MR del PDF
+  const BL = ML;                    // margen izquierdo = 10mm
+  const BR = MR;                    // margen derecho   = 10mm
+  const totalW  = PW - BL - BR;     // ancho total disponible = 190mm
+  const colW    = totalW / 3;       // cada columna = ~63.3mm
+
+  const col1X = BL;
+  const col2X = BL + colW;
+  const col3X = BL + colW * 2;
+
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
-  doc.text('Cuentas Corrientes Autorex Peruana S.A.', ML, footerY);
-  
+  doc.setTextColor(...BLACK);
+  doc.text('Cuentas Corrientes Autorex Peruana S.A.', BL, footerY);
+
   footerY += 5;
-  doc.setFontSize(6.5);
-  const colW = (PW - ML - MR) / 3;
-  
-  // BANCO DE CREDITO
-  doc.setTextColor(...CORPORATE_BLUE); doc.text('BANCO DE CREDITO DEL PERU (CTA. RECAUDADORA)', ML, footerY);
-  doc.setTextColor(...BLACK); doc.setFontSize(6);
-  doc.text('MN: 193-0049600-0-09 / CCI: 002-193-000049600009-12', ML, footerY + 3.5);
-  doc.text('ME: 193-0782860-1-85 / CCI: 002-193-000782860185-11', ML, footerY + 6.5);
 
-  // BANCO CONTINENTAL
-  doc.setFontSize(6.5);
-  doc.setTextColor(...CORPORATE_BLUE); doc.text('BANCO CONTINENTAL', ML + colW, footerY);
-  doc.setTextColor(...BLACK); doc.setFontSize(6);
-  doc.text('MN: 0011-0910-01-00003756-72 / CCI: 011-910-00010000375672', ML + colW, footerY + 3.5);
-  doc.text('ME: 0011-0910-01-00045831-73 / CCI: 011-910-00010004583173', ML + colW, footerY + 6.5);
+  // ── Col 1
+  doc.setFontSize(6);
+  doc.setTextColor(...CORPORATE_BLUE);
+  doc.text('BANCO DE CREDITO DEL PERU (CTA. RECAUDADORA)', col1X, footerY);
+  doc.setTextColor(...BLACK);
+  doc.setFontSize(6);
+  doc.text('MN: 193-0049600-0-09 / CCI: 002-193-000049600009-12', col1X, footerY + 3.5);
+  doc.text('ME: 193-0782860-1-85 / CCI: 002-193-000782860185-11', col1X, footerY + 6.5);
 
-  // BANCO INTERBANK
-  doc.setFontSize(6.5);
-  doc.setTextColor(...CORPORATE_BLUE); doc.text('BANCO INTERBANK', ML + colW * 2, footerY);
-  doc.setTextColor(...BLACK); doc.setFontSize(6);
-  doc.text('MN: 417-3001389013 / CCI: 003-417-003001389013-39', ML + colW * 2, footerY + 3.5);
-  doc.text('ME: 417-3001389020 / CCI: 003-417-003001389020-34', ML + colW * 2, footerY + 6.5);
+  // ── Col 2
+  doc.setFontSize(6);
+  doc.setTextColor(...CORPORATE_BLUE);
+  doc.text('BANCO CONTINENTAL', col2X, footerY);
+  doc.setTextColor(...BLACK);
+  doc.setFontSize(6);
+  doc.text('MN: 0011-0910-01-00003756-72 / CCI: 011-910-00010000375672', col2X, footerY + 3.5);
+  doc.text('ME: 0011-0910-01-00045831-73 / CCI: 011-910-00010004583173', col2X, footerY + 6.5);
+
+  // ── Col 3
+  doc.setFontSize(6);
+  doc.setTextColor(...CORPORATE_BLUE);
+  doc.text('BANCO INTERBANK', col3X + 10, footerY);
+  doc.setTextColor(...BLACK);
+  doc.setFontSize(6);
+  doc.text('MN: 417-3001389013 / CCI: 003-417-003001389013-39', col3X + 10, footerY + 3.5);
+  doc.text('ME: 417-3001389020 / CCI: 003-417-003001389020-34', col3X + 10, footerY + 6.5);
 
   footerY += 15;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7);
-  doc.text('LA EMPRESA NO SE RESPONSABILIZA DEL DINERO ENTREGADO AL VENDEDOR ASIGNADO PARA EL PAGO DE LA DEUDA.', ML, footerY);
+  doc.setFontSize(6);
+  doc.setTextColor(...BLACK);
+  // ← Este texto también debe partir desde BL para quedar alineado
+  doc.text(
+    'LA EMPRESA NO SE RESPONSABILIZA DEL DINERO ENTREGADO AL VENDEDOR ASIGNADO PARA EL PAGO DE LA DEUDA.',
+    BL, footerY
+  );
 
   // ── Descarga Directa ──────────────────────────────────────────────────────
   doc.save(`ec${ruc}.pdf`);

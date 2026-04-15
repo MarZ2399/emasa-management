@@ -28,8 +28,7 @@ import BillingModule from './components/billing/BillingModule';
 
 import { useAuth } from './hooks/useAuth';
 
-// Data Mock
-import { initialCallRecords } from './data/callsData';
+
 
 // ── Página Sin Acceso (inline) ────────────────────────────────────
 const SinAccesoPage = () => {
@@ -188,7 +187,7 @@ const MainLayoutWrapper = () => {
       </MainLayout>
 
       <CallReminders
-        callRecords={initialCallRecords}
+        
         isOpen={showReminderPanel}
         onClose={() => setShowReminderPanel(false)}
       />
