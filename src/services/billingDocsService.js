@@ -14,7 +14,16 @@ export const buildDocFilename = (tipoDoc, serie, numero, ext) => {
 export const openPdf = async (filename) => {
   const response = await apiDocs.get(`/docs/pdf/${filename}`, { responseType: 'blob' });
   const url = URL.createObjectURL(response.data);
+
+  // Abre en nueva pestaña
   window.open(url, '_blank');
+
+  // Descarga automática
+  const a   = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  a.click();
+
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 };
 

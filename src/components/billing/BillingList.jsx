@@ -30,10 +30,10 @@ const PAGE_SIZE_OPTIONS = [20, 50, 100];
 // ── Iconos SVG documento ───────────────────────────────────────────────────────
 const IconXml = () => (
   <svg viewBox="0 0 32 40" className="w-7 h-7" fill="none">
-    <rect x="1" y="1" width="24" height="32" rx="3" fill="#2196F3" />
+    <rect x="1" y="1" width="24" height="32" rx="3" fill="#2cac41" />
     <polygon points="17,1 25,9 17,9" fill="#1565C0" opacity="0.6" />
     <path d="M17 1 L25 9 L25 33 Q25 34 24 34 L2 34 Q1 34 1 33 L1 2 Q1 1 2 1 Z" fill="white" opacity="0.05" />
-    <text x="13" y="27" textAnchor="middle" fill="white" fontSize="9" fontWeight="bold" fontFamily="Arial, sans-serif">X</text>
+    <text x="13" y="27" textAnchor="middle" fill="white" fontSize="9" fontWeight="bold" fontFamily="Arial, sans-serif">XML</text>
   </svg>
 );
 
@@ -105,10 +105,10 @@ const COLUMNS = [
     ),
   },
   {
-    key: 'isdcm', label: 'Monto $',
+    key: 'iddcm', label: 'Monto $',
     render: (r) => (
       <span className="tabular-nums whitespace-nowrap block text-right font-semibold text-gray-800">
-        {formatMonto(r.isdcm, r.cmnda === 2 ? '$' : 'S/')}
+        {formatMonto(r.iddcm, r.cmnda === 2 ? '$' : 'S/')}
       </span>
     ),
   },
@@ -150,16 +150,17 @@ const COLUMNS = [
 
       return (
         <div className="flex items-center gap-1.5">
+          <Tooltip text="Descargar y Visualizar PDF">
+            <button onClick={handlePdf} className="hover:opacity-70 transition-opacity active:scale-95">
+              <IconPdf />
+            </button>
+          </Tooltip>
           <Tooltip text="Descargar XML">
             <button onClick={handleXml} className="hover:opacity-70 transition-opacity active:scale-95">
               <IconXml />
             </button>
           </Tooltip>
-          <Tooltip text="Ver PDF">
-            <button onClick={handlePdf} className="hover:opacity-70 transition-opacity active:scale-95">
-              <IconPdf />
-            </button>
-          </Tooltip>
+          
           <Tooltip text="Descargar CDR">
             <button onClick={handleCdr} className="hover:opacity-70 transition-opacity active:scale-95">
               <IconCdr />
