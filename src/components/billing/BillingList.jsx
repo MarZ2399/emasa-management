@@ -120,20 +120,20 @@ const COLUMNS = [
   // ── Columna documentos ─────────────────────────────────────────────────────
   {
     key: 'acciones',
-    label: 'Docs',
-    render: (r) => {
-      const rucEmisor = String(r.cclte    ?? '').trim();
-      const tipoDoc   = String(r.dctdocsn ?? '').trim();
-      const serie     = String(r.dcnsersn ?? '').trim();
-      const numero    = r.dcndocsn        ?? '';
+  label: 'Docs',
+  render: (r) => {
+    const tipoDoc = String(r.dctdocsn ?? '').trim();
+    const serie   = String(r.dcnsersn ?? '').trim();
+    const numero  = r.dcndocsn ?? '';
 
-      if (!rucEmisor || !tipoDoc || !serie || !numero) {
-        return <span className="text-gray-300 text-xs">—</span>;
-      }
+    if (!tipoDoc || !serie || !numero) {
+      return <span className="text-gray-300 text-xs">—</span>;
+    }
 
-      const filenamePdf = buildDocFilename(rucEmisor, tipoDoc, serie, numero, 'pdf');
-      const filenameXml = buildDocFilename(rucEmisor, tipoDoc, serie, numero, 'xml');
-      const filenameCdr = buildDocFilename(rucEmisor, tipoDoc, serie, numero, 'cdr');
+    
+    const filenamePdf = buildDocFilename(tipoDoc, serie, numero, 'pdf');
+    const filenameXml = buildDocFilename(tipoDoc, serie, numero, 'xml');
+    const filenameCdr = buildDocFilename(tipoDoc, serie, numero, 'cdr');
 
       const handlePdf = async () => {
         try       { await openPdf(filenamePdf); }

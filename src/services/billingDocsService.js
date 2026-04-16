@@ -1,8 +1,14 @@
+// src/services/billingDocsService.js
 import { apiDocs } from './api';
 
-export const buildDocFilename = (ruc, tipoDoc, serie, numero, ext) => {
+const RUC_EMISOR = '20100154138';
+
+export const buildDocFilename = (tipoDoc, serie, numero, ext) => {
   const numPadded = String(numero).padStart(8, '0');
-  return `${ruc}-${tipoDoc}-${serie}-${numPadded}.${ext}`;
+  const base = `${RUC_EMISOR}-${tipoDoc}-${serie}-${numPadded}`;
+
+  if (ext === 'cdr') return `R-${base}.xml`;   // CDR: R-{base}.xml
+  return `${base}.${ext}`;                      // PDF/XML: {base}.pdf / {base}.xml
 };
 
 export const openPdf = async (filename) => {
