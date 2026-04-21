@@ -53,6 +53,8 @@ const ProductsTab = ({
 
   const [aplicacionProducto, setAplicacionProducto] = useState('');
 
+  const [filtroActivo, setFiltroActivo] = useState(null);
+
   const { user } = useContext(AuthContext);
 
   const codAlmacenes = user?.empresa?.cod_almacenes || [];
@@ -73,6 +75,18 @@ const ProductsTab = ({
       handleSearch();
     }
   }, [autoSearchTrigger]);
+
+  useEffect(() => {
+  if (codigoProducto?.trim()) {
+    setFiltroActivo('codigo');
+  } else if (nombreProducto?.trim()) {
+    setFiltroActivo('nombre');
+  } else if (aplicacionProducto?.trim()) {
+    setFiltroActivo('aplicacion');
+  } else {
+    setFiltroActivo(null);
+  }
+}, [codigoProducto, nombreProducto, aplicacionProducto]);
 
   const indexOfLastProduct  = currentPage * productsPerPage;
   const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
@@ -227,6 +241,7 @@ const ProductsTab = ({
     setCodigoProducto('');
     setNombreProducto('');
     setAplicacionProducto(''); 
+     setFiltroActivo(null);
     setHasSearched(false);
     setCurrentPage(1);
     setProductos([]);
@@ -333,122 +348,152 @@ const ProductsTab = ({
     <div className="space-y-6">
 
       {/* ── Formulario de Búsqueda ── */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div className="bg-white rounded-lg shadow-md p-6">
 
-          {/* ✅ Selector de almacén — obligatorio, se bloquea con productos en cotización */}
-          {codAlmacenes.length > 0 && (
-            <div>
-              {/* ✅ Badge de bloqueado cuando hay productos en cotización */}
-              {almacenBloqueado && (
-                <div className="flex items-center gap-1.5 mb-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-                  <Lock className="w-3 h-3 shrink-0" />
-                  <span>Almacén fijado — hay productos en cotización</span>
-                </div>
-              )}
-              <SearchableSelect
-                label="Almacén"
-                required
-                value={almacenSeleccionado?.cod || ''}  
-                onChange={val => {
-                  if (almacenBloqueado) return; // ✅ VALIDACIÓN 2 — no permitir cambio
-                  const almacenData = codAlmacenes.find(a => a.cod === val);
-  setAlmacenSeleccionado(almacenData || null);
-                  setProductos([]);
-                  setHasSearched(false);
-                }}
-                options={almacenOptions}
-                placeholder="Buscar almacén..."
-                disabled={almacenBloqueado} // ✅ VALIDACIÓN 2 y 3
-                error={
-                  !almacenSeleccionado && !almacenBloqueado
-                    ? 'Seleccione un almacén para buscar'
-                    : null
-                }
-              />
-            </div>
-          )}
+  {/* ── Una sola fila: Almacén + 3 filtros + Botón ── */}
+  <div className="flex flex-wrap items-end gap-3">
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Código de Producto <span className="text-red-600">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="Ej: Q3 o Q3.VBETY.4E"
-              value={codigoProducto}
-              onChange={e => setCodigoProducto(e.target.value.toUpperCase())}
-              onKeyPress={handleKeyPress}
-              disabled={loading}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition disabled:bg-gray-100"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Nombre de Producto
-            </label>
-            <input
-              type="text"
-              placeholder="Ej: VALVULA"
-              value={nombreProducto}
-              onChange={e => setNombreProducto(e.target.value)}
-              onKeyPress={handleKeyPress}
-              disabled={loading}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition disabled:bg-gray-100"
-            />
-          </div>
-
-          <div>
-  <label className="block text-sm font-semibold text-gray-700 mb-2">
-    Aplicaciones
-  </label>
-  <input
-    type="text"
-    placeholder="Ej: Toyota Corolla 2020"
-    value={aplicacionProducto}
-    onChange={e => setAplicacionProducto(e.target.value)}
-    onKeyPress={handleKeyPress}
-    disabled={loading}
-    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition disabled:bg-gray-100"
-  />
-</div>
-
-          <div className={`flex items-end gap-2 ${codAlmacenes.length > 0 ? 'md:col-span-3' : 'md:col-span-3 lg:col-span-1'}`}>
-            <button
-              onClick={handleSearch}
-              disabled={(!codigoProducto.trim() && !nombreProducto.trim()) || loading}
-              className="flex-1 flex items-center justify-center gap-2 bg-[#334a5e] text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
-            >
-              {loading ? (
-                <><Loader2 className="w-5 h-5 animate-spin" /><span>Buscando...</span></>
-              ) : (
-                <><Search className="w-5 h-5" /><span>Buscar</span></>
-              )}
-            </button>
-
-            {hasSearched && !loading && (
-              <button
-                onClick={handleClearSearch}
-                className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
-              >
-                Limpiar
-              </button>
-            )}
-          </div>
-        </div>
-
-        <p className="text-xs text-gray-500 mt-2">
-          💡 Tip: Puede ingresar código completo (Q3.VBETY.4E) o parcial (Q3) para buscar
-        </p>
-
-        {error && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-700">{error}</p>
+    {/* Almacén — lógica intacta */}
+    {codAlmacenes.length > 0 && (
+      <div className="min-w-[200px] flex-shrink-0">
+        {almacenBloqueado && (
+          <div className="flex items-center gap-1.5 mb-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+            <Lock className="w-3 h-3 shrink-0" />
+            <span>Almacén fijado</span>
           </div>
         )}
+        <SearchableSelect
+          label="Almacén"
+          required
+          value={almacenSeleccionado?.cod || ''}
+          onChange={val => {
+            if (almacenBloqueado) return;
+            const almacenData = codAlmacenes.find(a => a.cod === val);
+            setAlmacenSeleccionado(almacenData || null);
+            setProductos([]);
+            setHasSearched(false);
+          }}
+          options={almacenOptions}
+          placeholder="Buscar almacén..."
+          disabled={almacenBloqueado}
+          error={
+            !almacenSeleccionado && !almacenBloqueado
+              ? 'Seleccione un almacén'
+              : null
+          }
+        />
       </div>
+    )}
+
+    {/* Código de Producto */}
+    <div className="flex-1 min-w-[160px]">
+      <label className="block text-sm font-semibold text-gray-700 mb-2">
+        Código de Producto <span className="text-red-600">*</span>
+      </label>
+      <input
+        type="text"
+        placeholder="Ej: Q3 o Q3.VBETY.4E"
+        value={codigoProducto}
+        onChange={e => {
+          const val = e.target.value.toUpperCase();
+          setCodigoProducto(val);
+          setFiltroActivo(val.trim() ? 'codigo' : null);
+        }}
+        onKeyPress={handleKeyPress}
+        disabled={loading || (filtroActivo !== null && filtroActivo !== 'codigo')}
+        className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition
+          ${filtroActivo !== null && filtroActivo !== 'codigo'
+            ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+            : 'border-gray-300 bg-white'}`}
+      />
+    </div>
+
+    {/* Nombre de Producto */}
+    <div className="flex-1 min-w-[160px]">
+      <label className={`block text-sm font-semibold mb-2 ${
+        filtroActivo !== null && filtroActivo !== 'nombre' ? 'text-gray-400' : 'text-gray-700'
+      }`}>
+        Nombre de Producto
+      </label>
+      <input
+        type="text"
+        placeholder="Ej: VALVULA"
+        value={nombreProducto}
+        onChange={e => {
+          const val = e.target.value;
+          setNombreProducto(val);
+          setFiltroActivo(val.trim() ? 'nombre' : null);
+        }}
+        onKeyPress={handleKeyPress}
+        disabled={loading || (filtroActivo !== null && filtroActivo !== 'nombre')}
+        className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition
+          ${filtroActivo !== null && filtroActivo !== 'nombre'
+            ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+            : 'border-gray-300 bg-white'}`}
+      />
+    </div>
+
+    {/* Aplicaciones */}
+    <div className="flex-1 min-w-[160px]">
+      <label className={`block text-sm font-semibold mb-2 ${
+        filtroActivo !== null && filtroActivo !== 'aplicacion' ? 'text-gray-400' : 'text-gray-700'
+      }`}>
+        Aplicaciones
+      </label>
+      <input
+        type="text"
+        placeholder="Ej: Toyota Corolla 2020"
+        value={aplicacionProducto}
+        onChange={e => {
+          const val = e.target.value;
+          setAplicacionProducto(val);
+          setFiltroActivo(val.trim() ? 'aplicacion' : null);
+        }}
+        onKeyPress={handleKeyPress}
+        disabled={loading || (filtroActivo !== null && filtroActivo !== 'aplicacion')}
+        className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition
+          ${filtroActivo !== null && filtroActivo !== 'aplicacion'
+            ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+            : 'border-gray-300 bg-white'}`}
+      />
+    </div>
+
+    {/* Botones */}
+    <div className="flex items-end gap-2 flex-shrink-0">
+      <button
+        onClick={handleSearch}
+        disabled={!filtroActivo || loading}
+        className="flex items-center justify-center gap-2 bg-[#334a5e] text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed font-medium whitespace-nowrap"
+      >
+        {loading ? (
+          <><Loader2 className="w-5 h-5 animate-spin" /><span>Buscando...</span></>
+        ) : (
+          <><Search className="w-5 h-5" /><span>Buscar</span></>
+        )}
+      </button>
+
+      {(hasSearched || filtroActivo) && !loading && (
+        <button
+          onClick={handleClearSearch}
+          className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium whitespace-nowrap"
+        >
+          Limpiar
+        </button>
+      )}
+    </div>
+  </div>
+
+  <p className="text-xs text-gray-500 mt-3">
+    💡 Tip: Solo un filtro a la vez — al escribir en uno los demás se desactivan. Use Limpiar para cambiar.
+  </p>
+
+  {error && (
+    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+      <p className="text-sm text-red-700">{error}</p>
+    </div>
+  )}
+</div>
 
       {/* ── Tabla de Resultados ── */}
       {hasSearched && !loading && (
