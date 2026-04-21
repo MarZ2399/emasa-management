@@ -146,6 +146,13 @@ getCarteras: async (codigo) => {
   }
 },
 
+async searchByGoogleo(filtro) {
+  const response = await api.get('/products/googleo', {
+    params: { q: filtro }
+  });
+  return response.data;
+},
+
 };
 
 

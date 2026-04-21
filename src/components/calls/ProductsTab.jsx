@@ -51,6 +51,8 @@ const ProductsTab = ({
   const [loading, setLoading]                 = useState(false);
   const [error, setError]                     = useState(null);
 
+  const [aplicacionProducto, setAplicacionProducto] = useState('');
+
   const { user } = useContext(AuthContext);
 
   const codAlmacenes = user?.empresa?.cod_almacenes || [];
@@ -125,10 +127,10 @@ const ProductsTab = ({
       return;
     }
 
-    if (!codigoProducto.trim() && !nombreProducto.trim()) {
-      setError('Ingrese al menos un código o nombre de producto');
-      return;
-    }
+    if (!codigoProducto.trim() && !nombreProducto.trim() && !aplicacionProducto.trim()) {
+  setError('Ingrese al menos un código, nombre o aplicación de producto');
+  return;
+}
 
     setLoading(true);
     setError(null);
@@ -137,13 +139,16 @@ const ProductsTab = ({
 
     try {
       let response;
-      if (codigoProducto.trim() && nombreProducto.trim()) {
-        response = await productService.searchByCodigoAndNombre(codigoProducto, nombreProducto);
-      } else if (codigoProducto.trim()) {
-        response = await productService.searchByCodigo(codigoProducto);
-      } else if (nombreProducto.trim()) {
-        response = await productService.searchByName(nombreProducto);
-      }
+      if (aplicacionProducto.trim()) {
+  // Búsqueda por aplicación (googleo) — puede combinarse con código/nombre como extra
+  response = await productService.searchByGoogleo(aplicacionProducto);
+} else if (codigoProducto.trim() && nombreProducto.trim()) {
+  response = await productService.searchByCodigoAndNombre(codigoProducto, nombreProducto);
+} else if (codigoProducto.trim()) {
+  response = await productService.searchByCodigo(codigoProducto);
+} else if (nombreProducto.trim()) {
+  response = await productService.searchByName(nombreProducto);
+}
 
       if (response.success) {
         const productosFormateados = response.data.map(item => {
@@ -221,6 +226,7 @@ const ProductsTab = ({
   const handleClearSearch = () => {
     setCodigoProducto('');
     setNombreProducto('');
+    setAplicacionProducto(''); 
     setHasSearched(false);
     setCurrentPage(1);
     setProductos([]);
@@ -392,6 +398,21 @@ const ProductsTab = ({
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition disabled:bg-gray-100"
             />
           </div>
+
+          <div>
+  <label className="block text-sm font-semibold text-gray-700 mb-2">
+    Aplicaciones
+  </label>
+  <input
+    type="text"
+    placeholder="Ej: Toyota Corolla 2020"
+    value={aplicacionProducto}
+    onChange={e => setAplicacionProducto(e.target.value)}
+    onKeyPress={handleKeyPress}
+    disabled={loading}
+    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition disabled:bg-gray-100"
+  />
+</div>
 
           <div className={`flex items-end gap-2 ${codAlmacenes.length > 0 ? 'md:col-span-3' : 'md:col-span-3 lg:col-span-1'}`}>
             <button
