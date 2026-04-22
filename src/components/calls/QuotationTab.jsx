@@ -297,7 +297,7 @@ const handleRegister = async () => {
                 return (
                   <tr key={idx} className="hover:bg-gray-50 transition">
 
-                    <td style={{ width: 56 }} className="p-4 text-center font-mono font-bold text-blue-800 bg-blue-50 rounded-l-lg">
+                    <td style={{ width: 56 }} className="p-4 text-center font-mono font-bold text-blue-900 bg-blue-50 rounded-l-lg">
                       {String(idx + 1).padStart(3, '0')}
                     </td>
 
@@ -435,7 +435,7 @@ const handleRegister = async () => {
         <div className="w-full">
           <button
             onClick={onBackToProducts}
-            className="w-full md:w-auto bg-gradient-to-r from-blue-500 to-blue-700 text-white font-bold px-5 py-2.5 rounded-lg shadow hover:scale-105 transition text-sm"
+            className="w-full md:w-auto bg-gradient-to-r bg-[#334a5e] to-blue-700 text-white font-bold px-5 py-2.5 rounded-lg shadow hover:scale-105 transition text-sm"
           >
             + Seguir agregando productos
           </button>
@@ -445,23 +445,23 @@ const handleRegister = async () => {
           <button
             onClick={handlePreviewPDF}
             disabled={quotationItems.length === 0}
-            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-orange-600 text-white font-bold px-4 py-2.5 rounded-lg shadow hover:scale-105 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-[#334a5e] text-white font-bold px-4 py-2.5 rounded-lg shadow hover:scale-105 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            👁️ Previsualizar PDF
+            Previsualizar PDF
           </button>
 
           <button
             onClick={handleDownloadPDF}
             disabled={quotationItems.length === 0}
-            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-gray-600 text-white font-bold px-4 py-2.5 rounded-lg shadow hover:scale-105 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-[#334a5e] text-white font-bold px-4 py-2.5 rounded-lg shadow hover:scale-105 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            📥 Descargar PDF
+            Descargar PDF
           </button>
 
           <button
             onClick={handleRegister}
             disabled={quotationItems.length === 0 || isRegistering || !quotationNumber}
-            className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-green-600 text-white font-bold px-4 py-2.5 rounded-lg shadow hover:scale-105 transition text-sm
+            className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-[#334a5e] text-white font-bold px-4 py-2.5 rounded-lg shadow hover:scale-105 transition text-sm
               ${quotationItems.length === 0 || isRegistering || !quotationNumber ? 'opacity-60 cursor-not-allowed' : ''}`}
           >
             {isRegistering ? (
@@ -473,7 +473,7 @@ const handleRegister = async () => {
                 Registrando...
               </>
             ) : (
-              '✅ Registrar Cotización'
+              'Registrar Cotización'
             )}
           </button>
         </div>

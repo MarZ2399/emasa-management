@@ -659,7 +659,7 @@ const handleCancelQuotation = async (quotation) => {
                           <button
                             onClick={() => handleDuplicateQuotation(quotation)}
                             disabled={loading}
-                            className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 hover:scale-105 transition inline-flex items-center gap-2 text-sm font-bold shadow disabled:opacity-50"
+                            className="px-3 py-2 bg-[#1a2f3d] text-white rounded-lg hover:bg-indigo-700 hover:scale-105 transition inline-flex items-center gap-2 text-sm font-bold shadow disabled:opacity-50"
                           >
                             <Copy className="w-4 h-4" />
                           </button>
@@ -669,7 +669,7 @@ const handleCancelQuotation = async (quotation) => {
                           <button
                             onClick={() => handleEditQuotation(quotation)}
                             disabled={loading || quotation.estado === 'enviado' || quotation.estado === 'anulado'}  
-                            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 hover:scale-105 transition inline-flex items-center gap-2 text-sm font-bold shadow disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-3 py-2 bg-[#1a2f3d] text-white rounded-lg hover:bg-blue-700 hover:scale-105 transition inline-flex items-center gap-2 text-sm font-bold shadow disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
@@ -679,7 +679,7 @@ const handleCancelQuotation = async (quotation) => {
                         <button
                           onClick={() => handleViewPDF(quotation)}
                           disabled={loading}
-                          className="px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 hover:scale-105 transition inline-flex items-center gap-2 text-sm font-bold shadow disabled:opacity-50"
+                          className="px-3 py-2 bg-[#1a2f3d] text-white rounded-lg hover:bg-orange-700 hover:scale-105 transition inline-flex items-center gap-2 text-sm font-bold shadow disabled:opacity-50"
                           title="Previsualizar PDF"
                         >
                           <Eye className="w-4 h-4" />
@@ -696,7 +696,7 @@ const handleCancelQuotation = async (quotation) => {
                             className={`px-3 py-2 rounded-lg font-medium transition inline-flex items-center gap-2 text-sm ${
                               quotation.estado === 'enviado'
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-md hover:shadow-lg'
+                                : 'bg-gradient-to-r from-[#1a2f3d] to-[#1a2f3d] text-white hover:from-green-700 hover:to-emerald-700 shadow-md hover:shadow-lg'
                             }`}
                           >
                             <Package className="w-4 h-4" />

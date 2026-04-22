@@ -149,7 +149,7 @@ const PurchaseHistoryTab = ({ clienteRUC, onProductClick }) => {
 
       {/* ── Resumen ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-md p-6 text-white">
+        <div className="bg-gradient-to-br from-[#5982A6] to-[#1a2f3d] rounded-lg shadow-md p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm opacity-90">Total Compras</p>
@@ -159,7 +159,7 @@ const PurchaseHistoryTab = ({ clienteRUC, onProductClick }) => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow-md p-6 text-white">
+        <div className="bg-gradient-to-br from-[#5982A6] to-[#1a2f3d] rounded-lg shadow-md p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm opacity-90">Cantidad de Registros</p>
@@ -169,7 +169,7 @@ const PurchaseHistoryTab = ({ clienteRUC, onProductClick }) => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-md p-6 text-white">
+        <div className="bg-gradient-to-br from-[#5982A6] to-[#1a2f3d] rounded-lg shadow-md p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm opacity-90">Promedio por Registro</p>
