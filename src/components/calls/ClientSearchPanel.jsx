@@ -116,10 +116,10 @@ const ClientSearchPanel = ({ onClientSelect, resetTrigger }) => {
           <input
             type="text"
             value={ruc}
-            onChange={(e) => setRuc(e.target.value.replace(/\D/g, ''))} // ✅ Solo números
+            onChange={(e) => setRuc(e.target.value.replace(/\D/g, ''))} 
             onKeyPress={handleKeyPress}
             placeholder="Ej: 2038085549"
-            maxLength="11"
+            maxLength="10"
             className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition disabled:bg-gray-100 disabled:cursor-not-allowed"
             disabled={isSearching}
           />
