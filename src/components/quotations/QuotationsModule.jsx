@@ -334,32 +334,57 @@ const handleDuplicateQuotation = async (quotation) => {
   }
 };
 
-// Agregar después de handleDuplicateQuotation
+
 const handleCancelQuotation = async (quotation) => {
-  // Confirmación antes de anular
-  const confirmar = window.confirm(
-    `¿Estás seguro de anular la cotización ${quotation.numeroCotizacion}?\nEsta acción no se puede deshacer.`
-  );
-  if (!confirmar) return;
+  // ── Confirmación con toast personalizado ──
+  toast.custom((t) => (
+    <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} 
+      max-w-sm w-full bg-white shadow-lg rounded-xl border border-red-100 p-4 flex flex-col gap-3`}>
+      
+      <div className="flex items-start gap-3">
+        <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+          <Ban className="w-5 h-5 text-red-600" />
+        </div>
+        <div>
+          <p className="font-semibold text-gray-900 text-sm">¿Anular cotización?</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            <span className="font-medium text-gray-700">{quotation.numeroCotizacion}</span> — Esta acción no se puede deshacer.
+          </p>
+        </div>
+      </div>
 
-  try {
-    setLoading(true);
-    const response = await quotationService.cancelQuotation(quotation.id);
-
-    if (response.success) {
-      logActivity(EVENTOS.COTIZACION_ANULADA, quotation.id);
-      toast.success(`Cotización ${quotation.numeroCotizacion} anulada correctamente`);
-      // ✅ Actualizar estado localmente sin refetch
-      setQuotations(prev =>
-        prev.map(q => q.id === quotation.id ? { ...q, estado: 'anulado' } : q)
-      );
-    }
-  } catch (error) {
-    const msg = error.response?.data?.error || 'Error al anular la cotización';
-    toast.error(msg);
-  } finally {
-    setLoading(false);
-  }
+      <div className="flex gap-2 justify-end">
+        <button
+          onClick={() => toast.dismiss(t.id)}
+          className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={async () => {
+            toast.dismiss(t.id);
+            try {
+              setLoading(true);
+              await quotationService.cancelQuotation(quotation.id);
+              logActivity(EVENTOS.COTIZACION_ANULADA, quotation.id);
+              toast.success(`Cotización ${quotation.numeroCotizacion} anulada correctamente`);
+              setQuotations(prev =>
+                prev.map(q => q.id === quotation.id ? { ...q, estado: 'anulado' } : q)
+              );
+            } catch (error) {
+              const msg = error.response?.data?.error || error.message || 'Error al anular';
+              toast.error(msg);
+            } finally {
+              setLoading(false);
+            }
+          }}
+          className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition"
+        >
+          Sí, anular
+        </button>
+      </div>
+    </div>
+  ), { duration: Infinity }); // ← no se cierra solo, espera acción del usuario
 };
 
 
@@ -655,22 +680,33 @@ const handleCancelQuotation = async (quotation) => {
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <div className="flex items-center justify-center gap-2">
                         
-                        <Tooltip text="Duplicar cotización">
-                          <button
-                            onClick={() => handleDuplicateQuotation(quotation)}
-                            disabled={loading}
-                            className="px-3 py-2 bg-[#1a2f3d] text-white rounded-lg hover:bg-indigo-700 hover:scale-105 transition inline-flex items-center gap-2 text-sm font-bold shadow disabled:opacity-50"
-                          >
-                            <Copy className="w-4 h-4" />
-                          </button>
-                        </Tooltip>
+                        <Tooltip text={
+  quotation.estado === 'pendiente'
+    ? 'No se puede duplicar en estado Pendiente'
+    : 'Duplicar cotización'
+}>
+  <button
+    onClick={() => handleDuplicateQuotation(quotation)}
+    disabled={loading || quotation.estado === 'pendiente'}
+    className={`px-3 py-2 rounded-lg transition inline-flex items-center gap-2 text-sm font-bold shadow
+      ${quotation.estado === 'pendiente'
+        ? 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-50'
+        : 'bg-[#1a2f3d] text-white hover:bg-indigo-700 hover:scale-105'
+      }`}
+  >
+    <Copy className="w-4 h-4" />
+  </button>
+</Tooltip>
 
                         <Tooltip text={quotation.estado === 'enviado' ? 'Cotización ya enviada al AS400' : 'Editar cotización'}>
                           <button
                             onClick={() => handleEditQuotation(quotation)}
                             disabled={loading || quotation.estado === 'enviado' || quotation.estado === 'anulado'}  
-                            className="px-3 py-2 bg-[#1a2f3d] text-white rounded-lg hover:bg-blue-700 hover:scale-105 transition inline-flex items-center gap-2 text-sm font-bold shadow disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
+                            className={`px-3 py-2 rounded-lg font-medium transition inline-flex items-center gap-2 text-sm ${
+  quotation.estado === 'enviado' || quotation.estado === 'anulado'
+    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+    : 'bg-gradient-to-r from-[#1a2f3d] to-[#1a2f3d] text-white hover:from-green-700 hover:to-emerald-700 shadow-md hover:shadow-lg'
+}`}>
                             <Pencil className="w-4 h-4" />
                           </button>
                         </Tooltip>
@@ -694,30 +730,33 @@ const handleCancelQuotation = async (quotation) => {
                             onClick={() => openGenerateOrderModal(quotation)}
                             disabled={quotation.estado === 'enviado' || quotation.estado === 'anulado'}  
                             className={`px-3 py-2 rounded-lg font-medium transition inline-flex items-center gap-2 text-sm ${
-                              quotation.estado === 'enviado'
-                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                : 'bg-gradient-to-r from-[#1a2f3d] to-[#1a2f3d] text-white hover:from-green-700 hover:to-emerald-700 shadow-md hover:shadow-lg'
-                            }`}
+  quotation.estado === 'enviado' || quotation.estado === 'anulado'
+    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+    : 'bg-gradient-to-r from-[#1a2f3d] to-[#1a2f3d] text-white hover:from-green-700 hover:to-emerald-700 shadow-md hover:shadow-lg'
+}`}
                           >
                             <Package className="w-4 h-4" />
                           </button>
                         </Tooltip>
 
 
-{/*                          
-                        <Tooltip text={
-                          quotation.estado === 'anulado' ? 'Ya anulada' :
-                          quotation.estado === 'enviado' ? 'No se puede anular' :
-                          'Anular cotización'
-                        }>
-                          <button
-                            onClick={() => handleCancelQuotation(quotation)}
-                            disabled={loading || quotation.estado === 'anulado' || quotation.estado === 'enviado'}
-                            className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 hover:scale-105 transition inline-flex items-center gap-2 text-sm font-bold shadow disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <Ban className="w-4 h-4" />
-                          </button>
-                        </Tooltip> */}
+<Tooltip text={
+  quotation.estado === 'anulado' ? 'Ya está anulada' :
+  quotation.estado === 'enviado' ? 'No se puede anular una cotización enviada' :
+  'Anular cotización'
+}>
+  <button
+    onClick={() => handleCancelQuotation(quotation)}
+    disabled={loading || quotation.estado === 'anulado' || quotation.estado === 'enviado'}
+    className={`px-3 py-2 rounded-lg transition inline-flex items-center gap-2 text-sm font-bold shadow
+      ${quotation.estado === 'anulado' || quotation.estado === 'enviado'
+        ? 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-50'
+        : 'bg-red-600 text-white hover:bg-red-700 hover:scale-105'
+      }`}
+  >
+    <Ban className="w-4 h-4" />
+  </button>
+</Tooltip>
    
 
                       </div>

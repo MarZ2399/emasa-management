@@ -82,7 +82,7 @@ const CallsModule = () => {
     <div className="space-y-6">
       <SectionHeader
         icon={Phone}
-        title="Gestión de Televentas"
+        title="Gestión de Ventas"
         subtitle="Buscar cliente y gestionar llamadas"
         showButton={false}
       />

@@ -153,6 +153,20 @@ async searchByGoogleo(filtro) {
   return response.data;
 },
 
+getDetalle: async (codProducto) => {
+  try {
+    const { data } = await api.get(`/products/detalle/${encodeURIComponent(codProducto.trim())}`);
+    return data;
+  } catch (error) {
+    console.error('❌ Error en getDetalle:', error);
+    return {
+      success: false,
+      data: null,
+      msgerror: error.response?.data?.msgerror || error.message
+    };
+  }
+},
+
 };
 
 
@@ -187,6 +201,8 @@ export const searchProducts = async (searchTerm = '') => {
     };
   }
 };
+
+
 
 
 

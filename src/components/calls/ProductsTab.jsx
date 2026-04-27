@@ -500,11 +500,13 @@ const ProductsTab = ({
         <>
           {productos.length > 0 ? (
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto relative">
                 <table className="w-full min-w-[1400px]">
                   <thead className="bg-[#334a5e] text-white">
                     <tr>
-                      <th className="px-4 py-3 text-left   text-xs font-semibold uppercase tracking-wider">Código</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider sticky left-0 z-20 bg-[#334a5e] border-r border-[#4a6275]">
+  Código
+</th>
                       <th className="px-4 py-3 text-left   text-xs font-semibold uppercase tracking-wider">Producto</th>
                       <th className="px-4 py-3 text-left   text-xs font-semibold uppercase tracking-wider">Marca</th>
                       <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider whitespace-normal leading-tight">Stock por<br/>Almacén</th>
@@ -537,7 +539,11 @@ const ProductsTab = ({
                         <tr key={product.id}
                           className={`transition ${stockBlocked ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}>
 
-                          <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{product.codigo}</td>
+                          <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 z-10 border-r border-gray-200 shadow-[2px_0_4px_rgba(0,0,0,0.06)] ${
+  stockBlocked ? 'bg-red-50' : 'bg-white'
+}`}>
+  {product.codigo}
+</td>
                           <td className="px-4 py-4 text-sm text-gray-900 max-w-[200px]">{product.nombre}</td>
                           <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{product.proveedor}</td>
 
