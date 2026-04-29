@@ -30,6 +30,8 @@ const DashboardModule = () => {
   const [team,    setTeam]    = useState([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
+  const [vendorKpis, setVendorKpis] = useState({ clientesFacturados: 0, clientesCartera: 0 });
+
 
   // ── Cargar metas ──────────────────────────────────────────────
   const loadGoals = useCallback(async () => {
@@ -62,8 +64,21 @@ const DashboardModule = () => {
     }
   }, [nivel]);
 
+  const loadVendorKpis = useCallback(async () => {
+  // Cargar si es vendedor propio, O si hay drill-down activo
+  if (nivel !== 2 && !selectedVendor) return;
+  try {
+    const codigoVendor = selectedVendor ? selectedVendor.VTCVEN : null;
+    const res = await followService.getVendorClientKpis({ ano, mes, codigo: codigoVendor });
+    setVendorKpis(res.data || { clientesFacturados: 0, clientesCartera: 0 });
+  } catch (err) {
+    console.error('Error cargando KPIs vendedor:', err);
+  }
+}, [nivel, ano, mes, selectedVendor]);
+
   useEffect(() => { loadGoals(); }, [loadGoals]);
   useEffect(() => { loadTeam();  }, [loadTeam]);
+  useEffect(() => { loadVendorKpis();  }, [loadVendorKpis]);
 
   // ── Métricas agregadas ────────────────────────────────────────
   const metrics = goals.reduce(
@@ -162,12 +177,31 @@ const DashboardModule = () => {
         <>
           {/* Métricas */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <MetricCard
-              title="Meta Asignada"
-              value={metrics.meta}
-              format="currency"
-              color="from-blue-500 to-blue-600"
-            />
+            {(nivel === 2 || selectedVendor) ? (
+  <MetricCard
+    title="% Efectividad Cartera"
+    value={
+      vendorKpis.clientesCartera > 0
+        ? Number(((vendorKpis.clientesFacturados / vendorKpis.clientesCartera) * 100).toFixed(2))
+        : 0
+    }
+    format="percent"
+    extra={`${vendorKpis.clientesFacturados} de ${vendorKpis.clientesCartera} clientes asignados`}
+    color={
+      vendorKpis.clientesCartera === 0                                         ? 'from-gray-400 to-gray-500'
+      : vendorKpis.clientesFacturados / vendorKpis.clientesCartera >= 0.6     ? 'from-green-500 to-green-600'
+      : vendorKpis.clientesFacturados / vendorKpis.clientesCartera >= 0.3     ? 'from-yellow-500 to-yellow-600'
+      : 'from-red-500 to-red-600'
+    }
+  />
+) : (
+  <MetricCard
+    title="Meta Asignada"
+    value={metrics.meta}
+    format="currency"
+    color="from-blue-500 to-blue-600"
+  />
+)}
             {/* <MetricCard
               title="Venta Bruta"
               value={metrics.venta}

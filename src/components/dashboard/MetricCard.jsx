@@ -8,6 +8,8 @@ const ICON_CONFIG = {
   'Faltante para Meta':    { icon: AlertTriangle,  bg: 'bg-green-900/40',  text: 'text-green-300'  },
   'Venta Neta':     { icon: BarChart2,   bg: 'bg-purple-900/40', text: 'text-purple-300' },
   '% Cumplimiento': { icon: Percent,     bg: 'bg-orange-900/40', text: 'text-orange-300' },
+  'Efectividad de Cartera':{ icon: Target,        bg: 'bg-teal-900/40',   text: 'text-teal-300'   }, 
+  '% Efectividad':         { icon: Percent,       bg: 'bg-teal-900/40',   text: 'text-teal-300'   },
 };
 
 const SUBTITLE = {
@@ -16,9 +18,11 @@ const SUBTITLE = {
   'Faltante para Meta': 'Para alcanzar la meta',
   'Venta Neta':     'Después de devoluciones',
   '% Cumplimiento': 'Sobre la meta asignada',
+  'Efectividad de Cartera': 'Clientes facturados en el período', 
+  '% Efectividad':          'Sobre tu cartera asignada',   
 };
 
-const MetricCard = ({ title, value, target, format = 'number', color, pctFaltante }) => {
+const MetricCard = ({ title, value, target, format = 'number', color, pctFaltante, extra }) => {
   const [animated, setAnimated] = useState(0);
 
   useEffect(() => {
@@ -93,7 +97,7 @@ const MetricCard = ({ title, value, target, format = 'number', color, pctFaltant
 
           {/* Fila 3: subtítulo */}
           <div className="flex items-center justify-between mt-0.5">
-            <p className="text-sm text-white/80 truncate">{subtitle}</p>
+            <p className="text-sm text-white/80 truncate">{extra ? extra : subtitle}</p>
             {pctFaltante !== undefined && (
               <span className={`text-sm font-semibold flex-shrink-0 ${
                 pctFaltante === 0    ? 'text-green-400'

@@ -41,4 +41,17 @@ export const followService = {
     const { data } = await api.get(`/follow/goals/${codVen}`, { params });
     return data;
   },
+  /**
+   * Get vendor-exclusive KPIs (solo nivel_acceso === 2)
+   * - clientesFacturados: clientes únicos facturados en el período
+   * - clientesCartera:    cartera total activa asignada al vendedor
+   */
+  getVendorClientKpis: async ({ ano, mes, codigo } = {}) => {
+  const params = {};
+  if (ano)    params.ano    = ano;
+  if (mes)    params.mes    = mes;
+  if (codigo) params.codigo = codigo;  // ← solo se envía en drill-down
+  const { data } = await api.get('/follow/vendor-kpis', { params });
+  return data;
+},
 };
