@@ -102,6 +102,21 @@ const DashboardModule = () => {
   ? Math.max(0, Number((100 - cumplimiento).toFixed(2)))
   : 0;
 
+// ── Cores completados (agrupado por METGRP) ───────────────────
+const coresPorGrupo = goals.reduce((acc, row) => {
+  const key = row.METGRP;
+  if (!acc[key]) acc[key] = { METGRP: key, METGRD: row.METGRD, meta: 0, metnet: 0 };
+  acc[key].meta   += Number(row.META)   || 0;
+  acc[key].metnet += Number(row.METNET) || 0;
+  return acc;
+}, {});
+
+const coresGrupos     = Object.values(coresPorGrupo).map(c => ({
+  ...c,
+  pct: c.meta > 0 ? (c.metnet / c.meta) * 100 : 0,
+}));
+const coresCompletados = coresGrupos.filter(c => c.pct >= 100);
+const coresTotal       = coresGrupos.length;
 
   const currentDate = now.toLocaleDateString('es-ES', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
@@ -226,16 +241,64 @@ const DashboardModule = () => {
                 : 'from-red-500 to-red-600'                                         // falta bastante
               }
             />
-            <MetricCard
-              title="% Cumplimiento"
-              value={cumplimiento}
-              format="percent"
-              color={
-                cumplimiento >= 100 ? 'from-green-500 to-green-600'
-                : cumplimiento >= 70 ? 'from-yellow-500 to-yellow-600'
-                : 'from-red-500 to-red-600'
-              }
-            />
+            {/* KPI Cores Completados — con tooltip hover */}
+<div className="relative group bg-gradient-to-br from-[#5982A6] to-[#1a2f3d] rounded-2xl border border-white/10 shadow-sm hover:shadow-md transition-shadow duration-200 p-4 cursor-default">
+  <div className="flex items-center gap-4">
+
+    {/* Icono */}
+    <div className="w-12 h-12 rounded-2xl bg-orange-900/40 flex items-center justify-center flex-shrink-0">
+      <Award className="w-6 h-6 text-orange-300" />
+    </div>
+
+    {/* Contenido */}
+    <div className="min-w-0 flex-1">
+      <div className="flex items-center justify-between gap-2 mb-0.5">
+        <p className="text-base text-white/90 font-medium truncate">Cores Completados</p>
+        <span className={`text-sm font-semibold flex-shrink-0 ${
+          coresTotal > 0 && coresCompletados.length === coresTotal
+            ? 'text-green-400' : 'text-orange-300'
+        }`}>
+          {coresTotal > 0
+            ? `${Math.round((coresCompletados.length / coresTotal) * 100)}%`
+            : '0%'}
+        </span>
+      </div>
+
+      <p className="text-2xl font-bold text-white leading-tight">
+        {coresCompletados.length}
+        <span className="text-base font-normal text-white/60 ml-1">/ {coresTotal}</span>
+      </p>
+
+      <p className="text-sm text-white/80 mt-0.5">
+        {coresCompletados.length === 0
+          ? 'Ningún core al 100% aún'
+          : coresCompletados.length === coresTotal
+          ? '¡Todos los cores completados!'
+          : 'Pasa el cursor para ver cuáles'}
+      </p>
+    </div>
+  </div>
+
+  {/* Tooltip */}
+  {coresCompletados.length > 0 && (
+    <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block
+                    bg-gray-900 text-white text-xs rounded-xl p-3
+                    shadow-2xl z-50 min-w-[200px] border border-white/10">
+      <p className="font-bold mb-2 text-gray-300 uppercase tracking-wide text-[10px]">
+        Cores al 100%:
+      </p>
+      {coresCompletados.map(c => (
+  <div key={c.METGRP} className="flex items-center gap-2 py-1 border-b border-white/5 last:border-0">
+    <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />
+    <span className="flex-1 truncate">{c.METGRD}</span>
+    <span className="text-green-400 font-bold ml-2">
+      {c.pct.toFixed(0)}%
+    </span>
+  </div>
+))}
+    </div>
+  )}
+</div>
           </div>
 
           {/* Tabla de avance por Core Business */}
