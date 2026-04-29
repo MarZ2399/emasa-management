@@ -36,3 +36,23 @@ export const downloadFile = async (filename, type) => {
   a.click();
   URL.revokeObjectURL(url);
 };
+
+export const downloadZip = async (tipoDoc, serie, numero) => {
+  const pdfFile = buildDocFilename(tipoDoc, serie, numero, 'pdf');
+  const xmlFile = buildDocFilename(tipoDoc, serie, numero, 'xml');
+  const cdrFile = buildDocFilename(tipoDoc, serie, numero, 'cdr');
+
+  const params   = new URLSearchParams({ pdf: pdfFile, xml: xmlFile, cdr: cdrFile });
+  const response = await apiDocs.get(`/docs/zip?${params.toString()}`, {
+    responseType: 'blob'
+  });
+
+  const zipName = `${serie}-${String(numero).padStart(8, '0')}_docs.zip`;
+  const url = URL.createObjectURL(new Blob([response.data], { type: 'application/zip' }));
+  const a   = document.createElement('a');
+  a.href     = url;
+  a.download = zipName;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+

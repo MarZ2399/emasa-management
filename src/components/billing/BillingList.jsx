@@ -1,7 +1,7 @@
 // src/components/billing/BillingList.jsx
 import React from 'react';
 import { FileText, CalendarDays, ChevronDown, ChevronUp } from 'lucide-react';
-import { buildDocFilename, openPdf, downloadFile } from '../../services/billingDocsService';
+import { buildDocFilename, openPdf, downloadFile, downloadZip } from '../../services/billingDocsService';
 import StatementButton from '../statement/StatementButton';
 import Tooltip from '../common/Tooltip';
 import TablePaginator from '../common/TablePaginator';
@@ -52,6 +52,14 @@ const IconCdr = () => (
     <polygon points="17,1 25,9 17,9" fill="#1565C0" opacity="0.6" />
     <path d="M17 1 L25 9 L25 33 Q25 34 24 34 L2 34 Q1 34 1 33 L1 2 Q1 1 2 1 Z" fill="white" opacity="0.05" />
     <text x="13" y="27" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold" fontFamily="Arial, sans-serif">CDR</text>
+  </svg>
+);
+
+const IconZip = () => (
+  <svg viewBox="0 0 32 40" className="w-7 h-7" fill="none">
+    <rect x="1" y="1" width="24" height="32" rx="3" fill="#607D8B" />
+    <polygon points="17,1 25,9 17,9" fill="#37474F" opacity="0.6" />
+    <text x="13" y="27" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold" fontFamily="Arial, sans-serif">ZIP</text>
   </svg>
 );
 
@@ -147,6 +155,15 @@ const COLUMNS = [
         try       { await downloadFile(filenameCdr, 'cdr'); }
         catch (e) { toast.error('No se pudo descargar el CDR'); }
       };
+      const handleZip = async () => {
+      const toastId = toast.loading('Generando ZIP...');
+      try {
+        await downloadZip(tipoDoc, serie, numero);
+        toast.success('ZIP descargado correctamente', { id: toastId });
+      } catch (e) {
+        toast.error('No se pudo generar el ZIP', { id: toastId });
+      }
+    };
 
       return (
         <div className="flex items-center gap-1.5">
@@ -166,6 +183,12 @@ const COLUMNS = [
               <IconCdr />
             </button>
           </Tooltip>
+          <Tooltip text="Descargar ZIP (PDF + XML + CDR)">
+            <button onClick={handleZip} className="hover:opacity-70 transition-opacity active:scale-95">
+              <IconZip />
+            </button>
+          </Tooltip>
+
         </div>
       );
     },
