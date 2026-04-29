@@ -9,7 +9,8 @@ import GoalsTable from './GoalsTable';
 import SectionHeader from '../common/SectionHeader';
 import { followService } from '../../services/followService';
 import { AuthContext } from '../../context/AuthContext';
-
+import CreditRanking from './CreditRanking'; 
+import VendorCoreRanking from './VendorCoreRanking';
 
 const DashboardModule = () => {
   const { user } = useContext(AuthContext);
@@ -24,6 +25,7 @@ const DashboardModule = () => {
 
   // ── Drill-down ────────────────────────────────────────────────
   const [selectedVendor, setSelectedVendor] = useState(null); // { VTCVEN, VTDNOM }
+  const [selectedCore,   setSelectedCore]   = useState(null); 
 
   // ── Data ──────────────────────────────────────────────────────
   const [goals,   setGoals]   = useState([]);
@@ -52,6 +54,12 @@ const DashboardModule = () => {
       setLoading(false);
     }
   }, [ano, mes, selectedVendor]);
+
+  const handleCoreClick = useCallback((core) => {
+  setSelectedCore(prev =>
+    prev?.METGRP === core.METGRP ? null : core
+  );
+}, []);
 
   // ── Cargar equipo (jefe/gerente) ──────────────────────────────
   const loadTeam = useCallback(async () => {
@@ -302,13 +310,33 @@ const coresTotal       = coresGrupos.length;
           </div>
 
           {/* Tabla de avance por Core Business */}
+          {/* Tabla de avance por Core Business */}
           <GoalsTable
             goals={goals}
             mes={mes}
             ano={ano}
             vendorName={selectedVendor?.VTDNOM || null}
             nivelAcceso={nivel}
+            onRowClick={(nivel === 2 || (nivel < 2 && selectedVendor !== null)) ? handleCoreClick : null}
+            selectedCore={selectedCore}                                             // ← AGREGAR
           />
+
+          {nivel === 1 && !selectedVendor && (
+  <VendorCoreRanking
+    goals={goals}
+    mes={mes}
+    ano={ano}
+  />
+)}
+
+          {/* Ranking de crédito por core — solo vista vendedor */}
+          {(nivel === 2 || selectedVendor) && (                                    // ← AGREGAR BLOQUE
+            <CreditRanking
+              selectedCore={selectedCore}
+              codigoVendor={selectedVendor?.VTCVEN || null} 
+              onClose={() => setSelectedCore(null)}
+            />
+          )}
 
           {/* Gráficos */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

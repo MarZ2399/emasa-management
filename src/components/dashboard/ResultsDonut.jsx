@@ -2,7 +2,14 @@ import React, { useMemo, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Sector } from 'recharts';
 import { Users } from 'lucide-react';
 
-const COLORS = ['#6366f1','#38bdf8','#34d399','#f59e0b','#f472b6','#a78bfa'];
+const COLORS = [
+  '#5982A6',  // azul principal (inicio gradiente)
+  '#4a6f91',  // un tono más oscuro
+  '#3b5c7c',  // medio
+  '#2d4a67',  // oscuro medio
+  '#1e3852',  // más oscuro
+  '#1a2f3d',  // base del gradiente
+];
 
 const pctColor = (v) =>
   v >= 100 ? 'text-green-600' : v >= 70 ? 'text-yellow-600' : 'text-red-500';

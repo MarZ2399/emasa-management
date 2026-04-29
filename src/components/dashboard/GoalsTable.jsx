@@ -13,7 +13,7 @@ const pctColor = (v) => {
   return 'text-red-500 font-semibold';
 };
 
-const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso }) => {
+const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, selectedCore }) => {
   const [sortKey, setSortKey]   = useState('METGRD');
   const [sortDir, setSortDir]   = useState('asc');
 
@@ -62,6 +62,14 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso }) => {
   const totalPct = totals.meta > 0
     ? (totals.metnet / totals.meta) * 100
     : 0;
+
+  const metgrpMap = useMemo(() => {
+    const map = {};
+    goals.forEach(row => {
+      if (!map[row.METGRD]) map[row.METGRD] = row.METGRP;
+    });
+    return map;
+  }, [goals]);
 
   // ── Ordenamiento ────────────────────────────────────────────────
   const sorted = useMemo(() => {
@@ -154,22 +162,37 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso }) => {
 </thead>
 
           <tbody className="divide-y divide-gray-100">
-            {sorted.map((row, i) => (
-              <tr
-                key={row.descripcion}
-                className={`hover:bg-blue-50 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}
-              >
-                <td className="px-4 py-3 font-medium text-gray-800">{row.descripcion}</td>
-                <td className="px-4 py-3 text-right text-gray-700">{fmt(row.meta)}</td>
-                <td className="px-4 py-3 text-right text-gray-700">{fmt(row.venta)}</td>
-                <td className="px-4 py-3 text-right text-gray-700">{fmt(row.devolucion)}</td>
-                <td className="px-4 py-3 text-right text-gray-700">{fmt(row.metnet)}</td>
-                <td className={`px-4 py-3 text-right ${pctColor(row.metpor)}`}>
-                  {fmt(row.metpor)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
+  {sorted.map((row, i) => {
+    const isSelected = selectedCore?.METGRD === row.descripcion;
+    const clickable  = typeof onRowClick === 'function';
+
+    return (
+      <tr
+        key={row.descripcion}
+        onClick={() => clickable && onRowClick({
+          METGRP: metgrpMap[row.descripcion],
+          METGRD: row.descripcion,
+        })}
+        className={`transition-colors
+          ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}
+          ${clickable ? 'cursor-pointer' : ''}
+          ${isSelected
+            ? 'bg-blue-50 ring-1 ring-inset ring-blue-300'
+            : 'hover:bg-blue-50'}
+        `}
+      >
+        <td className="px-4 py-3 font-medium text-gray-800">{row.descripcion}</td>
+        <td className="px-4 py-3 text-right text-gray-700">{fmt(row.meta)}</td>
+        <td className="px-4 py-3 text-right text-gray-700">{fmt(row.venta)}</td>
+        <td className="px-4 py-3 text-right text-gray-700">{fmt(row.devolucion)}</td>
+        <td className="px-4 py-3 text-right text-gray-700">{fmt(row.metnet)}</td>
+        <td className={`px-4 py-3 text-right ${pctColor(row.metpor)}`}>
+          {fmt(row.metpor)}
+        </td>
+      </tr>
+    );
+  })}
+</tbody>
 
           {/* Fila de totales */}
           <tfoot>

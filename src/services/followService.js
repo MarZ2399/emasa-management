@@ -54,4 +54,16 @@ export const followService = {
   const { data } = await api.get('/follow/vendor-kpis', { params });
   return data;
 },
+
+ /**
+   * Get credit ranking by core (solo nivel_acceso === 2 / drill-down vendedor)
+   * @param {string|number} metgrp - Código del core (e.g. 4, 46)
+   */
+  getCreditRanking: async ({ metgrp, codigo } = {}) => {
+  const params = {};
+  if (metgrp !== undefined) params.metgrp = metgrp;
+  if (codigo)               params.codigo = codigo;  // ← para jefe/gerente en drill-down
+  const { data } = await api.get('/follow/credit-ranking', { params });
+  return data;
+},
 };
