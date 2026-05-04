@@ -22,13 +22,13 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
   // Si forpag es 'ADE' o vacío → solo ['ADE']. Si es distinto → [forpag, 'ADE'].
  
 const fpActual = String(quotation?.formaPago || quotation?.forpag || '').trim();
-const forpagOpciones = fpActual && fpActual !== 'ADE'
-  ? ['ADE', fpActual]
-  : ['ADE'];
+const forpagOpciones = fpActual && fpActual !== 'ADE' && fpActual !== 'AD2'
+  ? ['ADE', 'AD2', fpActual]
+  : ['ADE', 'AD2'];
 
   const [formData, setFormData] = useState({
     ordenCompra:            '',
-    formaPago:              forpagOpciones[0], // ✅ precarga con forpag de la cotización
+    formaPago:              forpagOpciones[0], 
     pagoTransporte:         '',
     transporteZona:         'lima_callao',
     tipoEntrega:            'despacho',
@@ -97,9 +97,9 @@ const forpagOpciones = fpActual && fpActual !== 'ADE'
   useEffect(() => {
     if (isOpen) {
       const fpCotizacion = String(quotation?.formaPago || quotation?.forpag || '').trim();
-    const fpOpciones   = fpCotizacion && fpCotizacion !== 'ADE'
-      ? ['ADE', fpCotizacion]
-      : ['ADE'];
+    const fpOpciones = fpCotizacion && fpCotizacion !== 'ADE' && fpCotizacion !== 'AD2'
+  ? ['ADE', 'AD2', fpCotizacion]
+  : ['ADE', 'AD2'];
 
       isSubmittingRef.current = false;
       setFormData({
