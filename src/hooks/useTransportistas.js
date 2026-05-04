@@ -17,9 +17,9 @@ const useTransportistas = (zona) => {
         const data = await getTransportistasByZona(zona);
         setOptions(
           data
-            .filter(t => t.nombre !== '')       // ✅ excluir registros vacíos
+            .filter(t => t.nombre !== '')       //  excluir registros vacíos
             .map(t => ({
-              value: String(t.codigo),           // ✅ CRUCTR como ID único
+              value: String(t.codigo),           //  CRUCTR como ID único
               label: t.nombre,
             }))
         );

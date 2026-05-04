@@ -20,7 +20,7 @@ import { precioService } from '../../services/precioService';
 const IGV_RATE = 0.18;
 
 
-// ✅ IGUAL que QuotationTab — siempre desde dola, nunca acumulativo
+//  IGUAL que QuotationTab — siempre desde dola, nunca acumulativo
 const calcPrecioNeto = (dola, discount5) => {
   const base = Number(dola) || 0;
   const de05 = (Number(discount5) || 0) / 100;
@@ -32,7 +32,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
   const [formData, setFormData]                           = useState(null);
   const [errors, setErrors]                               = useState({});
   const [isProductSelectorOpen, setIsProductSelectorOpen] = useState(false);
-  const [loadingPrices, setLoadingPrices]                 = useState(false); // ✅ spinner flags
+  const [loadingPrices, setLoadingPrices]                 = useState(false); //  spinner flags
 
   // Bloquear scroll
   useEffect(() => {
@@ -72,7 +72,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
   }, [quotation, isOpen]);
 
 
-  // ✅ Solo trae preciosDetalle y dola del backend
+  //  Solo trae preciosDetalle y dola del backend
   // NO pisa precioLista, discount1, discount5, precioNeto ni totales visibles
   const enrichProductsWithPrices = async (quot) => {
     setLoadingPrices(true);
@@ -93,9 +93,9 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
               const dola = Number(importes.dola ?? p.dola ?? p.precioNeto ?? 0);
 
               return {
-                ...p,       // ✅ todos los datos visibles guardados intactos
-                dola,       // ✅ base de cálculo interna actualizada
-                preciosDetalle: { flag, descuentos, importes, costos }, // ✅ activa flags
+                ...p,       //  todos los datos visibles guardados intactos
+                dola,       //  base de cálculo interna actualizada
+                preciosDetalle: { flag, descuentos, importes, costos }, //  activa flags
               };
             }
             return p; // Si falla ese producto, lo deja sin cambios
@@ -105,7 +105,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
         })
       );
 
-      // ✅ Solo reemplaza productos — NO recalcula totales (datos visibles intactos)
+      //  Solo reemplaza productos — NO recalcula totales (datos visibles intactos)
       setFormData(prev => {
         if (!prev) return prev;
         return { ...prev, productos: enriched };
@@ -156,7 +156,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
         product[field] = value;
       }
 
-      // ✅ Recalcular siempre desde dola — nunca desde precioNeto acumulado
+      //  Recalcular siempre desde dola — nunca desde precioNeto acumulado
       if (field === 'discount5') {
         const dola = Number(
           product.preciosDetalle?.importes?.dola ??
@@ -359,7 +359,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                 <h2 className="text-lg font-bold">
                   Editar Cotización #{formData.numeroCotizacion}
                 </h2>
-                {/* ✅ Spinner mientras carga flags — sin bloquear el modal */}
+                {/*  Spinner mientras carga flags — sin bloquear el modal */}
                 {loadingPrices ? (
                   <p className="text-xs text-emerald-100 flex items-center gap-1 animate-pulse">
                     <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -533,14 +533,14 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                     {formData.productos.map((p, index) => {
                       const qty = p.quantity || p.cantidad || 0;
 
-                      // ✅ Calcular siempre en vivo desde dola
+                      //  Calcular siempre en vivo desde dola
                       const dola            = Number(p.preciosDetalle?.importes?.dola ?? p.dola ?? 0);
                       const precioNeto      = calcPrecioNeto(dola, p.discount5);
                       const precioNetoTotal = precioNeto * qty;
                       const igvRow          = precioNetoTotal * IGV_RATE;
                       const importeTotal    = precioNetoTotal + igvRow;
 
-                      // ✅ Flag logic — activo tras enrichProductsWithPrices
+                      //  Flag logic — activo tras enrichProductsWithPrices
                       const flag  = p.preciosDetalle?.flag?.trim() ?? p.flag?.trim() ?? '';
                       const flagT = flag === 'T';
                       const flagX = flag === 'X';
@@ -595,7 +595,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                             />
                           </td>
 
-                          {/* ✅ Dscto 5 — editable con validaciones de flag */}
+                          {/*  Dscto 5 — editable con validaciones de flag */}
                           <td className="px-3 py-2 text-right">
                             <div className="flex flex-col items-end gap-0.5">
                               <input
@@ -750,7 +750,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
         </div>
       </div>
 
-      {/* ✅ ProductSelectorModal con existingProducts para marcar duplicados */}
+      {/*  ProductSelectorModal con existingProducts para marcar duplicados */}
       <ProductSelectorModal
         isOpen={isProductSelectorOpen}
         onClose={() => setIsProductSelectorOpen(false)}

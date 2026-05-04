@@ -27,7 +27,7 @@ const getLocation = () =>
     );
   });
 
-// ✅ Ahora retorna objeto con dirección y ubigeo
+//  Ahora retorna objeto con dirección y ubigeo
 const reverseGeocode = async (lat, lng) => {
   try {
     const res = await fetch(
@@ -52,7 +52,7 @@ export const logActivity = async (evento, referencia_id = null) => {
   try {
     const ubicacion = await getLocation();
 
-    // ✅ Destructurar ubigeo del reverseGeocode
+    //  Destructurar ubigeo del reverseGeocode
     const { direccion, pais, region, provincia, distrito } = ubicacion?.latitud
       ? await reverseGeocode(ubicacion.latitud, ubicacion.longitud)
       : { direccion: null, pais: null, region: null, provincia: null, distrito: null };
@@ -60,9 +60,9 @@ export const logActivity = async (evento, referencia_id = null) => {
     await api.post('/activity-log', {
   evento,
   referencia_id,
-  latitud:   ubicacion?.latitud   ?? null,  // ✅
-  longitud:  ubicacion?.longitud  ?? null,  // ✅
-  precision: ubicacion?.precision ?? null,  // ✅
+  latitud:   ubicacion?.latitud   ?? null,  // 
+  longitud:  ubicacion?.longitud  ?? null,  // 
+  precision: ubicacion?.precision ?? null,  // 
   direccion,
   pais,
   region,

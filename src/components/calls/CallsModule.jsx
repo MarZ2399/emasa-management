@@ -26,7 +26,7 @@ const CallsModule = () => {
   const [hasSearched,        setHasSearched]        = useState(false);
   const [autoSearchTrigger,  setAutoSearchTrigger]  = useState(0);
 
-  // ✅ Estado elevado — sobrevive al cambio de tabs
+  //  Estado elevado — sobrevive al cambio de tabs
   const codAlmacenes = user?.empresa?.cod_almacenes || [];
   const [almacenSeleccionado, setAlmacenSeleccionado] = useState(
   codAlmacenes.find(a => a.principal) || codAlmacenes[0] || null
@@ -61,9 +61,9 @@ const CallsModule = () => {
     setNombreProducto('');
     setHasSearched(false);
     setResetClientSearch(prev => prev + 1);
-    // ✅ Resetear almacén al completar cotización
+    //  Resetear almacén al completar cotización
     setAlmacenSeleccionado(
-  codAlmacenes.find(a => a.principal) || codAlmacenes[0] || null  // ✅
+  codAlmacenes.find(a => a.principal) || codAlmacenes[0] || null  // 
 );
     setActiveTab('calls');
     toast.success('Cotización completada. Puedes buscar un nuevo cliente', {
@@ -195,7 +195,7 @@ const CallsModule = () => {
                       setQuotationItems(items => [...items, prodData]);
                       setActiveTab('quotations');
                     }}
-                    // ✅ Props elevados — persisten entre cambios de tab
+                    //  Props elevados — persisten entre cambios de tab
                     almacenSeleccionado={almacenSeleccionado}
                     setAlmacenSeleccionado={setAlmacenSeleccionado}
                   />
@@ -213,7 +213,7 @@ const CallsModule = () => {
                 onBackToProducts={() => setActiveTab('products')}
                 selectedClient={selectedClient}
                 onRegistrationComplete={handleRegistrationComplete}
-                // ✅ Almacén fijado — solo lectura en QuotationTab
+                //  Almacén fijado — solo lectura en QuotationTab
                 almacenCotizacion={almacenSeleccionado}
               />
             </div>

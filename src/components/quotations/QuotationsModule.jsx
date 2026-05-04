@@ -117,12 +117,12 @@ const parseFecha = (fechaRaw) => {
 
   // Si ya viene como string ISO "2026-02-23T05:00:00.000Z"
   if (typeof fechaRaw === 'string' && fechaRaw.includes('T')) {
-    return fechaRaw.split('T')[0]; // ✅ toma solo "2026-02-23", sin timezone
+    return fechaRaw.split('T')[0]; //  toma solo "2026-02-23", sin timezone
   }
 
   // Si viene como string ISO sin T "2026-02-23"
   if (typeof fechaRaw === 'string' && fechaRaw.includes('-')) {
-    return fechaRaw; // ✅ ya está bien
+    return fechaRaw; //  ya está bien
   }
 
   // Si viene como entero 20260223
@@ -294,7 +294,7 @@ console.log('🔍 forma_pago RAW:', response.data[0]?.forma_pago);         // �
       if (response.success) {
         logActivity(EVENTOS.COTIZACION_EDITADA, editingQuotation.id);
 
-        toast.success('✅ Cotización actualizada exitosamente');
+        toast.success(' Cotización actualizada exitosamente');
         setIsEditModalOpen(false);
         setEditingQuotation(null);
         await fetchQuotations();
@@ -442,7 +442,7 @@ const handleCancelQuotation = async (quotation) => {
   setQuotations(prev =>
     prev.map(q =>
       q.id === selectedQuotationForOrder.id
-        ? { ...q, estado: 'enviado' }  // ✅ antes era 'convertida'
+        ? { ...q, estado: 'enviado' }  //  antes era 'convertida'
         : q
     )
   );
@@ -452,7 +452,7 @@ const handleCancelQuotation = async (quotation) => {
 };
 
   const openGenerateOrderModal = (quotation) => {
-  if (quotation.estado === 'enviado') {  // ✅ antes era 'convertida'
+  if (quotation.estado === 'enviado') {  //  antes era 'convertida'
     toast.error('Esta cotización ya fue enviada al AS400');
     return;
 

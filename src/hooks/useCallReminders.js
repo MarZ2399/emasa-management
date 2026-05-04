@@ -53,7 +53,7 @@ export const useCallReminders = () => {
     return () => clearInterval(interval);
   }, [fetchReminders]);
 
-  // ✅ Descartar localmente
+  //  Descartar localmente
   const dismissReminder = (id) => setReminders(prev => prev.filter(r => r.id !== id));
 
   return { reminders, dismissReminder };

@@ -23,7 +23,7 @@ export const transmitOrder = async (idCotizac, formData) => {
     transporteZona:           formData.transporteZona,
 
     // Entrega
-    tipoEntrega:              tipoEntregaMap[formData.tipoEntrega] ?? 1, // ✅ número para FIL1PW
+    tipoEntrega:              tipoEntregaMap[formData.tipoEntrega] ?? 1, //  número para FIL1PW
     observacionDespacho:      formData.direccionDespacho    || '',
     lugarDespacho:            formData.distritoDespacho
                                 ? `${formData.distritoDespacho}, ${formData.provinciaDespacho}`
@@ -43,7 +43,7 @@ export const transmitOrder = async (idCotizac, formData) => {
     ordenCompra:              formData.ordenCompra            || '',
     fechaEntrega:             formData.fechaEntrega           || '',
 
-    // ✅ Nueva dirección — códigos y nombres para vta.shipping_address_cli
+    //  Nueva dirección — códigos y nombres para vta.shipping_address_cli
     direccionDespacho:        formData.direccionDespacho      || '',
     deptoDespacho:            formData.deptoDespacho          || '',
     provinciaDespacho:        formData.provinciaDespacho      || '',

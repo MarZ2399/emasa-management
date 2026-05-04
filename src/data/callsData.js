@@ -130,7 +130,7 @@ export const initialCallRecords = [
     clave: '',
     contactadoNombre: 'Juan Carlos Pérez',
     observaciones: 'Primera llamada, no respondió',
-    proxLlamada: '2026-12-30T10:00' // ✅ Formato datetime-local
+    proxLlamada: '2026-12-30T10:00' //  Formato datetime-local
   },
   {
     id: 2,
@@ -146,7 +146,7 @@ export const initialCallRecords = [
     clave: '',
     contactadoNombre: 'María Elena Torres',
     observaciones: 'Cliente solicitó información sobre pedido #12345',
-    proxLlamada: '2026-12-31T15:30' // ✅ Próxima llamada hoy
+    proxLlamada: '2026-12-31T15:30' //  Próxima llamada hoy
   },
   {
     id: 3,
@@ -194,7 +194,7 @@ export const initialCallRecords = [
     clave: '',
     contactadoNombre: 'María Elena Torres',
     observaciones: 'Solicitó cotización para 50 unidades',
-    proxLlamada: '2026-01-28T14:00' // ✅ Crítica: hoy
+    proxLlamada: '2026-01-28T14:00' //  Crítica: hoy
   },
   {
     id: 6,
@@ -210,7 +210,7 @@ export const initialCallRecords = [
     clave: '',
     contactadoNombre: 'Roberto Sánchez',
     observaciones: 'Envió cotización por correo',
-    proxLlamada: '2026-01-30T16:00' // ✅ Vencida (ayer)
+    proxLlamada: '2026-01-30T16:00' //  Vencida (ayer)
   },
   {
     id: 7,
@@ -258,7 +258,7 @@ export const initialCallRecords = [
     clave: '',
     contactadoNombre: 'Carmen Rosa Vargas',
     observaciones: 'Consulta sobre pago pendiente',
-    proxLlamada: '2026-02-30T13:00' // ✅ Urgente: hoy
+    proxLlamada: '2026-02-30T13:00' //  Urgente: hoy
   }
 ];
 

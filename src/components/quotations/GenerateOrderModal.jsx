@@ -385,7 +385,7 @@ const forpagOpciones = fpActual && fpActual !== 'ADE' && fpActual !== 'AD2'
                 )}
               </div>
 
-              {/* ✅ Forma de Pago */}
+              {/*  Forma de Pago */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Forma de Pago

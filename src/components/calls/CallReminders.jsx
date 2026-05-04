@@ -65,7 +65,7 @@ const CallReminders = ({ reminders = [], isOpen, onClose, onDismiss }) => {
                 <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${URGENCY_BADGE[reminder.urgency] ?? URGENCY_BADGE.normal}`}>
                   {URGENCY_ICON[reminder.urgency]} {reminder.timeLabel}
                 </span>
-                {/* ✅ Botón descartar */}
+                {/*  Botón descartar */}
                 <button
                   onClick={() => onDismiss?.(reminder.id)}
                   className="p-1 rounded-full hover:bg-black/10 text-gray-400 hover:text-gray-600 transition"

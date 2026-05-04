@@ -24,7 +24,7 @@ const QuotationTab = ({
   onBackToProducts,
   selectedClient,
   onRegistrationComplete,
-  almacenCotizacion   // ✅ nuevo prop — cod del almacén fijado desde ProductsTab
+  almacenCotizacion   //  nuevo prop — cod del almacén fijado desde ProductsTab
 }) => {
   const pdfRef = useRef(null);
 
@@ -117,7 +117,7 @@ const handleRegister = async () => {
   try {
     const itemsNormalized = quotationItems.map(normalizeItem);
 
-    // ✅ NUEVO — enriquecer cliente con datos del almacén
+    //  NUEVO — enriquecer cliente con datos del almacén
     const clienteConAlmacen = {
       ...selectedClient,
       cod_alm:    almacenCotizacion?.cod    || null,
@@ -126,13 +126,13 @@ const handleRegister = async () => {
 
     const payload = quotationService.prepareQuotationPayload(
       itemsNormalized,
-      clienteConAlmacen,   // ✅ CAMBIO — antes era selectedClient
+      clienteConAlmacen,   //  CAMBIO — antes era selectedClient
       currency,
       subtotal,
       igv,
       total,
       quotationNumber
-      // ✅ CAMBIO — eliminado almacenCotizacion como 8vo param
+      //  CAMBIO — eliminado almacenCotizacion como 8vo param
     );
 
     console.log('📤 Enviando cotización:', payload);
@@ -226,7 +226,7 @@ const handleRegister = async () => {
         currency={currency}
       />
 
-      {/* ✅ Header — muestra el almacén fijado */}
+      {/*  Header — muestra el almacén fijado */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <h2 className="text-3xl font-extrabold tracking-tight text-gray-800">
           Cotización

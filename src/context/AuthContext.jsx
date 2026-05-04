@@ -19,7 +19,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const navigate              = useNavigate();
 
-  // ✅ Verificar sesión activa al cargar la app
+  //  Verificar sesión activa al cargar la app
   useEffect(() => {
     const storedUser  = localStorage.getItem('ems_user');
     const storedToken = localStorage.getItem('ems_access');
@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }) => {
         icon: '👋',
       });
 
-      console.log('✅ Login exitoso, token guardado');
+      console.log(' Login exitoso, token guardado');
 
       return { success: true, user: normalizedUser };
     } catch (error) {
@@ -94,7 +94,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await logActivity(EVENTOS.LOGOUT);
       await authService.logout();
-      console.log('✅ Logout ejecutado en servidor');
+      console.log(' Logout ejecutado en servidor');
     } catch (error) {
       console.error('Error en logout:', error);
     } finally {
@@ -106,7 +106,7 @@ export const AuthProvider = ({ children }) => {
 
       navigate('/login');
 
-      console.log('✅ Sesión local limpiada');
+      console.log(' Sesión local limpiada');
     }
   };
 
@@ -131,7 +131,7 @@ export const AuthProvider = ({ children }) => {
     const updatedUser = normalizeUser({ ...user, ...newUserData });
     setUser(updatedUser);
     localStorage.setItem('ems_user', JSON.stringify(updatedUser));
-    console.log('✅ Datos de usuario actualizados');
+    console.log(' Datos de usuario actualizados');
   };
 
   /**

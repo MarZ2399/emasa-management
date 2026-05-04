@@ -30,7 +30,7 @@ const UserDropdown = ({ isMobile = false }) => {
     { icon: LogOut, label: 'Cerrar Sesión', onClick: handleLogout, danger: true },
   ];
 
-  // ✅ Fallbacks defensivos por si acaso llega data cruda
+  //  Fallbacks defensivos por si acaso llega data cruda
   const nombre = user?.nombreCompleto
     || user?.nombre_completo
     || user?.username

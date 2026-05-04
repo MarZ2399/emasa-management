@@ -588,7 +588,7 @@ export const productCategories = [
   'Refrigeración'
 ];
 
-// ✅ Función para obtener estado de stock TOTAL
+//  Función para obtener estado de stock TOTAL
 export const getStockStatus = (stock) => {
   if (stock === 0) {
     return { 
@@ -618,7 +618,7 @@ export const getStockStatus = (stock) => {
   };
 };
 
-// ✅ Función para obtener estado de stock POR ALMACÉN
+// Función para obtener estado de stock POR ALMACÉN
 export const getWarehouseStockStatus = (stock) => {
   if (stock === 0) {
     return {
@@ -647,7 +647,7 @@ export const getWarehouseStockStatus = (stock) => {
   }
 };
 
-// ✅ Función para obtener nombre del almacén
+//  Función para obtener nombre del almacén
 export const getWarehouseName = (warehouseCode) => {
   const warehouses = {
     'BSF': 'Almacén BSF',
@@ -656,7 +656,7 @@ export const getWarehouseName = (warehouseCode) => {
   return warehouses[warehouseCode] || warehouseCode;
 };
 
-// ✅ Función para validar disponibilidad en almacén
+//  Función para validar disponibilidad en almacén
 export const checkWarehouseAvailability = (product, warehouseCode, quantity) => {
   const stock = warehouseCode === 'BSF' ? product.stockBSF : product.stockSanLuis;
   return stock >= quantity;

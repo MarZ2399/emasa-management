@@ -10,7 +10,7 @@ const api = axios.create({
   }
 });
 
-// ✅ Instancia separada para documentos (PDF, XML, CDR)
+//  Instancia separada para documentos (PDF, XML, CDR)
 export const apiDocs = axios.create({
   baseURL: API_URL,
   withCredentials: true,

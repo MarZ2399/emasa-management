@@ -9,7 +9,7 @@ import {
   deleteCall,
   prepareCallPayload
 } from '../../services/callService';
-import { getCatalogos } from '../../services/catalogoService';  // ✅ NUEVO
+import { getCatalogos } from '../../services/catalogoService';  //  NUEVO
 import CallModal    from './CallModal';
 import CallTableRow from './CallTableRow';
 import ConfirmDialog from '../common/ConfirmDialog';
@@ -95,7 +95,7 @@ const CallHistoryTab = ({ selectedClient }) => {
         limit:       recordsPerPage
       });
 
-      console.log('✅ Llamadas cargadas:', result.total);
+      console.log(' Llamadas cargadas:', result.total);
       setCalls(result.data  ?? []);
       setTotal(result.total ?? 0);
     } catch (error) {

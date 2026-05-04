@@ -2,7 +2,7 @@
 import api from './api';
 
 /**
- * ✅ Servicio de Cotizaciones
+ *  Servicio de Cotizaciones
  * Centraliza todas las llamadas API relacionadas con cotizaciones
  */
 
@@ -24,7 +24,7 @@ export const updateQuotation = async (id, cabecera, detalles) => {
 
     const response = await api.put(`/quotations/${id}`, { cabecera, detalles });
 
-    console.log('✅ Respuesta del servidor:', response.data);
+    console.log(' Respuesta del servidor:', response.data);
     return response.data;
   } catch (error) {
     console.error('❌ Error al actualizar cotización:', error);
@@ -87,7 +87,7 @@ export const cancelQuotation = async (id) => {
 // ============================================================
 
 export const formatDateToYYYYMMDD = (date = new Date()) => {
-  // ✅ Si es string "2026-02-23" o "2026-02-23T..." → extraer directo sin new Date()
+  //  Si es string "2026-02-23" o "2026-02-23T..." → extraer directo sin new Date()
   if (typeof date === 'string') {
     const clean = date.split('T')[0];
     if (clean.includes('-')) {
@@ -96,10 +96,10 @@ export const formatDateToYYYYMMDD = (date = new Date()) => {
     }
   }
 
-  // ✅ Si ya es número entero → devolver tal cual
+  //  Si ya es número entero → devolver tal cual
   if (typeof date === 'number') return date;
 
-  // ✅ Si es instancia Date (ej: new Date()) → usar getFullYear/getMonth/getDate
+  //  Si es instancia Date (ej: new Date()) → usar getFullYear/getMonth/getDate
   const dateObj = date instanceof Date ? date : new Date();
 
   if (isNaN(dateObj.getTime())) {
@@ -227,7 +227,7 @@ export const prepareQuotationPayload = (
     disc: (selectedClient.distrito || '').substring(0, 50),
     contac: (selectedClient.contacto || '').substring(0, 50),
     telef1: (selectedClient.telefono || '').substring(0, 15),
-    cod_alm:    selectedClient.cod_alm    || null,   // ✅ nuevo
+    cod_alm:    selectedClient.cod_alm    || null,   //  nuevo
   codnum_alm: selectedClient.codnum_alm ?? null,
   };
 
@@ -268,7 +268,7 @@ export const prepareQuotationPayload = (
 };
 
 /**
- * ✅ Preparar payload para EDITAR cotización
+ *  Preparar payload para EDITAR cotización
  * @param {object} formData   - datos del formulario
  * @param {string} correlativo - correlativo completo "COT-2026-0002"
  */
@@ -279,7 +279,7 @@ export const prepareUpdatePayload = (formData, correlativo = null) => {
   const fechac = formatDateToYYYYMMDD(formData.fecha || new Date());
   const horac = formatTimeToHHMM();
 
-  // ✅ Extraer número de correlativo para regd
+  //  Extraer número de correlativo para regd
   const numeroCorrelativo = extractCorrelativeNumber(
     correlativo ||
     formData.correlativo_cotiza ||
@@ -290,7 +290,7 @@ export const prepareUpdatePayload = (formData, correlativo = null) => {
   console.log('📅 Fecha formateada:', fechac);
   console.log('🔢 Correlativo:', numeroCorrelativo);
 
-  // ✅ Normalizar moneda a código numérico 1/2
+  //  Normalizar moneda a código numérico 1/2
   const monedaInput = formData.moneda || formData.currency;
   let monedcCodigo = 2; // default USD
 
@@ -389,11 +389,11 @@ export const prepareUpdatePayload = (formData, correlativo = null) => {
     fechac,
     vend: extractVendorCode(formData.asesor || formData.vendedor),
     forpag: formData.formaPago || 'ADE',
-    cod_alm:    formData.cod_alm    || null,         // ✅ nuevo
+    cod_alm:    formData.cod_alm    || null,         //  nuevo
   codnum_alm: formData.codnum_alm ?? null,
   };
 
-  console.log('✅ === PAYLOAD FINAL ===');
+  console.log(' === PAYLOAD FINAL ===');
   console.log('Cabecera MONEDC:', cabecera.monedc, '| IMPORC:', cabecera.imporc);
   console.log('Correlativo detalles (regd):', numeroCorrelativo);
   console.log('Total detalles:', detalles.length);

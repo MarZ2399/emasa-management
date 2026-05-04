@@ -13,7 +13,7 @@ import logoImage from "../../assets/logo-emasa1.png";
 const TopBar = ({ mobileMenuOpen, onToggleMobileMenu, currentModule, onModuleChange }) => {
   const [showReminderPanel, setShowReminderPanel] = useState(false);
 
-  // ✅ Sin parámetros — consume API real
+  //  Sin parámetros — consume API real
   const { reminders, dismissReminder } = useCallReminders();
 
   return (

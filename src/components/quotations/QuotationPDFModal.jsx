@@ -38,7 +38,7 @@ const QuotationPDFModal = ({ quotation, isOpen, onClose }) => {
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff',
-          width: 1100,           // ✅ mismo ancho que w-[1100px]
+          width: 1100,           //  mismo ancho que w-[1100px]
           windowWidth: 1100,
           scrollX: 0,
           scrollY: 0

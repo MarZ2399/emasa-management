@@ -27,7 +27,7 @@ const CallModal = ({
 
   const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 
-  // ✅ Convertir a Number para que el find() haga match integer === integer
+  //  Convertir a Number para que el find() haga match integer === integer
   const handleTipoContacto = (e) => {
     const idSeleccionado = Number(e.target.value);
     const selected       = tiposContacto.find(t => t.value === idSeleccionado);
@@ -214,7 +214,7 @@ const [resultadoAbierto,  setResultadoAbierto]  = useState(false);
                   onChange={e => set('fecha_prox_llamada', e.target.value)} />
               </div>
 
-              {/* ✅ Campo Asesor */}
+              {/*  Campo Asesor */}
               <div className="md:col-span-1">
                 <label className={labelCls}>Asesor</label>
                 <input className={inputCls} value={formData.nom_asesor ?? ''}

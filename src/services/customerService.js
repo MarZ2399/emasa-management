@@ -1,5 +1,5 @@
 // src/services/customerService.js
-import api from './api'; // ✅ Usar la instancia configurada con interceptores
+import api from './api'; //  Usar la instancia configurada con interceptores
 
 
 /**
@@ -9,7 +9,7 @@ import api from './api'; // ✅ Usar la instancia configurada con interceptores
  */
 export const getClientByRuc = async (ruc) => {
   try {
-    // ✅ Llamadas en paralelo — cliente + contactos al mismo tiempo
+    //  Llamadas en paralelo — cliente + contactos al mismo tiempo
     const [clientResponse, contactsResponse] = await Promise.all([
       api.get(`/customers/ruc/${ruc}`),
       api.get(`/customers/${ruc}/contacts`)
@@ -23,7 +23,7 @@ export const getClientByRuc = async (ruc) => {
 
     const clientFormatted = formatClientData(clientResponse.data.data);
 
-    // ✅ Mapear contactos al formato de InfoCard
+    //  Mapear contactos al formato de InfoCard
     const contactos = (contactsResponse.data.data || []).map((c) => ({
   email:    c.EMAIL?.trim()          || '-',
   phone:    c.TELEFONO?.trim()       || '-',
@@ -84,7 +84,7 @@ export const searchClientsByName = async (nombre) => {
  */
 const formatClientData = (apiData) => {
   return {
-    // ✅ DATOS DEL CLIENTE (Con data de la API)
+    //  DATOS DEL CLIENTE (Con data de la API)
     nombreCliente: apiData.NOMBRE || 'N/A',
     ruc: apiData.DOCNUMERO?.toString() || 'N/A',
     tipoDoc: apiData.DOCTIPO || 'N/A',
@@ -95,11 +95,11 @@ const formatClientData = (apiData) => {
     zonaCliente: apiData.PROVINCIA ? `Zona ${apiData.PROVINCIA}` : 'N/A',
     fechaCreacion: formatDate(apiData.FCREA),
 
-    // ✅ DATOS COMERCIALES (Con data de la API)
+    //  DATOS COMERCIALES (Con data de la API)
     giro: apiData.GIRODES ? `${apiData.GIROCOD} - ${apiData.GIRODES}` : 'N/A',
     categoria: apiData.CATEG?.trim() || 'N/A',
     vendedor: apiData.VENDEDORNOM ? `${apiData.VENDEDORCOD?.trim()} - ${apiData.VENDEDORNOM}` : 'N/A',
-    fpago:    apiData.FPAGO    || null,       // ✅ código: "ADE", "CR30", etc.
+    fpago:    apiData.FPAGO    || null,       //  código: "ADE", "CR30", etc.
     fpagdes:  apiData.FPAGDES  || 'N/A',
     lineaCredito: `$${formatNumber(apiData.CREDITO)}`,
     creditoDisponible: `$${formatNumber(apiData.CREDITODISP)}`,
@@ -108,14 +108,14 @@ const formatClientData = (apiData) => {
     clienteMalPagador: apiData.MOROSO === 1 ? 'Sí' : 'No',
     motivoMalPagador: apiData.SITUCARTERA || 'Sin Antecedente',
 
-    // ✅ DATOS DE VENTAS (Con data de la API)
+    //  DATOS DE VENTAS (Con data de la API)
     ventaActual: `$${formatNumber(apiData.VENTA_ACTUAL)}`,
     ventaAnterior: `$${formatNumber(apiData.VTA_ANTERIOR)}`,
     promedioVtas20212025: `$${formatNumber(apiData.VENTA_ULTI03)}`,
 
     // ⚠️ DATOS QUE NO VIENEN DE LA API (Temporalmente vacíos o calculados)
     ultVenta: `$${formatNumber(apiData.VENTA_ULTI03)}`,
-    contactos: null, // ✅ Se sobreescribe en getClientByRuc con Promise.all
+    contactos: null, //  Se sobreescribe en getClientByRuc con Promise.all
     corePrincipal: null, // Se llenará con otra API
     promedioVtas2025: `$${formatNumber(apiData.VENTA_ACTUAL)}`, // Temporal
     mesesConVtas2025: calculateMonthsWithSales(apiData),

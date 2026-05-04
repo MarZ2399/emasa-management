@@ -66,7 +66,7 @@ const ProductsTab = ({
 
   
 
-  // ✅ VALIDACIÓN 2 y 3 — almacén bloqueado si hay productos en cotización
+  //  VALIDACIÓN 2 y 3 — almacén bloqueado si hay productos en cotización
   const almacenBloqueado = quotationItems?.length > 0;
 
   // ── Auto-búsqueda desde PurchaseHistoryTab ─────────────────────────────
@@ -133,7 +133,7 @@ const ProductsTab = ({
   };
 
   const handleSearch = async () => {
-    // ✅ VALIDACIÓN 1 — almacén obligatorio
+    // VALIDACIÓN 1 — almacén obligatorio
     if (codAlmacenes.length > 0 && !almacenSeleccionado) {
       toast.error('Debe seleccionar un almacén antes de buscar.', {
         position: 'top-right', icon: '🏭'

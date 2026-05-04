@@ -173,7 +173,7 @@ getDetalle: async (codProducto) => {
 
 
 /**
- * ✅ Export para ProductSelectorModal
+ *  Export para ProductSelectorModal
  */
 export const searchProducts = async (searchTerm = '') => {
   try {

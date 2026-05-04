@@ -51,7 +51,7 @@ export const updateCall = async (id, body) => {
 
     const response = await api.put(`/calls/${id}`, body);
 
-    console.log('✅ Respuesta del servidor:', response.data);
+    console.log(' Respuesta del servidor:', response.data);
     return response.data;
   } catch (error) {
     console.error('❌ Error al actualizar llamada:', error);
@@ -108,25 +108,25 @@ export const prepareCallPayload = (formData, selectedClient) => {
     // Comunicación
     estatus_llamada:   formData.estatus_llamada || null,
 
-    // ✅ Forzar Number — nunca dejar como string ni usar || null
+    //  Forzar Number — nunca dejar como string ni usar || null
     id_tipo_contacto:      formData.id_tipo_contacto     ? Number(formData.id_tipo_contacto)     : null,
     tipo_contacto_nom:     formData.tipo_contacto_nom    || '',
     telefono_1:            (formData.telefono_1 || '').substring(0, 20),
     telefono_2:            formData.telefono_2  || null,
 
-    // ✅ Forzar Number
+    //  Forzar Number
     id_resultado_gestion:  formData.id_resultado_gestion  ? Number(formData.id_resultado_gestion)  : null,
     resultado_gestion_nom: formData.resultado_gestion_nom || '',
 
     fecha_prox_llamada:    formData.fecha_prox_llamada || null,
     observaciones:         formData.observaciones      || null,
 
-    // ✅ Asesor desde el form, no pisado por el backend
+    //  Asesor desde el form, no pisado por el backend
     codigo_vend: (formData.codigo_vend || '').trim() || null,
 nom_asesor:  (formData.nom_asesor  || '').trim() || null,
   };
 
-  console.log('✅ Payload final:', payload);
+  console.log(' Payload final:', payload);
   return payload;
 };
 

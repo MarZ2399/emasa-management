@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 
 const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
 
-  // ✅ TODOS los hooks ANTES del return early
+ 
   const [preciosData,     setPreciosData]     = useState(null);
   const [loadingPrecios,  setLoadingPrecios]  = useState(false);
   const [errorPrecios,    setErrorPrecios]    = useState(null);
@@ -56,7 +56,7 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
     }
   }, [isOpen, codigoProducto, clienteRuc]);
 
-  // ✅ GUARDIA — después de todos los hooks
+  
   if (!product || !isOpen) return null;
 
   // ── Fetch precios ─────────────────────────────────────────────────────────

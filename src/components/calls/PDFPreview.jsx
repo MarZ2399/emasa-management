@@ -10,12 +10,12 @@ const PDFPreview = React.forwardRef(
     igv,
     total,
     quotationNumber,
-    currency = 'USD', // ✅ NUEVA PROP - Moneda seleccionada
+    currency = 'USD', //  NUEVA PROP - Moneda seleccionada
     isVisible = false
   }, ref) => {
     const IGV_RATE = 0.18;
 
-    // ✅ Configuración de moneda
+    //  Configuración de moneda
     const currencySymbol = currency === 'USD' ? '$' : 'S/';
     const currencyName = currency === 'USD' ? 'Dólares (USD)' : 'Soles (S/)';
     const currencyLabel = currency === 'USD' ? 'Dólares' : 'Soles';
@@ -113,7 +113,7 @@ const PDFPreview = React.forwardRef(
               <span className="font-bold">Vendedor:</span>{" "}
               <span>{selectedClient?.vendedor || ""}</span>
             </div>
-            {/* ✅ MOSTRAR MONEDA CORRECTA */}
+            {/*  MOSTRAR MONEDA CORRECTA */}
             <div>
               <span className="font-bold">Moneda:</span>{" "}
               <span>{currencyName}</span>
@@ -136,7 +136,7 @@ const PDFPreview = React.forwardRef(
               <th className="border border-gray-300 p-2">Item</th>
               <th className="border border-gray-300 p-2">Código</th>
               <th className="border border-gray-300 p-2">Descripción</th>
-              {/* ✅ ENCABEZADOS CON SÍMBOLO CORRECTO */}
+              {/*  ENCABEZADOS CON SÍMBOLO CORRECTO */}
               <th className="border border-gray-300 p-2">Precio Lista ({currencySymbol})</th>
               <th className="border border-gray-300 p-2">1er Dscto (%)</th>
               <th className="border border-gray-300 p-2">5to Dscto (%)</th>
@@ -159,7 +159,7 @@ const PDFPreview = React.forwardRef(
                   </td>
                   <td className="border border-gray-300 p-2">{item.codigo}</td>
                   <td className="border border-gray-300 p-2">{item.nombre}</td>
-                  {/* ✅ VALORES CON SÍMBOLO CORRECTO */}
+                  {/*  VALORES CON SÍMBOLO CORRECTO */}
                   <td className="border border-gray-300 p-2 text-right">
                     {currencySymbol} {item.precioLista?.toFixed(2)}
                   </td>
@@ -187,7 +187,7 @@ const PDFPreview = React.forwardRef(
         {/* TOTALES */}
         <div className="flex justify-end mb-2">
           <div className="w-64 space-y-1">
-            {/* ✅ TOTALES CON SÍMBOLO CORRECTO */}
+            {/*  TOTALES CON SÍMBOLO CORRECTO */}
             <div className="flex justify-between text-[13px]">
               <span className="font-bold">Subtotal:</span>
               <span>{currencySymbol} {subtotal?.toFixed(2)}</span>
@@ -205,7 +205,7 @@ const PDFPreview = React.forwardRef(
 
         {/* PIE */}
         <div className="text-[11px] text-gray-500 border-t pt-4 mt-5">
-          {/* ✅ TEXTO CON MONEDA CORRECTA */}
+          {/*  TEXTO CON MONEDA CORRECTA */}
           Vigencia de cotización 24 horas - Valores expresados en {currencyLabel}
         </div>
       </div>

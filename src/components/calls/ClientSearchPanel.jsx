@@ -13,7 +13,7 @@ const ClientSearchPanel = ({ onClientSelect, resetTrigger }) => {
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState(null);
 
-  // ✅ Efecto para limpiar campos cuando cambia resetTrigger
+  //  Efecto para limpiar campos cuando cambia resetTrigger
   useEffect(() => {
     if (resetTrigger > 0) {
       handleClear();
@@ -40,20 +40,20 @@ const ClientSearchPanel = ({ onClientSelect, resetTrigger }) => {
     setClientData(null);
 
     try {
-      // ✅ Consumir API real
+      //  Consumir API real
       if (ruc) {
         console.log('🔍 Buscando cliente con RUC:', ruc);
         
         const data = await getClientByRuc(ruc.trim());
         
-        console.log('✅ Cliente encontrado:', data);
+        console.log(' Cliente encontrado:', data);
         
         setClientData(data);
 
         logActivity(EVENTOS.CLIENTE_CONSULTADO, null);
         
         toast.success('Cliente encontrado', {
-          icon: '✅',
+          icon: '',
           duration: 2000,
         });
         

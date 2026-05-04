@@ -9,7 +9,7 @@ export const getCatalogo = async (tipo) => {
   try {
     console.log('📋 Cargando catálogo:', tipo);
     const response = await api.get(`/catalogos/${tipo}`);
-    console.log(`✅ ${tipo}: ${response.data.data?.length} items`);
+    console.log(` ${tipo}: ${response.data.data?.length} items`);
     return response.data;
   } catch (error) {
     console.error(`❌ Error al obtener catálogo ${tipo}:`, error);
@@ -27,7 +27,7 @@ export const getCatalogos = async (tipos = []) => {
     const response = await api.get('/catalogos', {
       params: { tipos: tipos.join(',') }
     });
-    console.log('✅ Catálogos recibidos:', Object.keys(response.data.data ?? {}).join(', '));
+    console.log(' Catálogos recibidos:', Object.keys(response.data.data ?? {}).join(', '));
     return response.data;
   } catch (error) {
     console.error('❌ Error al obtener catálogos:', error);

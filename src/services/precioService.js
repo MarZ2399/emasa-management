@@ -23,19 +23,19 @@ export const precioService = {
         };
       }
 
-      // ✅ Normalizar RUC a 10 dígitos (quitar dígito verificador si existe)
+      //  Normalizar RUC a 10 dígitos (quitar dígito verificador si existe)
       let rucNormalizado = ruc.toString().replace(/[-\s]/g, '');
       
       if (rucNormalizado.length === 11) {
         rucNormalizado = rucNormalizado.substring(0, 10);
         console.log('📦 RUC normalizado: 11 → 10 dígitos:', rucNormalizado);
       } else if (rucNormalizado.length === 10) {
-        console.log('✅ RUC ya tiene 10 dígitos:', rucNormalizado);
+        console.log(' RUC ya tiene 10 dígitos:', rucNormalizado);
       } else {
         console.warn('⚠️ RUC con longitud inusual:', rucNormalizado.length);
       }
 
-      // ✅ Limpiar código del producto
+      //  Limpiar código del producto
       const codigoLimpio = codigo.trim();
 
       const datos = {
@@ -50,7 +50,7 @@ export const precioService = {
       // Hacer la petición
       const response = await api.post('/precios/precio', datos);
 
-      console.log('✅ Respuesta del servidor:', response.data);
+      console.log(' Respuesta del servidor:', response.data);
       console.log('=== FIN DEBUG ===\n');
 
       // Validar respuesta
@@ -84,7 +84,7 @@ export const precioService = {
   }
 };
 
-// ✅ Export adicional para compatibilidad con ProductSelectorModal
+//  Export adicional para compatibilidad con ProductSelectorModal
 export const getPrecio = async ({ Clie, Prod, Cant = 1 }) => {
   return await precioService.obtenerPrecio(Clie, Prod, Cant);
 };

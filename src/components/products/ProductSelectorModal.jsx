@@ -12,7 +12,7 @@ const ProductSelectorModal = ({
   onSelect,
   selectedClient,
   title = 'Seleccionar producto',
-  existingProducts = [],             // ✅ productos ya en la cotización
+  existingProducts = [],             //  productos ya en la cotización
 }) => {
   const [searchTerm, setSearchTerm]                 = useState('');
   const [categoryFilter, setCategoryFilter]         = useState('all');
@@ -143,10 +143,10 @@ const ProductSelectorModal = ({
               const importes   = data.importes   || {};
               const costos     = data.costos     || {};
 
-              // ✅ flag con trim() — misma lógica que ProductsTab y QuotationTab
+              //  flag con trim() — misma lógica que ProductsTab y QuotationTab
               const flag = data.flag?.trim() ?? '';
 
-              // ✅ dola = precio neto con de01 ya aplicado por el backend
+              //  dola = precio neto con de01 ya aplicado por el backend
               const precioListaDolares = importes.ldol || product.precioListaDol || 0;
               const precioNetoDolares  = importes.dola || product.precioListaDol || 0;
 
@@ -329,14 +329,14 @@ const ProductSelectorModal = ({
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredProducts.map(product => {
-                    // ✅ Flag badges
+                    //  Flag badges
                     const flag  = product.flag?.trim() ?? '';
                     const flagT = flag === 'T';
                     const flagX = flag === 'X';
                     const minD5 = flagT ? (product.discount4 ?? 0)   : 0;
                     const maxD5 = flagT ? (product.discount5 ?? 100) : 100;
 
-                    // ✅ Verificar si ya está en la cotización
+                    //  Verificar si ya está en la cotización
                     const yaAgregado = existingProducts.some(
                       ep => ep.codigo?.trim() === product.Codigo?.trim()
                     );
@@ -379,7 +379,7 @@ const ProductSelectorModal = ({
                           {product.hasPriceData && product.discount1 > 0 ? `${product.discount1}%` : '-'}
                         </td>
 
-                        {/* ✅ Precio Neto (dola) + badge de flag */}
+                        {/*  Precio Neto (dola) + badge de flag */}
                         <td className="px-3 py-2 text-right text-[11px] md:text-xs font-semibold">
                           {product.precioNeto > 0 ? (
                             <div className="flex flex-col items-end gap-0.5">
@@ -403,7 +403,7 @@ const ProductSelectorModal = ({
                           {product.Stotal || 0}
                         </td>
 
-                        {/* ✅ Acción — deshabilitada si ya está agregado */}
+                        {/*  Acción — deshabilitada si ya está agregado */}
                         <td className="px-3 py-2 text-center">
                           {yaAgregado ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg bg-gray-200 text-gray-500 cursor-not-allowed">

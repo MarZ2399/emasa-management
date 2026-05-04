@@ -160,11 +160,11 @@ const AlmacenSelect = ({ value, onChange, options }) => {
 const FindStockProduct = () => {
   const [allRows,        setAllRows]        = useState([]);
   const [coreOptions,    setCoreOptions]    = useState([]);
-  const [almacenOptions, setAlmacenOptions] = useState([]);  // ✅ NUEVO
+  const [almacenOptions, setAlmacenOptions] = useState([]);  //  NUEVO
   const [loading,        setLoading]        = useState(false);
   const [buscado,        setBuscado]        = useState(false);
 
-  const [filtros, setFiltros] = useState({ core: '', almacen: '', codigo: '', descripcion: '' }); // ✅ almacen agregado
+  const [filtros, setFiltros] = useState({ core: '', almacen: '', codigo: '', descripcion: '' }); //  almacen agregado
   const [page, setPage] = useState(1);
 
   // ── Al montar: cargar cores y almacenes ───────────────────────────────
@@ -172,7 +172,7 @@ const FindStockProduct = () => {
     productService.getCoresStock().then(res => {
       if (res.success) setCoreOptions(res.data);
     });
-    productService.getAlmacenesStock().then(res => {        // ✅ NUEVO
+    productService.getAlmacenesStock().then(res => {        //  NUEVO
       if (res.success) setAlmacenOptions(res.data);
     });
   }, []);
@@ -188,7 +188,7 @@ const FindStockProduct = () => {
       const matchCodigo  = !filtros.codigo      || row.codProd.toUpperCase().includes(filtros.codigo.toUpperCase());
       const matchDesc    = !filtros.descripcion || row.mercaderia.toUpperCase().includes(filtros.descripcion.toUpperCase());
       const matchCore    = !filtros.core        || row.core === filtros.core;
-      const matchAlmacen = !filtros.almacen     || row.codAlmc === filtros.almacen; // ✅ NUEVO
+      const matchAlmacen = !filtros.almacen     || row.codAlmc === filtros.almacen; //  NUEVO
       return matchCodigo && matchDesc && matchCore && matchAlmacen;
     });
   }, [allRows, filtros]);
@@ -219,7 +219,7 @@ const FindStockProduct = () => {
   }, [filtros]);
 
   const handleLimpiar = () => {
-    setFiltros({ core: '', almacen: '', codigo: '', descripcion: '' }); // ✅ almacen reseteado
+    setFiltros({ core: '', almacen: '', codigo: '', descripcion: '' }); //  almacen reseteado
     setAllRows([]);
     setBuscado(false);
     setPage(1);
@@ -383,7 +383,7 @@ const FindStockProduct = () => {
             />
           </div>
 
-          {/* ✅ NUEVO — Almacén */}
+          {/*  NUEVO — Almacén */}
           <div>
             <label className={labelCls}>
               Almacén
