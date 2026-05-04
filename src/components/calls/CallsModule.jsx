@@ -215,6 +215,7 @@ const CallsModule = () => {
                 onRegistrationComplete={handleRegistrationComplete}
                 //  Almacén fijado — solo lectura en QuotationTab
                 almacenCotizacion={almacenSeleccionado}
+                codigoVendedor={user?.codigo_sis} 
               />
             </div>
           )}

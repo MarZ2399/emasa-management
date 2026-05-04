@@ -24,7 +24,8 @@ const QuotationTab = ({
   onBackToProducts,
   selectedClient,
   onRegistrationComplete,
-  almacenCotizacion   //  nuevo prop — cod del almacén fijado desde ProductsTab
+  almacenCotizacion,   //  nuevo prop — cod del almacén fijado desde ProductsTab
+  codigoVendedor
 }) => {
   const pdfRef = useRef(null);
 
@@ -131,8 +132,9 @@ const handleRegister = async () => {
       subtotal,
       igv,
       total,
-      quotationNumber
-      //  CAMBIO — eliminado almacenCotizacion como 8vo param
+      quotationNumber,
+      codigoVendedor 
+      
     );
 
     console.log('📤 Enviando cotización:', payload);

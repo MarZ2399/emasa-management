@@ -187,17 +187,20 @@ export const prepareQuotationPayload = (
   subtotal,
   igv,
   total,
-  quotationNumber
+  quotationNumber,
+  codigoVendedorLogueado
 ) => {
   const now = new Date();
   const fechac = formatDateToYYYYMMDD(now);
   const horac = formatTimeToHHMM(now);
 
-  const codigoVendedor = extractVendorCode(
-    selectedClient.vendedor ||
-    selectedClient.codigo_vendedor ||
-    selectedClient.Vendedor
-  );
+  const codigoVendedor = codigoVendedorLogueado 
+    ? extractVendorCode(codigoVendedorLogueado)
+    : extractVendorCode(
+        selectedClient.vendedor ||
+        selectedClient.codigo_vendedor ||
+        selectedClient.Vendedor
+      );
 
   const numeroCorrelativo = extractCorrelativeNumber(quotationNumber);
   const formaPago = selectedClient.fpago || selectedClient.formaPago || 'ADE';
@@ -272,7 +275,7 @@ export const prepareQuotationPayload = (
  * @param {object} formData   - datos del formulario
  * @param {string} correlativo - correlativo completo "COT-2026-0002"
  */
-export const prepareUpdatePayload = (formData, correlativo = null) => {
+export const prepareUpdatePayload = (formData, correlativo = null, codigoVendedorLogueado = null ) => {
   console.log('🔄 === PREPARANDO PAYLOAD DE ACTUALIZACIÓN ===');
   console.log('📦 Datos recibidos:', formData);
 
@@ -387,7 +390,10 @@ export const prepareUpdatePayload = (formData, correlativo = null) => {
     tcvta: Number(formData.tipoCambio || 3.75),
     imporc: totalCalculado,
     fechac,
-    vend: extractVendorCode(formData.asesor || formData.vendedor),
+     vend: codigoVendedorLogueado
+      ? extractVendorCode(codigoVendedorLogueado)
+      : extractVendorCode(formData.asesor || formData.vendedor),
+    // ...
     forpag: formData.formaPago || 'ADE',
     cod_alm:    formData.cod_alm    || null,         //  nuevo
   codnum_alm: formData.codnum_alm ?? null,
