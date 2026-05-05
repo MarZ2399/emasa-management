@@ -1,17 +1,23 @@
 // src/components/customer/ClientSearchPanel.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { getClientByRuc } from '../../services/customerService';
+import { getClientByRuc, searchClientsByName } from '../../services/customerService';
 import InfoCard from '../common/InfoCard';
 import toast from 'react-hot-toast';
 import { logActivity, EVENTOS } from '../../services/activityLogService';
 
 const ClientSearchPanel = ({ onClientSelect, resetTrigger }) => {
   const [ruc, setRuc] = useState('');
-  const [razonSocial, setRazonSocial] = useState('');
+  // const [razonSocial, setRazonSocial] = useState('');
   const [clientData, setClientData] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState(null);
+  const [nombreQuery,    setNombreQuery]    = useState('');
+  const [suggestions,    setSuggestions]    = useState([]);
+  const [isSearchingNom, setIsSearchingNom] = useState(false);
+  const [showDropdown,   setShowDropdown]   = useState(false);
+  const debounceRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   //  Efecto para limpiar campos cuando cambia resetTrigger
   useEffect(() => {
@@ -20,15 +26,74 @@ const ClientSearchPanel = ({ onClientSelect, resetTrigger }) => {
     }
   }, [resetTrigger]);
 
+  useEffect(() => {
+  const handleClickOutside = (e) => {
+    if (dropdownRef.current && !dropdownRef.current.contains(e.target))
+      setShowDropdown(false);
+  };
+  document.addEventListener('mousedown', handleClickOutside);
+  return () => document.removeEventListener('mousedown', handleClickOutside);
+}, []);
+
+const handleNombreChange = (e) => {
+  const value = e.target.value;
+  setNombreQuery(value);
+  setShowDropdown(false);
+  setSuggestions([]);
+
+  if (debounceRef.current) clearTimeout(debounceRef.current);
+  if (value.trim().length < 2) return;
+
+  debounceRef.current = setTimeout(async () => {
+    setIsSearchingNom(true);
+    try {
+      const result = await searchClientsByName(value.trim());
+      if (result && result.length > 0) {
+        setSuggestions(result);
+        setShowDropdown(true);
+      }
+    } catch (err) {
+      console.error('Error buscando por nombre:', err);
+    } finally {
+      setIsSearchingNom(false);
+    }
+  }, 400);
+};
+
+const handleSelectSuggestion = async (cliente) => {
+  setShowDropdown(false);
+  setSuggestions([]);
+  setNombreQuery(cliente.nombre);
+  setRuc(String(cliente.ruc));
+
+  setIsSearching(true);
+  setError(null);
+  setClientData(null);
+  try {
+    const data = await getClientByRuc(String(cliente.ruc));
+    setClientData(data);
+    logActivity(EVENTOS.CLIENTE_CONSULTADO, null);
+    toast.success('Cliente encontrado', { icon: '✅', duration: 2000 });
+    if (onClientSelect) onClientSelect(data);
+  } catch (err) {
+    const msg = err.message || 'Error al buscar el cliente';
+    setError(msg);
+    toast.error(msg, { duration: 4000 });
+    if (onClientSelect) onClientSelect(null);
+  } finally {
+    setIsSearching(false);
+  }
+};
+
   /**
    * Buscar cliente por RUC (API Real)
    */
   const handleSearch = async () => {
     // Validaciones
-    if (!ruc && !razonSocial) {
-      toast.error('Por favor ingrese RUC o Razón Social');
-      return;
-    }
+   if (!ruc) {
+  toast.error('Por favor ingrese un RUC');
+  return;
+}
 
     if (ruc && ruc.length < 8) {
       toast.error('El RUC debe tener al menos 8 dígitos');
@@ -53,7 +118,7 @@ const ClientSearchPanel = ({ onClientSelect, resetTrigger }) => {
         logActivity(EVENTOS.CLIENTE_CONSULTADO, null);
         
         toast.success('Cliente encontrado', {
-          icon: '',
+          icon: '✅',
           duration: 2000,
         });
         
@@ -87,7 +152,10 @@ const ClientSearchPanel = ({ onClientSelect, resetTrigger }) => {
    */
   const handleClear = () => {
     setRuc('');
-    setRazonSocial('');
+    // setRazonSocial('');
+    setNombreQuery('');      // ← AGREGAR
+  setSuggestions([]);      // ← AGREGAR
+  setShowDropdown(false); 
     setClientData(null);
     setError(null);
     
@@ -109,7 +177,7 @@ const ClientSearchPanel = ({ onClientSelect, resetTrigger }) => {
     <div className="bg-white rounded-lg shadow-sm p-6">
       {/* Búsqueda */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6">
-        <div className="md:col-span-4">
+        <div className="md:col-span-3">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Código / RUC *
           </label>
@@ -125,25 +193,45 @@ const ClientSearchPanel = ({ onClientSelect, resetTrigger }) => {
           />
         </div>
 
-        {/* <div className="md:col-span-5">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Razón Social / Nombre
-          </label>
-          <input
-            type="text"
-            value={razonSocial}
-            onChange={(e) => setRazonSocial(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Ej: Alta Tecnología"
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-            disabled={isSearching}
-          />
-        </div> */}
+        <div className="md:col-span-5 relative" ref={dropdownRef}>
+  <label className="block text-sm font-medium text-gray-700 mb-2">
+    Razón Social / Nombre
+  </label>
+  <div className="relative">
+    <input
+      type="text"
+      value={nombreQuery}
+      onChange={handleNombreChange}
+      placeholder="Escribe para buscar..."
+      autoComplete="off"
+      disabled={isSearching}
+      className="w-full px-4 py-2.5 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition disabled:bg-gray-100"
+    />
+    {isSearchingNom && (
+      <Loader2 className="absolute right-3 top-3 w-4 h-4 animate-spin text-gray-400" />
+    )}
+  </div>
 
-        <div className="md:col-span-3 flex items-end gap-2">
+  {showDropdown && suggestions.length > 0 && (
+    <ul className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto">
+      {suggestions.map((cli, idx) => (
+        <li
+          key={idx}
+          onClick={() => handleSelectSuggestion(cli)}
+          className="px-4 py-2.5 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0"
+        >
+          <p className="text-sm font-semibold text-gray-800">{cli.nombre}</p>
+          <p className="text-xs text-gray-500">RUC: {cli.ruc}</p>
+        </li>
+      ))}
+    </ul>
+  )}
+</div>
+
+        <div className="md:col-span-4 flex items-end gap-2">
           <button
             onClick={handleSearch}
-            disabled={isSearching || (!ruc && !razonSocial)}
+            disabled={isSearching || !ruc}
             className="flex-1 flex items-center justify-center gap-2 bg-[#334a5e] text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
           >
             {isSearching ? (
