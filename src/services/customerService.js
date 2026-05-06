@@ -43,7 +43,7 @@ export const getClientByRuc = async (ruc) => {
       throw new Error('Sesión expirada. Por favor inicia sesión nuevamente.');
     }
     if (error.response?.status === 404) {
-      throw new Error('Cliente no encontrado');
+      throw new Error('El RUC ingresado no existe o no pertenece a tu cartera de clientes');
     }
 
     throw new Error(error.message || 'Error al consultar el cliente');
