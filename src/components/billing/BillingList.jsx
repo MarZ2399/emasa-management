@@ -124,24 +124,20 @@ const COLUMNS = [
     key: 'cvndr', label: 'Vendedor',
     render: (r) => <span className="text-gray-600">{r.cvndr ?? '—'}</span>,
   },
-
-  // ── Columna documentos ─────────────────────────────────────────────────────
   {
-    key: 'acciones',
-  label: 'Docs',
-  render: (r) => {
-    const tipoDoc = String(r.dctdocsn ?? '').trim();
-    const serie   = String(r.dcnsersn ?? '').trim();
-    const numero  = r.dcndocsn ?? '';
+    key: 'acciones', label: 'Docs',
+    render: (r) => {
+      const tipoDoc = String(r.dctdocsn ?? '').trim();
+      const serie   = String(r.dcnsersn ?? '').trim();
+      const numero  = r.dcndocsn ?? '';
 
-    if (!tipoDoc || !serie || !numero) {
-      return <span className="text-gray-300 text-xs">—</span>;
-    }
+      if (!tipoDoc || !serie || !numero) {
+        return <span className="text-gray-300 text-xs">—</span>;
+      }
 
-    
-    const filenamePdf = buildDocFilename(tipoDoc, serie, numero, 'pdf');
-    const filenameXml = buildDocFilename(tipoDoc, serie, numero, 'xml');
-    const filenameCdr = buildDocFilename(tipoDoc, serie, numero, 'cdr');
+      const filenamePdf = buildDocFilename(tipoDoc, serie, numero, 'pdf');
+      const filenameXml = buildDocFilename(tipoDoc, serie, numero, 'xml');
+      const filenameCdr = buildDocFilename(tipoDoc, serie, numero, 'cdr');
 
       const handlePdf = async () => {
         try       { await openPdf(filenamePdf); }
@@ -156,14 +152,14 @@ const COLUMNS = [
         catch (e) { toast.error('No se pudo descargar el CDR'); }
       };
       const handleZip = async () => {
-      const toastId = toast.loading('Generando ZIP...');
-      try {
-        await downloadZip(tipoDoc, serie, numero);
-        toast.success('ZIP descargado correctamente', { id: toastId });
-      } catch (e) {
-        toast.error('No se pudo generar el ZIP', { id: toastId });
-      }
-    };
+        const toastId = toast.loading('Generando ZIP...');
+        try {
+          await downloadZip(tipoDoc, serie, numero);
+          toast.success('ZIP descargado correctamente', { id: toastId });
+        } catch (e) {
+          toast.error('No se pudo generar el ZIP', { id: toastId });
+        }
+      };
 
       return (
         <div className="flex items-center gap-1.5">
@@ -177,7 +173,6 @@ const COLUMNS = [
               <IconXml />
             </button>
           </Tooltip>
-          
           <Tooltip text="Descargar CDR">
             <button onClick={handleCdr} className="hover:opacity-70 transition-opacity active:scale-95">
               <IconCdr />
@@ -188,7 +183,6 @@ const COLUMNS = [
               <IconZip />
             </button>
           </Tooltip>
-
         </div>
       );
     },
@@ -202,7 +196,6 @@ const BillingList = ({ data, total, ruc, esFiltroFechaActivo, onResetFecha }) =>
   const [page,      setPage]      = React.useState(1);
   const [pageSize,  setPageSize]  = React.useState(PAGE_SIZE_OPTIONS[0]);
 
-  // Reset a página 1 cuando cambian los datos o el tamaño de página
   React.useEffect(() => { setPage(1); }, [data, pageSize]);
 
   const sorted = React.useMemo(() => {
@@ -241,7 +234,10 @@ const BillingList = ({ data, total, ruc, esFiltroFechaActivo, onResetFecha }) =>
             <> para RUC <span className="font-semibold text-green-700">{ruc}</span></>
           )}
         </p>
-        {ruc && <StatementButton ruc={ruc} disabled={!ruc} />}
+        {/* ← StatementButton deshabilitado si no hay documentos */}
+        {ruc && (
+          <StatementButton ruc={ruc} disabled={!ruc || total === 0} />
+        )}
       </div>
 
       <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -311,9 +307,7 @@ const BillingList = ({ data, total, ruc, esFiltroFechaActivo, onResetFecha }) =>
           pageSizeOptions={PAGE_SIZE_OPTIONS}
           onPageSize={(size) => { setPageSize(size); setPage(1); }}
         />
-
       </div>
-
     </div>
   );
 };

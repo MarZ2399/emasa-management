@@ -1,6 +1,6 @@
 // src/components/billing/BillingModule.jsx
 import React from 'react';
-import { FileText, Search, CalendarDays, Loader, AlertTriangle, X } from 'lucide-react';
+import { FileText, Search, CalendarDays, Loader, AlertTriangle, X, ShieldAlert } from 'lucide-react';
 import SectionHeader from '../common/SectionHeader';
 import BillingList from './BillingList';
 import { useFacseg, intToInput, inputToInt } from '../../hooks/useFacseg';
@@ -12,13 +12,14 @@ const BillingModule = () => {
     fechaHasta, setFechaHasta,
     hoy,
     data, total, loading, error, buscado,
+    sinAcceso,
     buscar, limpiar,
   } = useFacseg();
 
   const rucValido           = ruc.trim().length >= 7 && ruc.trim().length <= 11;
   const esFiltroFechaActivo = fechaDesde !== hoy || fechaHasta !== hoy;
 
-  const handleKeyDown  = (e) => { if (e.key === 'Enter' && rucValido) buscar(); };
+  const handleKeyDown    = (e) => { if (e.key === 'Enter' && rucValido) buscar(); };
   const handleResetFecha = () => { setFechaDesde(hoy); setFechaHasta(hoy); };
 
   return (
@@ -30,7 +31,7 @@ const BillingModule = () => {
         showButton={false}
       />
 
-      {/* ── Panel de filtros ──────────────────────────────────────────── */}
+      {/* ── Panel de filtros ────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl shadow-sm p-6">
         <div className="flex flex-wrap items-end gap-4">
 
@@ -131,7 +132,7 @@ const BillingModule = () => {
           )}
         </div>
 
-        {/* Error */}
+        {/* Error genérico */}
         {error && (
           <div className="mt-4 flex items-center gap-2 p-3 bg-red-50 border border-red-200
             rounded-lg text-red-700 text-sm">
@@ -139,10 +140,38 @@ const BillingModule = () => {
             {error}
           </div>
         )}
+
+        {/* Sin acceso a cartera / Sin documentos en fechas */}
+        {buscado && !error && total === 0 && (
+          <div className="mt-4 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <ShieldAlert className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-red-800 text-sm">
+                {sinAcceso
+                  ? 'Cliente no encontrado en tu cartera'
+                  : 'Sin documentos en este período'}
+              </p>
+              <p className="text-red-600 text-xs mt-0.5">
+                {sinAcceso
+                  ? 'Este RUC no pertenece a tu cartera de clientes.'
+                  : 'No se encontraron documentos en el rango de fechas seleccionado.'}
+              </p>
+              {/* Sugerencia de ampliar fechas solo cuando no es problema de acceso */}
+              {!sinAcceso && esFiltroFechaActivo && (
+                <button
+                  onClick={handleResetFecha}
+                  className="mt-2 text-xs text-blue-600 underline hover:text-blue-800"
+                >
+                  Volver a hoy
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* ── Lista de resultados ───────────────────────────────────────── */}
-      {buscado && (
+      {/* ── Lista: solo si tiene acceso y hay documentos ──────────────── */}
+      {buscado && !sinAcceso && total > 0 && (
         <BillingList
           data={data}
           total={total}

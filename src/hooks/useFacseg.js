@@ -28,6 +28,7 @@ export const useFacseg = () => {
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState(null);
   const [buscado,    setBuscado]    = useState(false);
+  const [sinAcceso,  setSinAcceso]  = useState(false); // ← NUEVO
 
   const buscar = useCallback(async () => {
     const rucTrim = ruc.trim();
@@ -36,24 +37,25 @@ export const useFacseg = () => {
       return;
     }
     setError(null);
+    setSinAcceso(false); // ← reset antes de cada búsqueda
     setLoading(true);
     try {
-      const { total, data } = await facsegService.getFacseg(
-        rucTrim,
-        fechaDesde,
-        fechaHasta
-      );
-      setData(data);
-      setTotal(total);
-      setBuscado(true);
-    } catch (err) {
-      setError(err.response?.data?.error || 'Error al consultar');
-      setData([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [ruc, fechaDesde, fechaHasta]);
+    const { total, data, sinAcceso } = await facsegService.getFacseg(
+      rucTrim, fechaDesde, fechaHasta
+    );
+    setData(data);
+    setTotal(total);
+    setBuscado(true);
+    setSinAcceso(sinAcceso ?? false); // ← viene del backend, NO calculado localmente
+  } catch (err) {
+    setError(err.response?.data?.error || 'Error al consultar');
+    setData([]);
+    setTotal(0);
+    setSinAcceso(false);
+  } finally {
+    setLoading(false);
+  }
+}, [ruc, fechaDesde, fechaHasta]);
 
   const limpiar = useCallback(() => {
     setRuc('');
@@ -63,6 +65,7 @@ export const useFacseg = () => {
     setTotal(0);
     setError(null);
     setBuscado(false);
+    setSinAcceso(false); // ← reset al limpiar
   }, [hoy]);
 
   return {
@@ -73,6 +76,7 @@ export const useFacseg = () => {
     hoy,
     // resultados
     data, total, loading, error, buscado,
+    sinAcceso, // ← NUEVO
     // acciones
     buscar, limpiar,
   };
