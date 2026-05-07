@@ -172,10 +172,10 @@ export const extractVendorCode = (vendorString) => {
 
 export const extractCorrelativeNumber = (correlativo) => {
   if (!correlativo) return null;
-  const match = String(correlativo).match(/\d{4}$/);
-  return match ? match[0] : null;
+  const match = String(correlativo).match(/COT\d{2}-(\d+)/);
+  return match ? match[1] : null;
+  // 'COT26-000001' → '000001'
 };
-
 // ============================================================
 // PAYLOADS
 // ============================================================
