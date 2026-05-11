@@ -16,4 +16,9 @@ export const facsegService = {
     const res = await api.get(`/facseg?${params.toString()}`);
     return res.data; // { total, data[] }
   },
+
+   searchClientes: async (q) => {
+    const res = await api.get(`/facseg/clientes/search`, { params: { q } });
+    return res.data.data; // [ { ruc, nombre, suc, cvac } ]
+  },
 };

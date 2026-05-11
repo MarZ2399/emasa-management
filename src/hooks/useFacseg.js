@@ -1,5 +1,5 @@
 // src/hooks/useFacseg.js
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { facsegService } from '../services/facseg-service';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -28,8 +28,48 @@ export const useFacseg = () => {
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState(null);
   const [buscado,    setBuscado]    = useState(false);
-  const [sinAcceso,  setSinAcceso]  = useState(false); // ← NUEVO
+  const [sinAcceso,  setSinAcceso]  = useState(false);
 
+  // ── Buscador sensitivo por nombre ──────────────────────────────────────────
+  const [nombreInput,   setNombreInput]   = useState('');
+  const [sugerencias,   setSugerencias]   = useState([]);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  const debounceRef = useRef(null);
+
+  const handleNombreChange = useCallback((texto) => {
+    setNombreInput(texto);
+    setSugerencias([]);
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (texto.trim().length < 2) return;
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        setLoadingSearch(true);
+        const data = await facsegService.searchClientes(texto);
+        setSugerencias(data);
+      } catch (err) {
+        console.error('Error buscando clientes:', err);
+        setSugerencias([]);
+      } finally {
+        setLoadingSearch(false);
+      }
+    }, 350);
+  }, []);
+
+  // Al seleccionar del dropdown → rellena RUC automáticamente
+  const handleSelectCliente = useCallback((cliente) => {
+    setNombreInput(cliente.nombre);
+    setRuc(cliente.ruc);
+    setSugerencias([]);
+  }, []);
+
+  // Cierra el dropdown al perder foco
+  const handleNombreBlur = useCallback(() => {
+    setTimeout(() => setSugerencias([]), 150);
+  }, []);
+
+  // ── Buscar facturas ────────────────────────────────────────────────────────
   const buscar = useCallback(async () => {
     const rucTrim = ruc.trim();
     if (rucTrim.length < 7 || rucTrim.length > 11) {
@@ -37,35 +77,37 @@ export const useFacseg = () => {
       return;
     }
     setError(null);
-    setSinAcceso(false); // ← reset antes de cada búsqueda
+    setSinAcceso(false);
     setLoading(true);
     try {
-    const { total, data, sinAcceso } = await facsegService.getFacseg(
-      rucTrim, fechaDesde, fechaHasta
-    );
-    setData(data);
-    setTotal(total);
-    setBuscado(true);
-    setSinAcceso(sinAcceso ?? false); // ← viene del backend, NO calculado localmente
-  } catch (err) {
-    setError(err.response?.data?.error || 'Error al consultar');
-    setData([]);
-    setTotal(0);
-    setSinAcceso(false);
-  } finally {
-    setLoading(false);
-  }
-}, [ruc, fechaDesde, fechaHasta]);
+      const { total, data, sinAcceso } = await facsegService.getFacseg(
+        rucTrim, fechaDesde, fechaHasta
+      );
+      setData(data);
+      setTotal(total);
+      setBuscado(true);
+      setSinAcceso(sinAcceso ?? false);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error al consultar');
+      setData([]);
+      setTotal(0);
+      setSinAcceso(false);
+    } finally {
+      setLoading(false);
+    }
+  }, [ruc, fechaDesde, fechaHasta]);
 
   const limpiar = useCallback(() => {
     setRuc('');
+    setNombreInput('');      // ← también limpia el nombre
+    setSugerencias([]);      // ← también limpia sugerencias
     setFechaDesde(hoy);
     setFechaHasta(hoy);
     setData([]);
     setTotal(0);
     setError(null);
     setBuscado(false);
-    setSinAcceso(false); // ← reset al limpiar
+    setSinAcceso(false);
   }, [hoy]);
 
   return {
@@ -76,8 +118,15 @@ export const useFacseg = () => {
     hoy,
     // resultados
     data, total, loading, error, buscado,
-    sinAcceso, // ← NUEVO
+    sinAcceso,
     // acciones
     buscar, limpiar,
+    // buscador por nombre
+    nombreInput,
+    sugerencias,
+    loadingSearch,
+    handleNombreChange,
+    handleSelectCliente,
+    handleNombreBlur,
   };
 };
