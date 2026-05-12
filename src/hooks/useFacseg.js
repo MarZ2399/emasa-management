@@ -29,12 +29,17 @@ export const useFacseg = () => {
   const [error,      setError]      = useState(null);
   const [buscado,    setBuscado]    = useState(false);
   const [sinAcceso,  setSinAcceso]  = useState(false);
+ 
 
   // ── Buscador sensitivo por nombre ──────────────────────────────────────────
   const [nombreInput,   setNombreInput]   = useState('');
   const [sugerencias,   setSugerencias]   = useState([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
+  const [rucBuscado, setRucBuscado] = useState('');
+  const [nombreBuscado, setNombreBuscado] = useState('');
   const debounceRef = useRef(null);
+  const rucDesdeSelector = useRef(false);
+   
 
   const handleNombreChange = useCallback((texto) => {
     setNombreInput(texto);
@@ -59,10 +64,18 @@ export const useFacseg = () => {
 
   // Al seleccionar del dropdown → rellena RUC automáticamente
   const handleSelectCliente = useCallback((cliente) => {
+    rucDesdeSelector.current = true; 
     setNombreInput(cliente.nombre);
     setRuc(cliente.ruc);
     setSugerencias([]);
   }, []);
+
+  const handleRucChange = useCallback((valor) => {
+  rucDesdeSelector.current = false;  // el usuario está escribiendo manualmente
+  setRuc(valor.replace(/\D/g, ''));
+  setNombreInput('');                // ✅ limpia razón social al tipear RUC
+  setSugerencias([]);
+}, []);
 
   // Cierra el dropdown al perder foco
   const handleNombreBlur = useCallback(() => {
@@ -78,7 +91,10 @@ export const useFacseg = () => {
     }
     setError(null);
     setSinAcceso(false);
-    setLoading(true);
+     setBuscado(false);   // ✅ AGREGAR — resetea el estado anterior
+  setData([]);         // ✅ AGREGAR — evita mostrar datos viejos
+  setTotal(0);         // ✅ AGREGAR — evita que total=0 dispare la alerta
+  setLoading(true);
     try {
       const { total, data, sinAcceso } = await facsegService.getFacseg(
         rucTrim, fechaDesde, fechaHasta
@@ -87,15 +103,19 @@ export const useFacseg = () => {
       setTotal(total);
       setBuscado(true);
       setSinAcceso(sinAcceso ?? false);
+      setRucBuscado(rucTrim);
+      setNombreBuscado(nombreInput);
+       setBuscado(true);
     } catch (err) {
       setError(err.response?.data?.error || 'Error al consultar');
       setData([]);
       setTotal(0);
       setSinAcceso(false);
+      setBuscado(true); 
     } finally {
       setLoading(false);
     }
-  }, [ruc, fechaDesde, fechaHasta]);
+  }, [ruc, fechaDesde, fechaHasta, nombreInput]);
 
   const limpiar = useCallback(() => {
     setRuc('');
@@ -108,6 +128,8 @@ export const useFacseg = () => {
     setError(null);
     setBuscado(false);
     setSinAcceso(false);
+    setRucBuscado(''); 
+    setNombreBuscado('');
   }, [hoy]);
 
   return {
@@ -128,5 +150,8 @@ export const useFacseg = () => {
     handleNombreChange,
     handleSelectCliente,
     handleNombreBlur,
+    rucBuscado,
+    handleRucChange,
+    nombreBuscado
   };
 };

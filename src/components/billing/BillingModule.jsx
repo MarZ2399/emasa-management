@@ -4,6 +4,7 @@ import { FileText, Search, CalendarDays, Loader2, AlertTriangle, X, ShieldAlert 
 import SectionHeader from '../common/SectionHeader';
 import BillingList from './BillingList';
 import { useFacseg, intToInput, inputToInt } from '../../hooks/useFacseg';
+import AccountStatementPanel from './AccountStatementPanel';
 
 const BillingModule = () => {
   const {
@@ -20,6 +21,9 @@ const BillingModule = () => {
     handleNombreChange,
     handleSelectCliente,
     handleNombreBlur,
+    rucBuscado,
+    handleRucChange,
+    nombreBuscado 
   } = useFacseg();
 
   // ── ref para cerrar dropdown al click afuera ──
@@ -64,7 +68,7 @@ const BillingModule = () => {
                 maxLength={11}
                 placeholder="7 – 11 dígitos"
                 value={ruc}
-                onChange={e => setRuc(e.target.value.replace(/\D/g, ''))}
+                onChange={e => handleRucChange(e.target.value)}
                 onKeyDown={handleKeyDown}
                 className={`w-full pl-10 pr-4 py-2.5 border rounded-lg text-sm
                   focus:ring-2 focus:ring-green-500 focus:border-transparent transition
@@ -222,16 +226,21 @@ const BillingModule = () => {
         )}
       </div>
 
-      {/* ── Lista de resultados ── */}
-      {buscado && !sinAcceso && total > 0 && (
-        <BillingList
-          data={data}
-          total={total}
-          ruc={ruc}
-          esFiltroFechaActivo={esFiltroFechaActivo}
-          onResetFecha={handleResetFecha}
-        />
-      )}
+{/* ── Estado de cuenta ── */}
+{buscado && !loading && !sinAcceso && rucValido && (
+  <AccountStatementPanel ruc={rucBuscado} nombreCliente={nombreBuscado} />
+)}
+
+{/* ── Lista de resultados ── */}
+{buscado && !loading && !sinAcceso && total > 0 && (
+  <BillingList
+    data={data}
+    total={total}
+    ruc={rucBuscado} 
+    esFiltroFechaActivo={esFiltroFechaActivo}
+    onResetFecha={handleResetFecha}
+  />
+)}
     </div>
   );
 };

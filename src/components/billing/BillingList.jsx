@@ -2,7 +2,7 @@
 import React from 'react';
 import { FileText, CalendarDays, ChevronDown, ChevronUp } from 'lucide-react';
 import { buildDocFilename, openPdf, downloadFile, downloadZip } from '../../services/billingDocsService';
-import StatementButton from '../statement/StatementButton';
+
 import Tooltip from '../common/Tooltip';
 import TablePaginator from '../common/TablePaginator';
 import toast from 'react-hot-toast';
@@ -223,22 +223,18 @@ const BillingList = ({ data, total, ruc, esFiltroFechaActivo, onResetFecha }) =>
     <div className="bg-white rounded-2xl shadow-sm p-6">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-gray-500">
-          Mostrando{' '}
-          <strong className="text-gray-800">
-            {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, sorted.length)}
-          </strong>
-          {' '}de <strong className="text-gray-800">{total}</strong> documento(s)
-          {ruc && (
-            <> para RUC <span className="font-semibold text-green-700">{ruc}</span></>
-          )}
-        </p>
-        {/* ← StatementButton deshabilitado si no hay documentos */}
-        {ruc && (
-          <StatementButton ruc={ruc} disabled={!ruc || total === 0} />
-        )}
-      </div>
+      <div className="mb-4">
+  <p className="text-sm text-gray-500">
+    Mostrando{' '}
+    <strong className="text-gray-800">
+      {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, sorted.length)}
+    </strong>
+    {' '}de <strong className="text-gray-800">{total}</strong> documento(s)
+    {ruc && (
+      <> para RUC <span className="font-semibold text-green-700">{ruc}</span></>
+    )}
+  </p>
+</div>
 
       <div className="border border-gray-200 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
