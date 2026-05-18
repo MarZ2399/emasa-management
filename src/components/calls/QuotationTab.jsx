@@ -112,6 +112,21 @@ const handleRegister = async () => {
     toast.error('Debe seleccionar un cliente válido', { position: 'top-right' });
     return;
   }
+  // ✅ Validar stock antes de registrar
+  const itemsConStockExcedido = quotationItems.filter(item => {
+    const maxStock = item.stock || 0;
+    return maxStock > 0 && Number(item.quantity) > maxStock;
+  });
+
+  if (itemsConStockExcedido.length > 0) {
+    itemsConStockExcedido.forEach(item => {
+      toast.error(
+        `"${item.codigo}": cantidad (${item.quantity}) supera el stock disponible (${item.stock}).`,
+        { position: 'top-right', duration: 5000, icon: '🚫' }
+      );
+    });
+    return;
+  }
 
   setIsRegistering(true);
 
@@ -372,18 +387,50 @@ const handleRegister = async () => {
                     </td>
 
                     <td style={{ width: 70 }} className="p-4 text-center">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={item.quantity ?? ''}
-                        onChange={e => {
-                          const raw = e.target.value.replace(/\D/g, '');
-                          setItemField(idx, 'quantity', raw);
-                        }}
-                        onBlur={() => normalizeItemAtIndex(idx)}
-                        className="w-16 bg-blue-50 border border-blue-200 rounded px-2 py-1 text-center font-bold focus:ring-1 focus:ring-blue-400 outline-none"
-                      />
-                    </td>
+  <input
+    type="text"
+    inputMode="numeric"
+    value={item.quantity ?? ''}
+    onChange={e => {
+      const raw      = e.target.value.replace(/\D/g, '');
+      const maxStock = item.stock || 0;
+
+      if (raw === '') {
+        setItemField(idx, 'quantity', '');
+        return;
+      }
+
+      const num = Number(raw);
+
+      // ✅ Validación en tiempo real — restaura a cantidadOriginal
+      if (maxStock > 0 && num > maxStock) {
+        const cantidadRestaurada = item.cantidadOriginal ?? 1;
+        toast.error(
+          <span>
+            Stock insuficiente para <strong>"{item.codigo}"</strong>.<br/>
+            Solo hay <strong>{maxStock} unid.</strong> disponibles.<br/>
+            Se restauró la cantidad a <strong>{cantidadRestaurada}</strong>.
+          </span>,
+          { position: 'top-right', duration: 5000, icon: '📦' }
+        );
+        setItemField(idx, 'quantity', cantidadRestaurada);
+        normalizeItemAtIndex(idx);
+        return;
+      }
+
+      setItemField(idx, 'quantity', raw);
+    }}
+    onBlur={() => {
+      // Solo normaliza vacío — stock ya validado en onChange
+      const raw = item.quantity;
+      if (raw === '' || raw == null || Number(raw) === 0) {
+        setItemField(idx, 'quantity', item.cantidadOriginal ?? 1);
+      }
+      normalizeItemAtIndex(idx);
+    }}
+    className="w-16 bg-blue-50 border border-blue-200 rounded px-2 py-1 text-center font-bold focus:ring-1 focus:ring-blue-400 outline-none"
+  />
+</td>
 
                     <td style={{ width: 120 }} className="p-3 text-right text-blue-900 font-bold whitespace-nowrap">
                       {currencySymbol} {precioNetoTotal.toFixed(3)}

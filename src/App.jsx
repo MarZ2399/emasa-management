@@ -63,6 +63,7 @@ const App = () => {
         position="top-right"
         reverseOrder={false}
         gutter={8}
+        containerStyle={{ zIndex: 99999 }} //agregado por el modal de nuevo registro
         toastOptions={{
           duration: 3000,
           style: {

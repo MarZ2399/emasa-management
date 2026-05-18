@@ -323,6 +323,7 @@ const ProductsTab = ({
     onAddToQuotation({
       ...product,
       quantity:       qty,
+      cantidadOriginal: qty,
       discount1:      qa.preciosData.descuentos?.de01 || 0,
       discount5,
       precioLista:    qa.preciosData.importes?.ldol || product.precioNetoDolar,
@@ -632,25 +633,50 @@ const ProductsTab = ({
                           </td>
 
                           <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
-                            <PriceCell qa={qa}>
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                value={qa?.quantity ?? ''}
-                                onChange={e => {
-                                  const raw = e.target.value.replace(/\D/g, '');
-                                  updateProductQuick(product.codigo, { quantity: raw });
-                                }}
-                                onBlur={() => {
-                                  const current = product.quick?.quantity;
-                                  const val = current === '' || current == null ? 1
-                                    : Math.min(product.stock || 9999, Math.max(1, Number(current) || 1));
-                                  updateProductQuick(product.codigo, { quantity: val });
-                                }}
-                                className="w-14 text-center text-sm font-bold border border-green-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-green-400 outline-none bg-white"
-                              />
-                            </PriceCell>
-                          </td>
+  <PriceCell qa={qa}>
+    <input
+      type="text"
+      inputMode="numeric"
+      value={qa?.quantity === 0 ? '' : (qa?.quantity ?? '')}
+      onChange={e => {
+        const raw      = e.target.value.replace(/\D/g, '');
+        const maxStock = product.stock || 0;
+
+        if (raw === '') {
+          updateProductQuick(product.codigo, { quantity: '' });
+          return;
+        }
+
+        const clean = String(Number(raw));   // "03" → "3", "01" → "1"
+  const num   = Number(clean);
+
+        // ✅ Validación en tiempo real — restaura a 0 si supera stock
+        if (maxStock > 0 && num > maxStock) {
+          toast.error(
+            <span>
+              Stock insuficiente para <strong>"{product.codigo}"</strong>.<br/>
+              Solo hay <strong>{maxStock} unid.</strong> disponibles.<br/>
+              Se restauró la cantidad a <strong>0</strong>.
+            </span>,
+            { position: 'top-right', duration: 5000, icon: '📦' }
+          );
+          updateProductQuick(product.codigo, { quantity: 0 });
+          return;
+        }
+
+        updateProductQuick(product.codigo, { quantity: raw });
+      }}
+      onBlur={() => {
+        // Solo normaliza vacío — sin lógica de stock (ya se validó en onChange)
+        const current = product.quick?.quantity;
+        if (current === '' || current == null || Number(current) === 0) {
+    updateProductQuick(product.codigo, { quantity: '' });
+        }
+      }}
+      className="w-14 text-center text-sm font-bold border border-green-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-green-400 outline-none bg-white"
+    />
+  </PriceCell>
+</td>
 
                           <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
                             <PriceCell qa={qa}>
