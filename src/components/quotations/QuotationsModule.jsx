@@ -230,6 +230,8 @@ console.log('üîç forma_pago RAW:', response.data[0]?.forma_pago);         // ‚Ü
           currency:         cabecera.monedc === 'USD' || cabecera.monedc === 2 ? 'USD' : 'PEN',
           tipoCambio:       cabecera.tcvta || 3.75,
           formaPago:        cabecera.forpag || 'ADE',
+          cod_alm: cabecera.cod_alm ?? null,
+  codnum_alm: cabecera.codnum_alm ?? null,
           productos,
           subtotal, igv, total,
           observaciones:          cabecera.observaciones || '',

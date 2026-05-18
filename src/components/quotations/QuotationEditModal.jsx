@@ -15,7 +15,7 @@ import {
 import toast from 'react-hot-toast';
 import ProductSelectorModal from '../products/ProductSelectorModal';
 import { precioService } from '../../services/precioService';
-
+import { productService } from '../../services/productService'; 
 
 const IGV_RATE = 0.18;
 
@@ -57,7 +57,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
           p.precioNeto ??
           0
         );
-        return { ...p, dola };
+        return { ...p, dola, cantidadOriginal: p.quantity || p.cantidad || 1,  };
       }),
       observaciones:          quotation.observaciones          || '',
       observacionesCreditos:  quotation.observacionesCreditos  || '',
@@ -92,10 +92,60 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
               // dola fresco — solo como base interna de recálculo futuro
               const dola = Number(importes.dola ?? p.dola ?? p.precioNeto ?? 0);
 
+               // ✅ Traer stock real del almacén de la cotización
+            let stockDisponible = (p.stock !== undefined && p.stock !== null) ? p.stock : null;
+
+if (stockDisponible === null) {
+  try {
+    const codAlmacenTxt = String(
+  quot.cod_alm ?? p.warehouse ?? ''
+).trim().toUpperCase();
+
+const codAlmacenNum = String(
+  quot.codnum_alm ?? p.codnum_alm ?? p.codNumAlmacen ?? ''
+).trim();
+
+const stockRes = await productService.searchByCodigo(p.codigo?.trim());
+
+if (stockRes.success && stockRes.data?.length > 0) {
+  const prod = stockRes.data[0];
+  const stockArr = Array.isArray(prod.stock) ? prod.stock : [];
+
+  const almacenStock = stockArr.find(s => {
+    const txt = String(s.almacencod ?? '').trim().toUpperCase();
+    const num = String(s.almacencod2 ?? '').trim();
+
+    return (
+      (codAlmacenTxt && txt === codAlmacenTxt) ||
+      (codAlmacenNum && num === codAlmacenNum)
+    );
+  });
+
+  stockDisponible = Number(almacenStock?.stock ?? almacenStock?.cantidad ?? 0);
+
+  console.log('📦 Stock resuelto en edición:', {
+    producto: p.codigo,
+    codAlmacenTxt,
+    codAlmacenNum,
+    almacenEncontrado: almacenStock,
+    stockDisponible,
+  });
+} else {
+  stockDisponible = 0;
+}
+  } catch (stockErr) {
+    console.error(`❌ Error obteniendo stock de ${p.codigo}:`, stockErr); // 🔍 log temporal
+    stockDisponible = 0;
+  }
+}
+
               return {
                 ...p,       //  todos los datos visibles guardados intactos
                 dola,       //  base de cálculo interna actualizada
+                stock: stockDisponible,
+                cantidadOriginal: p.cantidadOriginal ?? p.quantity ?? p.cantidad ?? 1,
                 preciosDetalle: { flag, descuentos, importes, costos }, //  activa flags
+                
               };
             }
             return p; // Si falla ese producto, lo deja sin cambios
@@ -262,8 +312,13 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
 
         flag:           product.flag           || '',
         preciosDetalle: product.preciosDetalle || null,
+        stock: product.stockDisponible ?? product.stock ?? 0,
 
         subtotal: Number((precioNeto * qtyDefault).toFixed(2)),
+
+        warehouse: product.warehouse ?? formData.cod_alm ?? null,
+codnum_alm: product.codnum_alm ?? product.codNumAlmacen ?? formData.codnum_alm ?? null,
+codNumAlmacen: product.codNumAlmacen ?? product.codnum_alm ?? formData.codnum_alm ?? null,
       };
 
       const products      = [...prev.productos, newProduct];
@@ -308,7 +363,15 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
         newErrors[`producto_${i}_d5`] = `Ítem ${i + 1}: no permite descuento adicional.`;
       if (flagT && (d5 < minD5 || d5 > maxD5))
         newErrors[`producto_${i}_d5`] = `Ítem ${i + 1}: 5to descuento debe estar entre ${minD5}% y ${maxD5}%.`;
+
+      const maxStock = p.stock || 0;
+    const qty      = Number(p.quantity || p.cantidad) || 0;
+    if (maxStock > 0 && qty > maxStock)
+      newErrors[`producto_${i}_stock`] = `Ítem ${i + 1} (${p.codigo}): cantidad (${qty}) supera el stock disponible (${maxStock}).`;
+  
     });
+
+    
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -460,7 +523,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
             </div>
 
             {/* Observaciones */}
-            <div className="border border-gray-200 rounded-lg p-5 space-y-4">
+            {/* <div className="border border-gray-200 rounded-lg p-5 space-y-4">
               <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-gray-700" />
                 Observaciones
@@ -495,7 +558,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none text-sm"
                 />
               </div>
-            </div>
+            </div> */}
 
             {/* Tabla de productos */}
             <div className="border border-gray-200 rounded-lg">
@@ -654,24 +717,54 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                           </td>
 
                           {/* Cantidad */}
-                          <td className="px-3 py-2 text-right">
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={qty === 0 || qty === null ? '' : String(qty)}
-                              onChange={e => {
-                                const raw = e.target.value.replace(/\D/g, '');
-                                handleProductChange(index, 'quantity', raw === '' ? '' : raw);
-                              }}
-                              onBlur={() => {
-                                const current = p.quantity;
-                                if (current === '' || current == null) {
-                                  handleProductChange(index, 'quantity', 1);
-                                }
-                              }}
-                              className="w-16 px-2 py-1 border border-blue-200 rounded text-right text-xs bg-blue-50 font-bold focus:ring-1 focus:ring-blue-400 outline-none"
-                            />
-                          </td>
+<td className="px-3 py-2 text-right">
+  <div className="flex flex-col items-end gap-0.5">
+    <input
+      type="text"
+      inputMode="numeric"
+      value={qty === 0 || qty === null ? '' : String(qty)}
+      onChange={e => {
+  const raw      = e.target.value.replace(/\D/g, '');
+  const maxStock = p.stock ?? 0;
+
+  if (raw === '') {
+    handleProductChange(index, 'quantity', '');
+    return;
+  }
+
+  const num = Number(raw);
+
+  // ✅ Si sobrepasa stock → restaurar a cantidad original, no al máximo
+  if (maxStock > 0 && num > maxStock) {
+    const cantidadRestaurada = p.cantidadOriginal ?? 1;
+    toast.error(
+      `Stock insuficiente para "${p.codigo}". Solo hay ${maxStock} unid. disponibles. Se restauró la cantidad a ${cantidadRestaurada}.`,
+      { position: 'top-right', duration: 5000, icon: '📦' }
+    );
+    handleProductChange(index, 'quantity', cantidadRestaurada);
+    return;
+  }
+
+  handleProductChange(index, 'quantity', raw);
+}}
+      onBlur={e => {
+        // Solo normaliza vacío a 1 — sin lógica de stock (ya se validó en onChange)
+        const raw = e.target.value.replace(/\D/g, '');
+        if (raw === '' || Number(raw) === 0) {
+          handleProductChange(index, 'quantity', 1);
+        }
+      }}
+      className={`w-16 px-2 py-1 border rounded text-right text-xs font-bold focus:ring-1 outline-none ${
+        errors[`producto_${index}_stock`]
+          ? 'border-red-400 bg-red-50 text-red-700 focus:ring-red-400'
+          : 'border-blue-200 bg-blue-50 focus:ring-blue-400'
+      }`}
+    />
+    {errors[`producto_${index}_stock`] && (
+      <span className="text-[10px] text-red-600 font-semibold">Máx: {p.stock}</span>
+    )}
+  </div>
+</td>
 
                           {/* P. Neto Total */}
                           <td className="px-3 py-2 text-right text-blue-800 font-bold text-xs">
