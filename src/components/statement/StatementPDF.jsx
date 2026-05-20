@@ -231,103 +231,112 @@ export const generateStatementPDF = async (ruc, rawData) => {
     footStyles: { fillColor: [240, 240, 240], textColor: CORPORATE_BLUE }
   });
 
-  // ── 4. Footer Fijo ────────────────────────────────────────────────────────
-  let footerY = PH - 85;
+// ── 4. Footer dinámico ─────────────────────────────────────────────────────
+const FOOTER_HEIGHT       = 88;
+const MARGIN_AFTER_TABLE  = 8;
 
-  doc.setFontSize(7.5);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...BLACK);
-  doc.text('IMPORTANTE: Para consultas referente a la información brindada comunicarse con su ejecutiva de cartera.', ML, footerY);
-  
-  footerY += 5;
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text('Ejecutivas de Cartera:', ML, footerY);
-  
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...BLACK);
+const tableEndY = doc.lastAutoTable?.finalY ?? curY;
+const footerFitsOnSamePage =
+  (tableEndY + MARGIN_AFTER_TABLE + FOOTER_HEIGHT) <= (PH - 10);
 
-  footerY += 5;
-  doc.setFont('helvetica', 'bold');
-  doc.text('Clientes Lima, Diesel y Cuentas Clave:', ML, footerY);
-  doc.setFont('helvetica', 'normal');
-  const cont1Val = [cli.contacto1, cli.rpc1, cli.emailC1].filter(Boolean).join(' - ') || '—';
-  doc.text(` ${cont1Val}`, ML + 50, footerY);
+let footerY;
+if (footerFitsOnSamePage) {
+  footerY = tableEndY + MARGIN_AFTER_TABLE;
+} else {
+  doc.addPage();
+  footerY = 20;
+}
 
-  footerY += 4;
-  doc.setFont('helvetica', 'bold');
-  doc.text('Clientes Provincia y Televentas:', ML, footerY);
-  doc.setFont('helvetica', 'normal');
-  const cont2Val = [cli.contacto2, cli.rpc2, cli.emailC2].filter(Boolean).join(' - ') || '—';
-  doc.text(` ${cont2Val}`, ML + 42, footerY);
+// — IMPORTANTE ─────────────────────────────────────────────────────────────
+doc.setFontSize(7.5);
+doc.setFont('helvetica', 'bold');
+doc.setTextColor(...BLACK);
+doc.text(
+  'IMPORTANTE: Para consultas referente a la información brindada comunicarse con su ejecutiva de cartera.',
+  ML, footerY
+);
 
-  footerY += 4;
-  doc.setFont('helvetica', 'bold');
-  doc.text('Clientes Redes y Talleres y GGSS:', ML, footerY);
-  doc.setFont('helvetica', 'normal');
-  const cont3Val = [cli.contacto3, cli.rpc3, cli.emailC3].filter(Boolean).join(' - ') || '—';
-  doc.text(` ${cont3Val}`, ML + 45, footerY);
+footerY += 5;
+doc.setTextColor(...CORPORATE_BLUE);
+doc.text('Ejecutivas de Cartera:', ML, footerY);
 
-  footerY += 8;
-  doc.text('Si a la fecha de recepción de este estado de cuenta usted ya canceló alguna obligación que figure como pendiente, sírvase omitirla.', ML, footerY);
+doc.setFont('helvetica', 'normal');
+doc.setTextColor(...BLACK);
 
-  // ── Bloque de Cuentas Corrientes ─────────────────────────────────────────
-  // ── Bloque de Cuentas Corrientes ─────────────────────────────────────────
-  footerY += 10;
+footerY += 5;
+doc.setFont('helvetica', 'bold');
+doc.text('Clientes Lima, Diesel y Cuentas Clave:', ML, footerY);
+doc.setFont('helvetica', 'normal');
+const cont1Val = [cli.contacto1, cli.rpc1, cli.emailC1].filter(Boolean).join(' - ') || '—';
+doc.text(` ${cont1Val}`, ML + 50, footerY);
 
-  // Margen simétrico explícito — debe coincidir con ML y MR del PDF
-  const BL = ML;                    // margen izquierdo = 10mm
-  const BR = MR;                    // margen derecho   = 10mm
-  const totalW  = PW - BL - BR;     // ancho total disponible = 190mm
-  const colW    = totalW / 3;       // cada columna = ~63.3mm
+footerY += 4;
+doc.setFont('helvetica', 'bold');
+doc.text('Clientes Provincia y Televentas:', ML, footerY);
+doc.setFont('helvetica', 'normal');
+const cont2Val = [cli.contacto2, cli.rpc2, cli.emailC2].filter(Boolean).join(' - ') || '—';
+doc.text(` ${cont2Val}`, ML + 42, footerY);
 
-  const col1X = BL;
-  const col2X = BL + colW;
-  const col3X = BL + colW * 2;
+footerY += 4;
+doc.setFont('helvetica', 'bold');
+doc.text('Clientes Redes y Talleres y GGSS:', ML, footerY);
+doc.setFont('helvetica', 'normal');
+const cont3Val = [cli.contacto3, cli.rpc3, cli.emailC3].filter(Boolean).join(' - ') || '—';
+doc.text(` ${cont3Val}`, ML + 45, footerY);
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(...BLACK);
-  doc.text('Cuentas Corrientes Autorex Peruana S.A.', BL, footerY);
+footerY += 8;
+doc.text(
+  'Si a la fecha de recepción de este estado de cuenta usted ya canceló alguna obligación que figure como pendiente, sírvase omitirla.',
+  ML, footerY
+);
 
-  footerY += 5;
+// — Cuentas Corrientes ─────────────────────────────────────────────────────
+footerY += 10;
 
-  // ── Col 1
-  doc.setFontSize(6);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text('BANCO DE CREDITO DEL PERU (CTA. RECAUDADORA)', col1X, footerY);
-  doc.setTextColor(...BLACK);
-  doc.setFontSize(6);
-  doc.text('MN: 193-0049600-0-09 / CCI: 002-193-000049600009-12', col1X, footerY + 3.5);
-  doc.text('ME: 193-0782860-1-85 / CCI: 002-193-000782860185-11', col1X, footerY + 6.5);
+const BL     = ML;
+const BR     = MR;
+const totalW = PW - BL - BR;
+const colW   = totalW / 3;
 
-  // ── Col 2
-  doc.setFontSize(6);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text('BANCO CONTINENTAL', col2X, footerY);
-  doc.setTextColor(...BLACK);
-  doc.setFontSize(6);
-  doc.text('MN: 0011-0910-01-00003756-72 / CCI: 011-910-00010000375672', col2X, footerY + 3.5);
-  doc.text('ME: 0011-0910-01-00045831-73 / CCI: 011-910-00010004583173', col2X, footerY + 6.5);
+const col1X = BL;
+const col2X = BL + colW;
+const col3X = BL + colW * 2;
 
-  // ── Col 3
-  doc.setFontSize(6);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text('BANCO INTERBANK', col3X + 10, footerY);
-  doc.setTextColor(...BLACK);
-  doc.setFontSize(6);
-  doc.text('MN: 417-3001389013 / CCI: 003-417-003001389013-39', col3X + 10, footerY + 3.5);
-  doc.text('ME: 417-3001389020 / CCI: 003-417-003001389020-34', col3X + 10, footerY + 6.5);
+doc.setFont('helvetica', 'bold');
+doc.setFontSize(8);
+doc.setTextColor(...BLACK);
+doc.text('Cuentas Corrientes Autorex Peruana S.A.', BL, footerY);
 
-  footerY += 15;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6);
-  doc.setTextColor(...BLACK);
-  // ← Este texto también debe partir desde BL para quedar alineado
-  doc.text(
-    'LA EMPRESA NO SE RESPONSABILIZA DEL DINERO ENTREGADO AL VENDEDOR ASIGNADO PARA EL PAGO DE LA DEUDA.',
-    BL, footerY
-  );
+footerY += 5;
 
-  // ── Descarga Directa ──────────────────────────────────────────────────────
-  doc.save(`ec${ruc}.pdf`);
+doc.setFontSize(6);
+doc.setTextColor(...CORPORATE_BLUE);
+doc.text('BANCO DE CREDITO DEL PERU (CTA. RECAUDADORA)', col1X, footerY);
+doc.setTextColor(...BLACK);
+doc.text('MN: 193-0049600-0-09 / CCI: 002-193-000049600009-12', col1X, footerY + 3.5);
+doc.text('ME: 193-0782860-1-85 / CCI: 002-193-000782860185-11', col1X, footerY + 6.5);
+
+doc.setTextColor(...CORPORATE_BLUE);
+doc.text('BANCO CONTINENTAL', col2X, footerY);
+doc.setTextColor(...BLACK);
+doc.text('MN: 0011-0910-01-00003756-72 / CCI: 011-910-00010000375672', col2X, footerY + 3.5);
+doc.text('ME: 0011-0910-01-00045831-73 / CCI: 011-910-00010004583173', col2X, footerY + 6.5);
+
+doc.setTextColor(...CORPORATE_BLUE);
+doc.text('BANCO INTERBANK', col3X + 10, footerY);
+doc.setTextColor(...BLACK);
+doc.text('MN: 417-3001389013 / CCI: 003-417-003001389013-39', col3X + 10, footerY + 3.5);
+doc.text('ME: 417-3001389020 / CCI: 003-417-003001389020-34', col3X + 10, footerY + 6.5);
+
+footerY += 15;
+doc.setFont('helvetica', 'bold');
+doc.setFontSize(6);
+doc.setTextColor(...BLACK);
+doc.text(
+  'LA EMPRESA NO SE RESPONSABILIZA DEL DINERO ENTREGADO AL VENDEDOR ASIGNADO PARA EL PAGO DE LA DEUDA.',
+  BL, footerY
+);
+
+// ── Descarga ──────────────────────────────────────────────────────────────
+doc.save(`ec${ruc}.pdf`);
 };

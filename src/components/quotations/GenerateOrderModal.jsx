@@ -11,7 +11,8 @@ import { deliveryTypes, transportZones } from '../../data/ordersData';
 import useTransportistas             from '../../hooks/useTransportistas';
 import useUbigeo                     from '../../hooks/useUbigeo';
 import useClientShippingAddresses    from '../../hooks/useClientShippingAddresses';
-import { transmitOrder }             from '../../services/orderRequestService';
+import { transmitOrder, getOrderPreview }             from '../../services/orderRequestService';
+
 import toast                         from 'react-hot-toast';
 
 
@@ -50,6 +51,8 @@ const forpagOpciones = fpActual && fpActual !== 'ADE' && fpActual !== 'AD2'
   const [errors, setErrors]                       = useState({});
   const [isSubmitting, setIsSubmitting]           = useState(false);
   const isSubmittingRef                           = useRef(false);
+  const [preview, setPreview] = useState(null);
+const [loadingPreview, setLoadingPreview] = useState(false);
 
   const rucCli = String(quotation?.clienteRuc ?? quotation?.ruc ?? '').substring(0, 10);
 
@@ -126,6 +129,28 @@ const forpagOpciones = fpActual && fpActual !== 'ADE' && fpActual !== 'AD2'
       resetUbigeo();
     }
   }, [isOpen, quotation]);
+
+useEffect(() => {
+  if (!isOpen || !quotation?.id) return;
+
+  const loadPreview = async () => {
+    setLoadingPreview(true);
+    try {
+      const data = await getOrderPreview(quotation.id);
+      console.log('🧾 Preview cargado:', data);
+      console.log('🧾 Items payload:', data?.payload?.items);
+      setPreview(data);
+    } catch (error) {
+      console.error('❌ Error cargando preview de pedido:', error);
+      setPreview(null);
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
+  loadPreview();
+}, [isOpen, quotation?.id]);
+
 
   if (!isOpen || !quotation) return null;
 
@@ -221,16 +246,16 @@ const forpagOpciones = fpActual && fpActual !== 'ADE' && fpActual !== 'AD2'
   const validate = () => {
     const newErrors = {};
 
-    if (!formData.fechaEntrega) {
-      newErrors.fechaEntrega = 'Fecha de entrega es requerida';
-    } else {
-      const selectedDate = new Date(formData.fechaEntrega);
-      const tomorrow     = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(0, 0, 0, 0);
-      if (selectedDate < tomorrow)
-        newErrors.fechaEntrega = 'La fecha debe ser a partir de mañana';
-    }
+   if (formData.fechaEntrega) {
+  const selectedDate = new Date(formData.fechaEntrega);
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+
+  if (selectedDate < tomorrow) {
+    newErrors.fechaEntrega = 'La fecha debe ser a partir de mañana';
+  }
+}
 
     if (!formData.pagoTransporte)
       newErrors.pagoTransporte = 'Debe seleccionar responsable de transporte';
@@ -292,6 +317,31 @@ const forpagOpciones = fpActual && fpActual !== 'ADE' && fpActual !== 'AD2'
     }
   };
 
+const quotationProducts = Array.isArray(preview?.payload?.items)
+  ? preview.payload.items
+  : Array.isArray(preview?.items)
+    ? preview.items
+    : Array.isArray(preview?.productos)
+      ? preview.productos
+      : Array.isArray(quotation?.productos)
+        ? quotation.productos
+        : [];
+
+const subtotalDisplay = Number(
+  quotationProducts.reduce((sum, p) => {
+    const qty = Number(p.quantity || p.cantidad || p.qaprbd || p.cantidad || 0);
+    const precioNeto = Number(
+      p.precioNeto ||
+      p.precioUnitario ||
+      ((p.dinet_usd || p.dinets) && qty > 0 ? (p.dinet_usd || p.dinets) / qty : 0)
+    );
+    return sum + (precioNeto * qty);
+  }, 0)
+);
+
+const igvDisplay = subtotalDisplay * 0.18;
+const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (subtotalDisplay + igvDisplay));
+
   const modalContent = (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div
@@ -340,6 +390,131 @@ const forpagOpciones = fpActual && fpActual !== 'ADE' && fpActual !== 'AD2'
             </div>
           </div>
 
+          {/* Productos de la Cotización */}
+<div className="border border-gray-200 rounded-lg overflow-hidden">
+  <div className="px-5 py-4 bg-gray-50 border-b">
+    <h3 className="font-bold text-gray-900 flex items-center gap-2">
+      <Package className="w-5 h-5 text-gray-700" />
+      Productos de la Cotización
+    </h3>
+    <p className="text-sm text-gray-500 mt-1">
+      Vista referencial de los productos incluidos en la cotización
+    </p>
+  </div>
+
+  <div className="overflow-x-auto max-h-72 overflow-y-auto">
+    <table className="min-w-full text-sm">
+      <thead className="bg-gray-100">
+        <tr>
+          <th className="px-3 py-2 text-center font-semibold text-gray-700 w-10">#</th>
+          <th className="px-3 py-2 text-left font-semibold text-gray-700">Código</th>
+          <th className="px-3 py-2 text-left font-semibold text-gray-700">Descripción</th>
+          <th className="px-3 py-2 text-right font-semibold text-gray-700">Precio Lista</th>
+          <th className="px-3 py-2 text-right font-semibold text-gray-700">Dscto 1 (%)</th>
+          <th className="px-3 py-2 text-right font-semibold text-gray-700">Dscto 5 (%)</th>
+          <th className="px-3 py-2 text-right font-semibold text-gray-700">Precio Neto</th>
+          <th className="px-3 py-2 text-right font-semibold text-gray-700">Cant.</th>
+          <th className="px-3 py-2 text-right font-semibold text-gray-700">P. Neto Total</th>
+          <th className="px-3 py-2 text-right font-semibold text-gray-700">IGV ($)</th>
+          <th className="px-3 py-2 text-right font-semibold text-gray-700">Total</th>
+        </tr>
+      </thead>
+
+     <tbody className="divide-y divide-gray-200 bg-white">
+  {loadingPreview ? (
+  [1, 2].map((row) => (
+    <tr key={row} className="animate-pulse">
+      {Array.from({ length: 11 }).map((_, i) => (
+        <td key={i} className="px-3 py-3">
+          <div className="h-4 bg-gray-200 rounded w-full" />
+        </td>
+      ))}
+    </tr>
+  ))
+) : quotationProducts.length === 0 ? (
+  <tr>
+    <td colSpan="11" className="px-4 py-10 text-center text-gray-500 text-sm">
+      No se encontraron productos en la cotización.
+    </td>
+  </tr>
+) : (
+  quotationProducts.map((p, index) => {
+    const qty = Number(p.quantity || p.cantidad || 0);
+    const precioLista = Number(p.precioLista || 0);
+    const discount1 = Number(p.discount1 || p.descuentos?.[0] || 0);
+    const discount5 = Number(p.discount5 || p.descuentos?.[4] || 0);
+    const precioNeto = Number(p.precioNeto || 0);
+    const netoTotal = precioNeto * qty;
+    const igv = netoTotal * 0.18;
+    const total = netoTotal + igv;
+
+    return (
+      <tr key={p.id || `${p.codigo}-${index}`} className="hover:bg-gray-50">
+        <td className="px-3 py-2 text-center text-gray-500 font-semibold">
+          {index + 1}
+        </td>
+        <td className="px-3 py-2 text-gray-900 font-medium whitespace-nowrap">
+          {p.codigo || '-'}
+        </td>
+        <td className="px-3 py-2 text-gray-800 min-w-[240px]">
+          {p.descripcion || p.nombre || p.codigo || '-'}
+        </td>
+        <td className="px-3 py-2 text-right text-gray-700">
+          ${precioLista.toFixed(3)}
+        </td>
+        <td className="px-3 py-2 text-right text-indigo-700 font-semibold">
+          {discount1.toFixed(2)}
+        </td>
+        <td className="px-3 py-2 text-right text-orange-700 font-semibold">
+          {discount5.toFixed(2)}
+        </td>
+        <td className="px-3 py-2 text-right text-emerald-700 font-semibold">
+          ${precioNeto.toFixed(3)}
+        </td>
+        <td className="px-3 py-2 text-right text-blue-700 font-bold">
+          {qty}
+        </td>
+        <td className="px-3 py-2 text-right text-blue-800 font-semibold">
+          ${netoTotal.toFixed(2)}
+        </td>
+        <td className="px-3 py-2 text-right text-yellow-700 font-semibold">
+          ${igv.toFixed(2)}
+        </td>
+        <td className="px-3 py-2 text-right text-red-700 font-bold">
+          ${total.toFixed(2)}
+        </td>
+      </tr>
+    );
+  })
+)}
+</tbody>
+    </table>
+  </div>
+
+  <div className="flex justify-end p-4 bg-gray-50 border-t">
+    <div className="space-y-1 w-full max-w-xs bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+      <div className="flex items-center justify-between text-sm">
+        <span className="font-medium text-gray-700">Subtotal:</span>
+        <span className="font-semibold text-gray-900">
+          ${subtotalDisplay.toFixed(2)}
+        </span>
+      </div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="font-medium text-gray-700">IGV (18%):</span>
+        <span className="font-semibold text-yellow-700">
+          ${igvDisplay.toFixed(2)}
+        </span>
+      </div>
+      <div className="flex items-center justify-between text-base border-t pt-2 mt-2">
+        <span className="font-bold text-gray-900">Total:</span>
+        <span className="font-extrabold text-emerald-700 text-lg">
+          ${totalDisplay.toFixed(2)}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
           {/* Sección 1: Datos de la Orden */}
           <div className="border border-gray-200 rounded-lg p-5">
             <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -362,7 +537,7 @@ const forpagOpciones = fpActual && fpActual !== 'ADE' && fpActual !== 'AD2'
               </div>
 
               {/* Fecha de Entrega */}
-              <div>
+              {/* <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Fecha de Entrega <span className="text-red-500">*</span>
                 </label>
@@ -383,7 +558,7 @@ const forpagOpciones = fpActual && fpActual !== 'ADE' && fpActual !== 'AD2'
                     <AlertCircle className="w-3 h-3" />{errors.fechaEntrega}
                   </p>
                 )}
-              </div>
+              </div> */}
 
               {/*  Forma de Pago */}
               <div>
