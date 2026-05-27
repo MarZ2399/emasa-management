@@ -185,11 +185,11 @@ const FindStockProduct = () => {
   // ── Filtrado local sobre allRows ───────────────────────────────────────
   const filtered = useMemo(() => {
     return allRows.filter(row => {
-      const matchCodigo  = !filtros.codigo      || row.codProd.toUpperCase().includes(filtros.codigo.toUpperCase());
-      const matchDesc    = !filtros.descripcion || row.mercaderia.toUpperCase().includes(filtros.descripcion.toUpperCase());
+      // const matchCodigo  = !filtros.codigo      || row.codProd.toUpperCase().includes(filtros.codigo.toUpperCase());
+      // const matchDesc    = !filtros.descripcion || row.mercaderia.toUpperCase().includes(filtros.descripcion.toUpperCase());
       const matchCore    = !filtros.core        || row.core === filtros.core;
       const matchAlmacen = !filtros.almacen     || row.codAlmc === filtros.almacen; //  NUEVO
-      return matchCodigo && matchDesc && matchCore && matchAlmacen;
+      return matchCore && matchAlmacen; //matchCodigo && matchDesc && 
     });
   }, [allRows, filtros]);
 

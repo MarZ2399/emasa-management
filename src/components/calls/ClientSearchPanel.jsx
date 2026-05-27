@@ -333,10 +333,10 @@ const handleSelectSuggestion = async (cliente) => {
               { label: 'Venta Actual (Mes)', value: clientData.ventaActual || 'N/A' },
               { label: 'Venta Anterior', value: clientData.ventaAnterior || 'N/A' },
               { label: 'Promedio Vtas (Últ. 3 meses)', value: clientData.promedioVtas20212025 || 'N/A' },
-              { label: 'Promedio Vtas 2025', value: clientData.promedioVtas2025 || 'N/A' },
-              { label: 'Meses con Vtas 2025', value: clientData.mesesConVtas2025 || 'N/A' },
-              { label: 'Promedio Vtas (2021-2025)', value: clientData.promedioVtas20212025 || 'N/A' },
-              { label: 'Meses con Vtas (2021-2025)', value: clientData.mesesConVtas20212025 || 'N/A' }
+              { label: 'Promedio Vtas 2026', value: clientData.promedioVtas2025 || 'N/A' },
+              { label: 'Meses con Vtas 2026', value: clientData.mesesConVtas2025 || 'N/A' },
+              { label: 'Promedio Vtas (2021-2026)', value: clientData.promedioVtas20212025 || 'N/A' },
+              { label: 'Meses con Vtas (2021-2026)', value: clientData.mesesConVtas20212025 || 'N/A' }
             ]}
           />
         </div>
