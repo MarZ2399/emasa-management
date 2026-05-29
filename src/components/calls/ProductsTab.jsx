@@ -382,7 +382,11 @@ const ProductsTab = ({
     });
 
     toast.success(`"${product.codigo}" agregado a la cotización`, { position: 'top-right' });
+
+    handleClearSearch();
   };
+
+
 
   const getWarehouseStockStatus = (stock) => {
     if (stock === 0) return { icon: '❌' };
