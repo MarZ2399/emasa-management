@@ -2,7 +2,7 @@
 import api from './api';
 
 /**
- *  Servicio de Cotizaciones
+ * Servicio de Cotizaciones
  * Centraliza todas las llamadas API relacionadas con cotizaciones
  */
 
@@ -87,7 +87,6 @@ export const cancelQuotation = async (id) => {
 // ============================================================
 
 export const formatDateToYYYYMMDD = (date = new Date()) => {
-  //  Si es string "2026-02-23" o "2026-02-23T..." → extraer directo sin new Date()
   if (typeof date === 'string') {
     const clean = date.split('T')[0];
     if (clean.includes('-')) {
@@ -96,10 +95,8 @@ export const formatDateToYYYYMMDD = (date = new Date()) => {
     }
   }
 
-  //  Si ya es número entero → devolver tal cual
   if (typeof date === 'number') return date;
 
-  //  Si es instancia Date (ej: new Date()) → usar getFullYear/getMonth/getDate
   const dateObj = date instanceof Date ? date : new Date();
 
   if (isNaN(dateObj.getTime())) {
@@ -107,13 +104,12 @@ export const formatDateToYYYYMMDD = (date = new Date()) => {
     return parseInt(new Date().toLocaleDateString('sv-SE').replace(/-/g, ''));
   }
 
-  const year  = dateObj.getFullYear();
+  const year = dateObj.getFullYear();
   const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-  const day   = String(dateObj.getDate()).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
 
   return parseInt(`${year}${month}${day}`);
 };
-
 
 export const formatDateToInputValue = (date) => {
   if (!date) return '';
@@ -174,8 +170,58 @@ export const extractCorrelativeNumber = (correlativo) => {
   if (!correlativo) return null;
   const match = String(correlativo).match(/COT\d{2}-(\d+)/);
   return match ? match[1] : null;
-  // 'COT26-000001' → '000001'
 };
+
+const roundTo = (value, decimals = 2) => {
+  const factor = 10 ** decimals;
+  return Math.round((Number(value) + Number.EPSILON) * factor) / factor;
+};
+
+const roundTo6 = (value) => {
+  const factor = 10 ** 6;
+  return Math.round((Number(value) + Number.EPSILON) * factor) / factor;
+};
+
+const calcDetalleVisual = (item) => {
+  const precioLista = Number(
+    item.precioLista ??
+    item.plistadol ??
+    item.preciosDetalle?.importes?.ldol ??
+    item.preciosDetalle?.importes?.dola ??
+    item.dola ??
+    0
+  );
+
+  const discount1 = Number(item.discount1 || 0);
+  const discount5 = Number(item.discount5 || 0);
+  const quantity = Math.max(1, Number(item.quantity || item.cantidad || 1));
+
+  const de01 = discount1 / 100;
+  const de05 = discount5 / 100;
+
+  const precioUnitExactoCalculado = precioLista * (1 - de01) * (1 - de05);
+  const precioUnitVisual = roundTo(precioUnitExactoCalculado, 4);
+
+  const precioNetoTotalVisual = roundTo(precioUnitExactoCalculado * quantity, 2);
+  const igvTotalVisual = roundTo(precioNetoTotalVisual * 0.18, 2);
+  const importeTotalVisual = roundTo(precioNetoTotalVisual + igvTotalVisual, 2);
+
+  const descuentoUnitExacto = precioLista - precioUnitExactoCalculado;
+  const descuentoTotalVisual = roundTo(descuentoUnitExacto * quantity, 2);
+
+  return {
+    precioLista,
+    discount1,
+    discount5,
+    quantity,
+    precioUnitVisual,
+    precioNetoTotalVisual,
+    igvTotalVisual,
+    importeTotalVisual,
+    descuentoTotalVisual,
+  };
+};
+
 // ============================================================
 // PAYLOADS
 // ============================================================
@@ -194,7 +240,7 @@ export const prepareQuotationPayload = (
   const fechac = formatDateToYYYYMMDD(now);
   const horac = formatTimeToHHMM(now);
 
-  const codigoVendedor = codigoVendedorLogueado 
+  const codigoVendedor = codigoVendedorLogueado
     ? extractVendorCode(codigoVendedorLogueado)
     : extractVendorCode(
         selectedClient.vendedor ||
@@ -211,13 +257,50 @@ export const prepareQuotationPayload = (
   console.log('  - Vendedor:', codigoVendedor);
   console.log('  - Forma de pago:', formaPago);
 
+  const detallesCalculados = quotationItems.map((item, idx) => {
+    const calc = calcDetalleVisual(item);
+
+    return {
+      itemd: idx + 1,
+      codigd: (item.codigo || '').substring(0, 20),
+      qaprbd: calc.quantity,
+      regd: numeroCorrelativo,
+      nom_prod: (item.nombre || item.descripcion || '').substring(0, 150),
+
+      dprun_usd: esUSD ? roundTo6(calc.precioLista) : 0,
+      dides_usd: esUSD ? roundTo6(calc.descuentoTotalVisual) : 0,
+      dinet_usd: esUSD ? roundTo6(calc.precioNetoTotalVisual) : 0,
+      diigv_usd: esUSD ? roundTo6(calc.igvTotalVisual) : 0,
+
+      dpruns: !esUSD ? roundTo6(calc.precioLista) : 0,
+      didess: !esUSD ? roundTo6(calc.descuentoTotalVisual) : 0,
+      dinets: !esUSD ? roundTo6(calc.precioNetoTotalVisual) : 0,
+      diigvs: !esUSD ? roundTo6(calc.igvTotalVisual) : 0,
+
+      pdsc1d: calc.discount1,
+      pdsc2d: 0,
+      pdsc3d: 0,
+      pdsc4d: 0,
+      pdsc5d: calc.discount5,
+      fechad: fechac,
+      horad: horac
+    };
+  });
+
+  const subtotalVisual = roundTo(detallesCalculados.reduce((acc, item) => {
+    return acc + Number(esUSD ? item.dinet_usd : item.dinets);
+  }, 0), 2);
+
+  const igvVisual = roundTo(subtotalVisual * 0.18, 2);
+  const totalVisual = roundTo(subtotalVisual + igvVisual, 2);
+
   const cabecera = {
     nomc: (selectedClient.nombreCliente || selectedClient.nombre || '').substring(0, 200),
     rucc: normalizeRUC(selectedClient.ruc),
     digc: extractRUCDigit(selectedClient.ruc),
     monedc: esUSD ? 2 : 1,
     tcvta: 3.75,
-    imporc: total,
+    imporc: roundTo6(totalVisual),
     fechac,
     horac,
     reg: numeroCorrelativo,
@@ -230,59 +313,32 @@ export const prepareQuotationPayload = (
     disc: (selectedClient.distrito || '').substring(0, 50),
     contac: (selectedClient.contacto || '').substring(0, 50),
     telef1: (selectedClient.telefono || '').substring(0, 15),
-    cod_alm:    selectedClient.cod_alm    || null,   //  nuevo
-  codnum_alm: selectedClient.codnum_alm ?? null,
+    cod_alm: selectedClient.cod_alm || null,
+    codnum_alm: selectedClient.codnum_alm ?? null,
   };
 
-  const IGV_RATE = 0.18;
-  const detalles = quotationItems.map((item, idx) => {
-    const precioLista = item.precioLista || item.plistadol || 0;
-    const precioNeto = item.precioNeto || 0;
-    const quantity = item.quantity || 0;
-    const precioNetoTotal = precioNeto * quantity;
-    const igvTotal = precioNetoTotal * IGV_RATE;
-    const descuentoTotal = (precioLista - precioNeto) * quantity;
+  console.log('🧮 Payload CREATE calculado visual:');
+  console.log('  - subtotalVisual:', subtotalVisual);
+  console.log('  - igvVisual:', igvVisual);
+  console.log('  - totalVisual:', totalVisual);
+  console.log('  - cabecera.imporc:', cabecera.imporc);
+  console.log('  - detalles:', detallesCalculados);
 
-    return {
-      itemd: idx + 1,
-      codigd: (item.codigo || '').substring(0, 20),
-      qaprbd: quantity,
-      regd: numeroCorrelativo,
-       nom_prod: (item.nombre || item.descripcion || '').substring(0, 150),
-      dprun_usd: esUSD ? precioLista : 0,
-      dides_usd: esUSD ? descuentoTotal : 0,
-      dinet_usd: esUSD ? precioNetoTotal : 0,
-      diigv_usd: esUSD ? igvTotal : 0,
-      dpruns: !esUSD ? precioLista : 0,
-      didess: !esUSD ? descuentoTotal : 0,
-      dinets: !esUSD ? precioNetoTotal : 0,
-      diigvs: !esUSD ? igvTotal : 0,
-      pdsc1d: item.discount1 || 0,
-      pdsc2d: 0,
-      pdsc3d: 0,
-      pdsc4d: 0,
-      pdsc5d: item.discount5 || 0,
-      fechad: fechac,
-      horad: horac
-    };
-  });
-
-  return { cabecera, detalles };
+  return { cabecera, detalles: detallesCalculados };
 };
 
 /**
- *  Preparar payload para EDITAR cotización
- * @param {object} formData   - datos del formulario
+ * Preparar payload para EDITAR cotización
+ * @param {object} formData - datos del formulario
  * @param {string} correlativo - correlativo completo "COT-2026-0002"
  */
-export const prepareUpdatePayload = (formData, correlativo = null, codigoVendedorLogueado = null ) => {
+export const prepareUpdatePayload = (formData, correlativo = null, codigoVendedorLogueado = null) => {
   console.log('🔄 === PREPARANDO PAYLOAD DE ACTUALIZACIÓN ===');
   console.log('📦 Datos recibidos:', formData);
 
   const fechac = formatDateToYYYYMMDD(formData.fecha || new Date());
   const horac = formatTimeToHHMM();
 
-  //  Extraer número de correlativo para regd
   const numeroCorrelativo = extractCorrelativeNumber(
     correlativo ||
     formData.correlativo_cotiza ||
@@ -293,9 +349,8 @@ export const prepareUpdatePayload = (formData, correlativo = null, codigoVendedo
   console.log('📅 Fecha formateada:', fechac);
   console.log('🔢 Correlativo:', numeroCorrelativo);
 
-  //  Normalizar moneda a código numérico 1/2
   const monedaInput = formData.moneda || formData.currency;
-  let monedcCodigo = 2; // default USD
+  let monedcCodigo = 2;
 
   if (monedaInput === 'USD' || monedaInput === '2' || Number(monedaInput) === 2) {
     monedcCodigo = 2;
@@ -312,67 +367,55 @@ export const prepareUpdatePayload = (formData, correlativo = null, codigoVendedo
     throw new Error('No hay productos para actualizar');
   }
 
-  const IGV_RATE = 0.18;
-  let subtotalCalculado = 0;
-
   const detalles = formData.productos.map((item, idx) => {
     console.log(`📦 Procesando producto ${idx + 1}:`, item);
 
-    const precioLista = Number(item.precioLista || 0);
-    const precioNetoUnitario = Number(item.precioNeto || item.precioUnitario || 0);
-    const cantidad = Number(item.cantidad || item.quantity || 0);
+    const calc = calcDetalleVisual(item);
 
-    if (isNaN(precioNetoUnitario) || precioNetoUnitario === 0) {
-      console.warn(`⚠️ Producto ${idx + 1} tiene precioNeto inválido:`, item);
-    }
-
-    if (isNaN(cantidad) || cantidad === 0) {
-      console.warn(`⚠️ Producto ${idx + 1} tiene cantidad inválida:`, item);
-    }
-
-    const precioNetoTotal = precioNetoUnitario * cantidad;
-    const igvLinea = precioNetoTotal * IGV_RATE;
-    const descuentoTotal = (precioLista - precioNetoUnitario) * cantidad;
-
-    subtotalCalculado += precioNetoTotal;
-
-    console.log(`   ✓ Precio Lista: ${precioLista}`);
-    console.log(`   ✓ Precio Neto Unitario: ${precioNetoUnitario}`);
-    console.log(`   ✓ Cantidad: ${cantidad}`);
-    console.log(`   ✓ Precio Neto Total: ${precioNetoTotal.toFixed(2)}`);
-    console.log(`   ✓ Descuento Total: ${descuentoTotal.toFixed(2)}`);
+    console.log(`   ✓ Precio Lista: ${calc.precioLista}`);
+    console.log(`   ✓ Precio Neto Unitario Visual: ${calc.precioUnitVisual}`);
+    console.log(`   ✓ Cantidad: ${calc.quantity}`);
+    console.log(`   ✓ Precio Neto Total Visual: ${calc.precioNetoTotalVisual}`);
+    console.log(`   ✓ Descuento Total Visual: ${calc.descuentoTotalVisual}`);
 
     return {
       itemd: idx + 1,
       codigd: (item.codigo || '').substring(0, 20),
-      qaprbd: cantidad,
-      regd: numeroCorrelativo,  
-      nom_prod: (item.nombre || item.descripcion || '').substring(0, 150),       
-      dprun_usd: esUSD ? precioLista : 0,
-      dides_usd: esUSD ? descuentoTotal : 0,
-      dinet_usd: esUSD ? precioNetoTotal : 0,
-      diigv_usd: esUSD ? igvLinea : 0,
-      dpruns: !esUSD ? precioLista : 0,
-      didess: !esUSD ? descuentoTotal : 0,
-      dinets: !esUSD ? precioNetoTotal : 0,
-      diigvs: !esUSD ? igvLinea : 0,
-      pdsc1d: Number(item.discount1 || 0),
+      qaprbd: calc.quantity,
+      regd: numeroCorrelativo,
+      nom_prod: (item.nombre || item.descripcion || '').substring(0, 150),
+
+      dprun_usd: esUSD ? roundTo6(calc.precioLista) : 0,
+      dides_usd: esUSD ? roundTo6(calc.descuentoTotalVisual) : 0,
+      dinet_usd: esUSD ? roundTo6(calc.precioNetoTotalVisual) : 0,
+      diigv_usd: esUSD ? roundTo6(calc.igvTotalVisual) : 0,
+
+      dpruns: !esUSD ? roundTo6(calc.precioLista) : 0,
+      didess: !esUSD ? roundTo6(calc.descuentoTotalVisual) : 0,
+      dinets: !esUSD ? roundTo6(calc.precioNetoTotalVisual) : 0,
+      diigvs: !esUSD ? roundTo6(calc.igvTotalVisual) : 0,
+
+      pdsc1d: Number(calc.discount1 || 0),
       pdsc2d: Number(item.discount2 || 0),
       pdsc3d: Number(item.discount3 || 0),
       pdsc4d: Number(item.discount4 || 0),
-      pdsc5d: Number(item.discount5 || 0),
+      pdsc5d: Number(calc.discount5 || 0),
       fechad: fechac,
       horad: horac
     };
   });
 
-  const igvCalculado = subtotalCalculado * IGV_RATE;
-  const totalCalculado = subtotalCalculado + igvCalculado;
+  const subtotalCalculado = roundTo(detalles.reduce((acc, item) => {
+    return acc + Number(esUSD ? item.dinet_usd : item.dinets);
+  }, 0), 2);
 
-  console.log('💰 === TOTALES CALCULADOS ===');
-  console.log('  - Subtotal:', subtotalCalculado.toFixed(2));
-  console.log('  - IGV (18%):', igvCalculado.toFixed(2));
-  console.log('  - TOTAL:', totalCalculado.toFixed(2));
+  const igvCalculado = roundTo(subtotalCalculado * 0.18, 2);
+  const totalCalculado = roundTo(subtotalCalculado + igvCalculado, 2);
+
+  console.log('💰 === TOTALES CALCULADOS VISUALES ===');
+  console.log('  - Subtotal:', subtotalCalculado);
+  console.log('  - IGV (18%):', igvCalculado);
+  console.log('  - TOTAL:', totalCalculado);
 
   if (totalCalculado === 0) {
     console.error('❌ ERROR: Total calculado es 0');
@@ -388,25 +431,23 @@ export const prepareUpdatePayload = (formData, correlativo = null, codigoVendedo
     telef1: (formData.telefono || '').substring(0, 15),
     monedc: monedcCodigo,
     tcvta: Number(formData.tipoCambio || 3.75),
-    imporc: totalCalculado,
+    imporc: roundTo6(totalCalculado),
     fechac,
-     vend: codigoVendedorLogueado
+    vend: codigoVendedorLogueado
       ? extractVendorCode(codigoVendedorLogueado)
       : extractVendorCode(formData.asesor || formData.vendedor),
-    // ...
     forpag: formData.formaPago || 'ADE',
-    cod_alm:    formData.cod_alm    || null,         //  nuevo
-  codnum_alm: formData.codnum_alm ?? null,
+    cod_alm: formData.cod_alm || null,
+    codnum_alm: formData.codnum_alm ?? null,
   };
 
-  console.log(' === PAYLOAD FINAL ===');
+  console.log('=== PAYLOAD FINAL ===');
   console.log('Cabecera MONEDC:', cabecera.monedc, '| IMPORC:', cabecera.imporc);
   console.log('Correlativo detalles (regd):', numeroCorrelativo);
   console.log('Total detalles:', detalles.length);
 
   return { cabecera, detalles };
 };
-
 
 export const duplicateQuotation = async (id) => {
   try {
@@ -418,7 +459,6 @@ export const duplicateQuotation = async (id) => {
   }
 };
 
-
 export default {
   registerQuotation,
   updateQuotation,
@@ -426,7 +466,7 @@ export default {
   listQuotations,
   getQuotationById,
   cancelQuotation,
-  duplicateQuotation, 
+  duplicateQuotation,
   formatDateToYYYYMMDD,
   formatDateToInputValue,
   formatTimeToHHMM,

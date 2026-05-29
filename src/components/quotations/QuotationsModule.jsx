@@ -144,6 +144,8 @@ console.log('🔍 forma_pago RAW:', response.data[0]?.forma_pago);         // �
         const transformed = response.data.map(q => ({
           id:               q.id_cotizac,
           numeroCotizacion: q.correlativo_cotiza,
+          numeroRegistro: q.reg ?? null,
+          numeroFolio: q.folio ?? null,
           fecha:            parseFecha(q.fechac),
           cliente:          q.cliente_nombre,
           ruc:              q.cliente_ruc,
@@ -642,7 +644,7 @@ const handleCancelQuotation = async (quotation) => {
           <table className="w-full">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
               <tr>
-                {['N° Cotización','Fecha','Cliente','RUC','Asesor','Total','Estado','Acciones'].map(h => (
+                {['N° Cotización','N° Registro','N° Folio','Fecha','Cliente','RUC','Asesor','Total','Estado','Acciones'].map(h => (
                   <th
                     key={h}
                     className={`px-6 py-4 text-xs font-semibold text-gray-700 uppercase tracking-wider ${h === 'Acciones' ? 'text-center' : 'text-left'}`}
@@ -655,7 +657,7 @@ const handleCancelQuotation = async (quotation) => {
             <tbody className="divide-y divide-gray-200">
               {paginatedQuotations.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="10" className="px-6 py-12 text-center text-gray-500">
                     <FileText className="w-12 h-12 mx-auto text-gray-300 mb-3" />
                     <p className="text-lg font-medium">No se encontraron cotizaciones</p>
                     <p className="text-sm">Intenta ajustar los filtros de búsqueda</p>
@@ -667,6 +669,13 @@ const handleCancelQuotation = async (quotation) => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-semibold text-green-600">{quotation.numeroCotizacion}</span>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+  {quotation.numeroRegistro ?? '—'}
+</td>
+
+<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+  {quotation.numeroFolio ?? '—'}
+</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
   {formatDisplayDate(quotation.fecha)}  
 </td>

@@ -7,16 +7,49 @@ import PDFPreview from './PDFPreview';
 import quotationService from '../../services/quotationService';
 import { logActivity, EVENTOS } from '../../services/activityLogService';
 
-
 const IGV_RATE = 0.18;
 
-
-const calcPrecioNeto = (dola, discount5) => {
-  const base = Number(dola) || 0;
-  const de05 = (Number(discount5) || 0) / 100;
-  return base * (1 - de05);
+const roundTo = (value, decimals = 2) => {
+  const factor = 10 ** decimals;
+  return Math.round((Number(value) + Number.EPSILON) * factor) / factor;
 };
 
+// Misma mecánica de ProductsTab:
+// precio lista -> 1er descuento -> 5to descuento -> neto exacto
+// Ajuste visual:
+// - precioNeto: 4 decimales
+// - precioNetoTotal / igv / importeTotal: 2 decimales
+const calcPrecioExacto = (precioLista, discount1, discount5, quantity = 1) => {
+  const lista = Number(precioLista) || 0;
+  const de01 = (Number(discount1) || 0) / 100;
+  const de05 = (Number(discount5) || 0) / 100;
+  const qty = Math.max(1, Number(quantity) || 1);
+
+  const despuesPrimerDescuento = lista * (1 - de01);
+  const precioNetoExacto = despuesPrimerDescuento * (1 - de05);
+  const precioNeto = roundTo(precioNetoExacto, 4);
+
+  const precioNetoTotalExacto = precioNetoExacto * qty;
+  const precioNetoTotal = roundTo(precioNetoTotalExacto, 2);
+
+  // IGV y total visuales por línea, siguiendo el valor visual del neto total
+  const igvExacto = precioNetoTotal * IGV_RATE;
+  const igv = roundTo(igvExacto, 2);
+
+  const importeTotalExacto = precioNetoTotal + igv;
+  const importeTotal = roundTo(importeTotalExacto, 2);
+
+  return {
+    precioNetoExacto,
+    precioNeto,
+    precioNetoTotalExacto,
+    precioNetoTotal,
+    igvExacto,
+    igv,
+    importeTotalExacto,
+    importeTotal,
+  };
+};
 
 const QuotationTab = ({
   quotationItems,
@@ -24,15 +57,15 @@ const QuotationTab = ({
   onBackToProducts,
   selectedClient,
   onRegistrationComplete,
-  almacenCotizacion,   //  nuevo prop — cod del almacén fijado desde ProductsTab
+  almacenCotizacion,
   codigoVendedor
 }) => {
   const pdfRef = useRef(null);
 
   const [quotationNumber, setQuotationNumber] = useState('');
-  const [isRegistering, setIsRegistering]     = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
 
-  const currency       = 'USD';
+  const currency = 'USD';
   const currencySymbol = currency === 'USD' ? '$' : 'S/';
 
   // ── Siguiente correlativo ───────────────────────────────────────────────
@@ -49,28 +82,61 @@ const QuotationTab = ({
     fetchNextCorrelative();
   }, []);
 
-  // ── Normalizar item ─────────────────────────────────────────────────────
+  // ── Normalizar item con cálculo exacto / visual ─────────────────────────
   const normalizeItem = (item) => {
-    const dola      = Number(item.preciosDetalle?.importes?.dola ?? item.dola ?? item.precioNeto ?? 0);
+    const precioLista = Number(
+      item.precioLista ??
+      item.preciosDetalle?.importes?.ldol ??
+      item.preciosDetalle?.importes?.dola ??
+      item.dola ??
+      0
+    );
+
     const discount1 = Math.max(0, Math.min(100, Number(item.discount1) || 0));
     const discount5 = Math.max(0, Math.min(100, Number(item.discount5) || 0));
-    const quantity  = Math.max(1, Number(item.quantity) || 1);
-    const precioNeto = calcPrecioNeto(dola, discount5);
-    return { ...item, dola, discount1, discount5, quantity, precioNeto };
+    const quantity = Math.max(1, Number(item.quantity) || 1);
+
+    const calc = calcPrecioExacto(precioLista, discount1, discount5, quantity);
+
+    return {
+      ...item,
+      dola: precioLista,
+      precioLista,
+      discount1,
+      discount5,
+      quantity,
+      precioNeto: calc.precioNeto,
+      precioNetoExacto: calc.precioNetoExacto,
+      precioCotizar: calc.precioNetoTotal,
+      precioCotizarExacto: calc.precioNetoTotalExacto,
+      igvItem: calc.igv,
+      igvItemExacto: calc.igvExacto,
+      importeTotalItem: calc.importeTotal,
+      importeTotalItemExacto: calc.importeTotalExacto,
+    };
   };
 
   useEffect(() => {
     if (quotationItems && quotationItems.length > 0) {
       const normalized = quotationItems.map(normalizeItem);
+
       const hasChanges = normalized.some((n, i) => {
         const o = quotationItems[i];
         return (
+          n.precioLista !== o.precioLista ||
           n.precioNeto !== o.precioNeto ||
-          n.discount1  !== o.discount1  ||
-          n.discount5  !== o.discount5  ||
-          n.dola       !== o.dola
+          n.precioNetoExacto !== o.precioNetoExacto ||
+          n.precioCotizar !== o.precioCotizar ||
+          n.precioCotizarExacto !== o.precioCotizarExacto ||
+          n.discount1 !== o.discount1 ||
+          n.discount5 !== o.discount5 ||
+          n.quantity !== o.quantity ||
+          n.dola !== o.dola ||
+          n.igvItem !== o.igvItem ||
+          n.importeTotalItem !== o.importeTotalItem
         );
       });
+
       if (hasChanges) setQuotationItems(normalized);
     }
   }, [quotationItems.length]);
@@ -93,111 +159,127 @@ const QuotationTab = ({
     toast.error('Producto eliminado de la cotización', { position: 'top-right' });
   };
 
-  // ── Totales en vivo ─────────────────────────────────────────────────────
-  const subtotal = (quotationItems ?? []).reduce((sum, item) => {
-    const dola = Number(item.preciosDetalle?.importes?.dola ?? item.dola ?? item.precioNeto ?? 0);
-    return sum + calcPrecioNeto(dola, item.discount5) * (Number(item.quantity) || 1);
-  }, 0);
+  // ── Totales en vivo usando valores visuales por línea ───────────────────
+  const subtotal = roundTo((quotationItems ?? []).reduce((sum, item) => {
+    const precioLista = Number(
+      item.precioLista ??
+      item.preciosDetalle?.importes?.ldol ??
+      item.preciosDetalle?.importes?.dola ??
+      item.dola ??
+      0
+    );
 
-  const igv   = subtotal * IGV_RATE;
-  const total = subtotal + igv;
+    const discount1 = Number(item.discount1) || 0;
+    const discount5 = Number(item.discount5) || 0;
+    const qty = Number(item.quantity) || 1;
 
- // ── Registrar cotización ────────────────────────────────────────────────
-const handleRegister = async () => {
-  if (quotationItems.length === 0) {
-    toast.error('No hay productos en la cotización', { position: 'top-right' });
-    return;
-  }
-  if (!selectedClient?.ruc) {
-    toast.error('Debe seleccionar un cliente válido', { position: 'top-right' });
-    return;
-  }
-  // ✅ Validar stock antes de registrar
-  const itemsConStockExcedido = quotationItems.filter(item => {
-    const maxStock = item.stock || 0;
-    return maxStock > 0 && Number(item.quantity) > maxStock;
-  });
+    const calc = calcPrecioExacto(precioLista, discount1, discount5, qty);
+    return sum + calc.precioNetoTotal; // ← suma visual, igual que AS400
+  }, 0), 2);
 
-  if (itemsConStockExcedido.length > 0) {
-    itemsConStockExcedido.forEach(item => {
-      toast.error(
-        `"${item.codigo}": cantidad (${item.quantity}) supera el stock disponible (${item.stock}).`,
-        { position: 'top-right', duration: 5000, icon: '🚫' }
-      );
+  const igv = roundTo(subtotal * IGV_RATE, 2);
+  const total = roundTo(subtotal + igv, 2);
+
+  // ── Registrar cotización ────────────────────────────────────────────────
+  const handleRegister = async () => {
+    if (quotationItems.length === 0) {
+      toast.error('No hay productos en la cotización', { position: 'top-right' });
+      return;
+    }
+
+    if (!selectedClient?.ruc) {
+      toast.error('Debe seleccionar un cliente válido', { position: 'top-right' });
+      return;
+    }
+
+    const itemsConStockExcedido = quotationItems.filter(item => {
+      const maxStock = item.stock || 0;
+      return maxStock > 0 && Number(item.quantity) > maxStock;
     });
-    return;
-  }
 
-  setIsRegistering(true);
+    if (itemsConStockExcedido.length > 0) {
+      itemsConStockExcedido.forEach(item => {
+        toast.error(
+          `"${item.codigo}": cantidad (${item.quantity}) supera el stock disponible (${item.stock}).`,
+          { position: 'top-right', duration: 5000, icon: '🚫' }
+        );
+      });
+      return;
+    }
 
-  try {
-    const itemsNormalized = quotationItems.map(normalizeItem);
+    setIsRegistering(true);
 
-    //  NUEVO — enriquecer cliente con datos del almacén
-    const clienteConAlmacen = {
-      ...selectedClient,
-      cod_alm:    almacenCotizacion?.cod    || null,
-      codnum_alm: almacenCotizacion?.codnum ?? null,
-    };
+    try {
+      const itemsNormalized = quotationItems.map(normalizeItem);
 
-    const payload = quotationService.prepareQuotationPayload(
-      itemsNormalized,
-      clienteConAlmacen,   //  CAMBIO — antes era selectedClient
-      currency,
-      subtotal,
-      igv,
-      total,
-      quotationNumber,
-      codigoVendedor 
-      
-    );
+      const clienteConAlmacen = {
+        ...selectedClient,
+        cod_alm: almacenCotizacion?.cod || null,
+        codnum_alm: almacenCotizacion?.codnum ?? null,
+      };
 
-    console.log('📤 Enviando cotización:', payload);
-    console.log('🏭 Almacén:', almacenCotizacion);
-
-    const response = await quotationService.registerQuotation(
-      payload.cabecera,
-      payload.detalles
-    );
-
-    if (response.success) {
-      logActivity(EVENTOS.COTIZACION_REGISTRADA, response.data.id_cotizac);
-
-      toast.success(
-        `Cotización ${response.data.correlativo_cotiza} registrada exitosamente`,
-        { position: 'top-right', duration: 4000 }
+      const payload = quotationService.prepareQuotationPayload(
+        itemsNormalized,
+        clienteConAlmacen,
+        currency,
+        subtotal,
+        igv,
+        total,
+        quotationNumber,
+        codigoVendedor
       );
 
-      if (pdfRef.current) {
-        await generateQuotationPDF(
-          pdfRef.current,
-          `cotizacion_${response.data.correlativo_cotiza}.pdf`
+      console.log('📤 Enviando cotización:', payload);
+      console.log('🏭 Almacén:', almacenCotizacion);
+      console.log('🧮 Totales visuales previos:', {
+        subtotal,
+        igv,
+        total
+      });
+
+      const response = await quotationService.registerQuotation(
+        payload.cabecera,
+        payload.detalles
+      );
+
+      if (response.success) {
+        logActivity(EVENTOS.COTIZACION_REGISTRADA, response.data.id_cotizac);
+
+        toast.success(
+          `Cotización ${response.data.correlativo_cotiza} registrada exitosamente`,
+          { position: 'top-right', duration: 4000 }
+        );
+
+        if (pdfRef.current) {
+          await generateQuotationPDF(
+            pdfRef.current,
+            `cotizacion_${response.data.correlativo_cotiza}.pdf`
+          );
+        }
+
+        const nextResponse = await quotationService.getNextCorrelative();
+        if (nextResponse.success) setQuotationNumber(nextResponse.data.correlative);
+
+        setQuotationItems([]);
+        if (onRegistrationComplete) onRegistrationComplete();
+      }
+    } catch (error) {
+      console.error('❌ Error al registrar cotización:', error);
+      if (error.response?.data?.details) {
+        const errores = Array.isArray(error.response.data.details)
+          ? error.response.data.details
+          : [error.response.data.details];
+        errores.forEach(err => toast.error(err, { position: 'top-right', duration: 5000 }));
+      } else {
+        toast.error(
+          error.response?.data?.error || 'Error al registrar la cotización',
+          { position: 'top-right' }
         );
       }
-
-      const nextResponse = await quotationService.getNextCorrelative();
-      if (nextResponse.success) setQuotationNumber(nextResponse.data.correlative);
-
-      setQuotationItems([]);
-      if (onRegistrationComplete) onRegistrationComplete();
+    } finally {
+      setIsRegistering(false);
     }
-  } catch (error) {
-    console.error('❌ Error al registrar cotización:', error);
-    if (error.response?.data?.details) {
-      const errores = Array.isArray(error.response.data.details)
-        ? error.response.data.details
-        : [error.response.data.details];
-      errores.forEach(err => toast.error(err, { position: 'top-right', duration: 5000 }));
-    } else {
-      toast.error(
-        error.response?.data?.error || 'Error al registrar la cotización',
-        { position: 'top-right' }
-      );
-    }
-  } finally {
-    setIsRegistering(false);
-  }
-};
+  };
 
   const handlePreviewPDF = async () => {
     if (!pdfRef.current) return;
@@ -217,8 +299,12 @@ const handleRegister = async () => {
       <div className="p-12 text-center">
         <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
           <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0119 9.414V19a2 2 0 01-2 2z" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0119 9.414V19a2 2 0 01-2 2z"
+            />
           </svg>
         </div>
         <h3 className="text-lg font-semibold text-gray-900 mb-2">Busca un cliente para comenzar</h3>
@@ -227,11 +313,8 @@ const handleRegister = async () => {
     );
   }
 
-  // ───────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-8">
-
-      {/* PDFPreview oculto */}
       <PDFPreview
         ref={pdfRef}
         quotationItems={quotationItems}
@@ -243,20 +326,19 @@ const handleRegister = async () => {
         currency={currency}
       />
 
-      {/*  Header — muestra el almacén fijado */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <h2 className="text-3xl font-extrabold tracking-tight text-gray-800">
           Cotización
         </h2>
         <div className="flex flex-wrap items-center gap-3">
-          {/* Badge almacén */}
           {almacenCotizacion && (
             <div className="bg-amber-50 border-2 border-amber-200 rounded-lg px-4 py-2">
               <span className="text-sm font-semibold text-gray-600">Almacén:</span>
-              <span className="ml-2 text-sm font-bold text-amber-700">{almacenCotizacion?.cod} — {almacenCotizacion?.nombre}</span>
+              <span className="ml-2 text-sm font-bold text-amber-700">
+                {almacenCotizacion?.cod} — {almacenCotizacion?.nombre}
+              </span>
             </div>
           )}
-          {/* Badge número cotización */}
           {quotationNumber && (
             <div className="bg-blue-50 border-2 border-blue-200 rounded-lg px-4 py-2">
               <span className="text-sm font-semibold text-gray-600">Nro. Cotización:</span>
@@ -266,7 +348,6 @@ const handleRegister = async () => {
         </div>
       </div>
 
-      {/* Tabla */}
       <div className="overflow-auto rounded-xl shadow-lg bg-white border">
         <table
           className="divide-y divide-gray-200 text-sm"
@@ -274,14 +355,14 @@ const handleRegister = async () => {
         >
           <thead className="bg-gray-100 sticky top-0 z-10">
             <tr>
-              <th style={{ width: 56 }}  className="p-4 font-bold text-gray-700 text-center">Item</th>
+              <th style={{ width: 56 }} className="p-4 font-bold text-gray-700 text-center">Item</th>
               <th style={{ width: 180 }} className="p-4 font-bold text-gray-700 text-center">Código Mercadería</th>
               <th style={{ width: 210 }} className="p-4 font-bold text-gray-700 text-center">Descripción Mercadería</th>
               <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">P. Lista Unit. (Sin IGV) ({currencySymbol})</th>
               <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">1er Dsco.</th>
               <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">5to Dsco.</th>
               <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">P. Neto Unit. ({currencySymbol})</th>
-              <th style={{ width: 70 }}  className="p-4 font-bold text-gray-700 text-center">Cant.</th>
+              <th style={{ width: 70 }} className="p-4 font-bold text-gray-700 text-center">Cant.</th>
               <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">P. Neto Total ({currencySymbol})</th>
               <th style={{ width: 100 }} className="p-4 font-bold text-gray-700 text-center">IGV ({currencySymbol})</th>
               <th style={{ width: 130 }} className="p-4 font-bold text-gray-700 text-center">Importe Total ({currencySymbol})</th>
@@ -298,22 +379,33 @@ const handleRegister = async () => {
               </tr>
             ) : (
               (quotationItems ?? []).map((item, idx) => {
-                const flag  = item.preciosDetalle?.flag?.trim();
+                const flag = item.preciosDetalle?.flag?.trim();
                 const flagT = flag === 'T';
                 const flagX = flag === 'X';
-                const minD5 = flagT ? (item.preciosDetalle?.descuentos?.de04 ?? 0)   : 0;
+                const minD5 = flagT ? (item.preciosDetalle?.descuentos?.de04 ?? 0) : 0;
                 const maxD5 = flagT ? (item.preciosDetalle?.descuentos?.de05 ?? 100) : 100;
 
-                const dola            = Number(item.preciosDetalle?.importes?.dola ?? item.dola ?? item.precioNeto ?? 0);
-                const precioNeto      = calcPrecioNeto(dola, item.discount5);
-                const qty             = Number(item.quantity) || 1;
-                const precioNetoTotal = precioNeto * qty;
-                const igvTotal        = precioNetoTotal * IGV_RATE;
-                const importeTotal    = precioNetoTotal + igvTotal;
+                const precioLista = Number(
+                  item.precioLista ??
+                  item.preciosDetalle?.importes?.ldol ??
+                  item.preciosDetalle?.importes?.dola ??
+                  item.dola ??
+                  0
+                );
+
+                const discount1 = Number(item.discount1) || 0;
+                const discount5 = Number(item.discount5) || 0;
+                const qty = Number(item.quantity) || 1;
+
+                const {
+                  precioNeto,
+                  precioNetoTotal,
+                  igv,
+                  importeTotal
+                } = calcPrecioExacto(precioLista, discount1, discount5, qty);
 
                 return (
                   <tr key={idx} className="hover:bg-gray-50 transition">
-
                     <td style={{ width: 56 }} className="p-4 text-center font-mono font-bold text-blue-900 bg-blue-50 rounded-l-lg">
                       {String(idx + 1).padStart(3, '0')}
                     </td>
@@ -327,15 +419,14 @@ const handleRegister = async () => {
                     </td>
 
                     <td style={{ width: 110 }} className="p-3 text-right text-gray-700 whitespace-nowrap">
-                      {currencySymbol} {(item.precioLista || 0).toFixed(3)}
+                      {currencySymbol} {precioLista.toFixed(2)}
                     </td>
 
-                    {/* 1er Dsco — readonly */}
                     <td style={{ width: 130 }} className="p-4 text-center">
                       <div className="flex items-center justify-center gap-1">
                         <input
                           type="text"
-                          value={item.discount1 ?? 0}
+                          value={discount1}
                           readOnly
                           className="w-16 bg-indigo-50 border border-indigo-200 rounded px-2 py-1 text-center font-semibold text-indigo-700"
                         />
@@ -343,7 +434,6 @@ const handleRegister = async () => {
                       </div>
                     </td>
 
-                    {/* 5to Dsco */}
                     <td style={{ width: 130 }} className="p-4 text-center">
                       <div className="flex flex-col items-center gap-1">
                         <div className="flex items-center gap-1">
@@ -355,9 +445,14 @@ const handleRegister = async () => {
                             onChange={e => {
                               if (flagX) return;
                               const raw = e.target.value.replace(/\D/g, '');
-                              if (raw === '') { setItemField(idx, 'discount5', ''); return; }
+                              if (raw === '') {
+                                setItemField(idx, 'discount5', '');
+                                return;
+                              }
                               const num = Number(raw);
-                              const capped = flagT ? (num > maxD5 ? String(maxD5) : raw) : (num > 100 ? '100' : raw);
+                              const capped = flagT
+                                ? (num > maxD5 ? String(maxD5) : raw)
+                                : (num > 100 ? '100' : raw);
                               setItemField(idx, 'discount5', capped);
                             }}
                             onBlur={() => {
@@ -365,83 +460,93 @@ const handleRegister = async () => {
                               const current = item.discount5;
                               if (current === '' || current == null) return;
                               const num = Number(current) || 0;
-                              const val = flagT ? Math.min(maxD5, Math.max(minD5, num)) : Math.min(100, Math.max(0, num));
+                              const val = flagT
+                                ? Math.min(maxD5, Math.max(minD5, num))
+                                : Math.min(100, Math.max(0, num));
                               setItemField(idx, 'discount5', val);
                               normalizeItemAtIndex(idx);
                             }}
                             className={`w-16 rounded px-2 py-1 text-center font-semibold focus:ring-1 outline-none border ${
-                              flagX ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
-                                    : flagT ? 'bg-orange-50 border-orange-400 text-orange-700 focus:ring-orange-400'
-                                    : 'bg-orange-50 border-orange-200 text-orange-700 focus:ring-orange-400'
+                              flagX
+                                ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
+                                : flagT
+                                  ? 'bg-orange-50 border-orange-400 text-orange-700 focus:ring-orange-400'
+                                  : 'bg-orange-50 border-orange-200 text-orange-700 focus:ring-orange-400'
                             }`}
                           />
                           <span className="text-sm text-gray-500">%</span>
                         </div>
-                        {flagX && <span className="text-xs font-semibold text-gray-500 bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5">Sin dscto.</span>}
-                        {flagT && <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">{minD5}% – {maxD5}%</span>}
+                        {flagX && (
+                          <span className="text-xs font-semibold text-gray-500 bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5">
+                            Sin dscto.
+                          </span>
+                        )}
+                        {flagT && (
+                          <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">
+                            {minD5}% – {maxD5}%
+                          </span>
+                        )}
                       </div>
                     </td>
 
                     <td style={{ width: 120 }} className="p-3 text-right font-bold text-green-700 whitespace-nowrap">
-                      {currencySymbol} {precioNeto.toFixed(3)}
+                      {currencySymbol} {precioNeto.toFixed(4)}
                     </td>
 
                     <td style={{ width: 70 }} className="p-4 text-center">
-  <input
-    type="text"
-    inputMode="numeric"
-    value={item.quantity ?? ''}
-    onChange={e => {
-      const raw      = e.target.value.replace(/\D/g, '');
-      const maxStock = item.stock || 0;
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={item.quantity ?? ''}
+                        onChange={e => {
+                          const raw = e.target.value.replace(/\D/g, '');
+                          const maxStock = item.stock || 0;
 
-      if (raw === '') {
-        setItemField(idx, 'quantity', '');
-        return;
-      }
+                          if (raw === '') {
+                            setItemField(idx, 'quantity', '');
+                            return;
+                          }
 
-      const num = Number(raw);
+                          const num = Number(raw);
 
-      // ✅ Validación en tiempo real — restaura a cantidadOriginal
-      if (maxStock > 0 && num > maxStock) {
-        const cantidadRestaurada = item.cantidadOriginal ?? 1;
-        toast.error(
-          <span>
-            Stock insuficiente para <strong>"{item.codigo}"</strong>.<br/>
-            Solo hay <strong>{maxStock} unid.</strong> disponibles.<br/>
-            Se restauró la cantidad a <strong>{cantidadRestaurada}</strong>.
-          </span>,
-          { position: 'top-right', duration: 5000, icon: '📦' }
-        );
-        setItemField(idx, 'quantity', cantidadRestaurada);
-        normalizeItemAtIndex(idx);
-        return;
-      }
+                          if (maxStock > 0 && num > maxStock) {
+                            const cantidadRestaurada = item.cantidadOriginal ?? 1;
+                            toast.error(
+                              <span>
+                                Stock insuficiente para <strong>"{item.codigo}"</strong>.<br />
+                                Solo hay <strong>{maxStock} unid.</strong> disponibles.<br />
+                                Se restauró la cantidad a <strong>{cantidadRestaurada}</strong>.
+                              </span>,
+                              { position: 'top-right', duration: 5000, icon: '📦' }
+                            );
+                            setItemField(idx, 'quantity', cantidadRestaurada);
+                            normalizeItemAtIndex(idx);
+                            return;
+                          }
 
-      setItemField(idx, 'quantity', raw);
-    }}
-    onBlur={() => {
-      // Solo normaliza vacío — stock ya validado en onChange
-      const raw = item.quantity;
-      if (raw === '' || raw == null || Number(raw) === 0) {
-        setItemField(idx, 'quantity', item.cantidadOriginal ?? 1);
-      }
-      normalizeItemAtIndex(idx);
-    }}
-    className="w-16 bg-blue-50 border border-blue-200 rounded px-2 py-1 text-center font-bold focus:ring-1 focus:ring-blue-400 outline-none"
-  />
-</td>
+                          setItemField(idx, 'quantity', raw);
+                        }}
+                        onBlur={() => {
+                          const raw = item.quantity;
+                          if (raw === '' || raw == null || Number(raw) === 0) {
+                            setItemField(idx, 'quantity', item.cantidadOriginal ?? 1);
+                          }
+                          normalizeItemAtIndex(idx);
+                        }}
+                        className="w-16 bg-blue-50 border border-blue-200 rounded px-2 py-1 text-center font-bold focus:ring-1 focus:ring-blue-400 outline-none"
+                      />
+                    </td>
 
                     <td style={{ width: 120 }} className="p-3 text-right text-blue-900 font-bold whitespace-nowrap">
-                      {currencySymbol} {precioNetoTotal.toFixed(3)}
+                      {currencySymbol} {precioNetoTotal.toFixed(2)}
                     </td>
 
                     <td style={{ width: 90 }} className="p-3 text-right text-yellow-700 whitespace-nowrap">
-                      {currencySymbol} {igvTotal.toFixed(3)}
+                      {currencySymbol} {igv.toFixed(2)}
                     </td>
 
                     <td style={{ width: 110 }} className="p-3 text-right text-red-800 font-bold whitespace-nowrap">
-                      {currencySymbol} {importeTotal.toFixed(3)}
+                      {currencySymbol} {importeTotal.toFixed(2)}
                     </td>
 
                     <td style={{ width: 56 }} className="p-4 text-center">
@@ -461,25 +566,23 @@ const handleRegister = async () => {
         </table>
       </div>
 
-      {/* Resumen totales */}
       <div className="w-full flex justify-end mt-4">
         <div className="space-y-2 max-w-xs w-full mr-4">
           <div className="bg-gray-50 rounded px-4 py-2 shadow text-sm flex items-center justify-between">
             <span className="font-bold text-gray-700">Subtotal:</span>
-            <span className="font-bold text-blue-800">{currencySymbol} {subtotal.toFixed(3)}</span>
+            <span className="font-bold text-blue-800">{currencySymbol} {subtotal.toFixed(2)}</span>
           </div>
           <div className="bg-gray-50 rounded px-4 py-2 shadow text-sm flex items-center justify-between">
             <span className="font-bold text-gray-700">IGV (18%):</span>
-            <span className="font-bold text-yellow-700">{currencySymbol} {igv.toFixed(3)}</span>
+            <span className="font-bold text-yellow-700">{currencySymbol} {igv.toFixed(2)}</span>
           </div>
           <div className="bg-gray-100 rounded px-4 py-2 shadow-lg border border-blue-200 text-sm flex items-center justify-between">
             <span className="font-bold text-gray-900">Total:</span>
-            <span className="font-extrabold text-blue-900">{currencySymbol} {total.toFixed(3)}</span>
+            <span className="font-extrabold text-blue-900">{currencySymbol} {total.toFixed(2)}</span>
           </div>
         </div>
       </div>
 
-      {/* Botones de acción */}
       <div className="w-full mt-6 flex flex-col gap-3">
         <div className="w-full">
           <button
@@ -510,8 +613,9 @@ const handleRegister = async () => {
           <button
             onClick={handleRegister}
             disabled={quotationItems.length === 0 || isRegistering || !quotationNumber}
-            className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-[#334a5e] text-white font-bold px-4 py-2.5 rounded-lg shadow hover:scale-105 transition text-sm
-              ${quotationItems.length === 0 || isRegistering || !quotationNumber ? 'opacity-60 cursor-not-allowed' : ''}`}
+            className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-[#334a5e] text-white font-bold px-4 py-2.5 rounded-lg shadow hover:scale-105 transition text-sm ${
+              quotationItems.length === 0 || isRegistering || !quotationNumber ? 'opacity-60 cursor-not-allowed' : ''
+            }`}
           >
             {isRegistering ? (
               <>

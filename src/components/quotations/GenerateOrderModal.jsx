@@ -2,155 +2,204 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import {
-  ShoppingCart, FileText, Truck, MapPin,
-  Calendar, MessageSquare, Save, X, Package, AlertCircle
+  ShoppingCart,
+  FileText,
+  Truck,
+  MapPin,
+  Calendar,
+  MessageSquare,
+  Save,
+  X,
+  Package,
+  AlertCircle
 } from 'lucide-react';
-import ShippingAgencyForm            from '../orders/ShippingAgencyForm';
-import SearchableSelect              from '../common/SearchableSelect';
+import ShippingAgencyForm from '../orders/ShippingAgencyForm';
+import SearchableSelect from '../common/SearchableSelect';
 import { deliveryTypes, transportZones } from '../../data/ordersData';
-import useTransportistas             from '../../hooks/useTransportistas';
-import useUbigeo                     from '../../hooks/useUbigeo';
-import useClientShippingAddresses    from '../../hooks/useClientShippingAddresses';
-import { transmitOrder, getOrderPreview }             from '../../services/orderRequestService';
+import useTransportistas from '../../hooks/useTransportistas';
+import useUbigeo from '../../hooks/useUbigeo';
+import useClientShippingAddresses from '../../hooks/useClientShippingAddresses';
+import { transmitOrder, getOrderPreview } from '../../services/orderRequestService';
+import toast from 'react-hot-toast';
 
-import toast                         from 'react-hot-toast';
+const IGV_RATE = 0.18;
 
+const roundTo = (value, decimals = 2) => {
+  const factor = 10 ** decimals;
+  return Math.round((Number(value) + Number.EPSILON) * factor) / factor;
+};
+
+const calcPrecioVisual = (precioLista, discount1, discount5, quantity = 1) => {
+  const lista = Number(precioLista) || 0;
+  const de01 = (Number(discount1) || 0) / 100;
+  const de05 = (Number(discount5) || 0) / 100;
+  const qty = Math.max(0, Number(quantity) || 0);
+
+  const despuesPrimerDescuento = lista * (1 - de01);
+  const precioNetoExacto = despuesPrimerDescuento * (1 - de05);
+
+  const precioNeto = roundTo(precioNetoExacto, 4);
+  const precioNetoTotal = roundTo(precioNetoExacto * qty, 2);
+  const igv = roundTo(precioNetoTotal * IGV_RATE, 2);
+  const importeTotal = roundTo(precioNetoTotal + igv, 2);
+
+  return {
+    precioNeto,
+    precioNetoTotal,
+    igv,
+    importeTotal,
+  };
+};
 
 const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
-
-  // ── Opciones de Forma de Pago derivadas del forpag de la cotización ──────────
-  // Se calculan fuera del estado: forpag de la cotización + 'ADE' siempre presente.
-  // Si forpag es 'ADE' o vacío → solo ['ADE']. Si es distinto → [forpag, 'ADE'].
- 
-const fpActual = String(quotation?.formaPago || quotation?.forpag || '').trim();
-const forpagOpciones = fpActual && fpActual !== 'ADE' && fpActual !== 'AD2'
-  ? ['ADE', 'AD2', fpActual]
-  : ['ADE', 'AD2'];
+  const fpActual = String(quotation?.formaPago ?? quotation?.forpag ?? '').trim();
+  const forpagOpciones =
+    fpActual && fpActual !== 'ADE' && fpActual !== 'AD2'
+      ? ['ADE', 'AD2', fpActual]
+      : ['ADE', 'AD2'];
 
   const [formData, setFormData] = useState({
-    ordenCompra:            '',
-    formaPago:              forpagOpciones[0], 
-    pagoTransporte:         '',
-    transporteZona:         'lima_callao',
-    tipoEntrega:            'despacho',
-    direccionDespacho:      '',
-    deptoDespacho:          '',
-    provinciaDespacho:      '',
-    distritoDespacho:       '',
-    deptoNombre:            '',
-    provinciaNombre:        '',
-    distritoNombre:         '',
-    observaciones:          '',
-    observacionesCreditos:  '',
+    ordenCompra: '',
+    formaPago: forpagOpciones[0],
+    pagoTransporte: '',
+    transporteZona: 'limacallao',
+    tipoEntrega: 'despacho',
+    direccionDespacho: '',
+    deptoDespacho: '',
+    provinciaDespacho: '',
+    distritoDespacho: '',
+    deptoNombre: '',
+    provinciaNombre: '',
+    distritoNombre: '',
+    observaciones: '',
+    observacionesCreditos: '',
     observacionesLogistica: '',
-    fechaEntrega:           '',
-    agenciaDespacho: { nombre: '', dni: '', telefono: '' }
+    fechaEntrega: '',
+    agenciaDespacho: {
+      nombre: '',
+      dni: '',
+      telefono: ''
+    }
   });
 
   const [selectedAddressId, setSelectedAddressId] = useState('');
-  const [errors, setErrors]                       = useState({});
-  const [isSubmitting, setIsSubmitting]           = useState(false);
-  const isSubmittingRef                           = useRef(false);
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [preview, setPreview] = useState(null);
-const [loadingPreview, setLoadingPreview] = useState(false);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   const rucCli = String(quotation?.clienteRuc ?? quotation?.ruc ?? '').substring(0, 10);
 
-  const { options: transportOptions, loading: loadingTransport, error: transportError } =
-    useTransportistas(formData.transporteZona);
+  const {
+    options: transportOptions,
+    loading: loadingTransport,
+    error: transportError
+  } = useTransportistas(formData.transporteZona);
 
   const {
-    departamentos, provincias, distritos,
-    codDepto,     setCodDepto,
-    codProvincia, setCodProvincia,
-    loadingDeptos, loadingProvs, loadingDistritos,
+    departamentos,
+    provincias,
+    distritos,
+    codDepto,
+    setCodDepto,
+    codProvincia,
+    setCodProvincia,
+    loadingDeptos,
+    loadingProvs,
+    loadingDistritos,
     reset: resetUbigeo,
   } = useUbigeo();
 
   const {
     addresses: clientAddresses,
-    loading:   loadingAddresses,
-    error:     addressError,
+    loading: loadingAddresses,
+    error: addressError,
   } = useClientShippingAddresses(isOpen ? rucCli : null);
 
-  // ── Auto-seleccionar Lima-Callao cuando llegan las options ────────────
   useEffect(() => {
     if (!isOpen) return;
     if (transportOptions.length === 0) return;
-    if (formData.transporteZona === 'lima_callao' && !formData.pagoTransporte) {
-      setFormData(prev => ({ ...prev, pagoTransporte: transportOptions[0].value }));
+    if (formData.transporteZona === 'limacallao' && !formData.pagoTransporte) {
+      setFormData(prev => ({
+        ...prev,
+        pagoTransporte: transportOptions[0].value
+      }));
     }
-  }, [transportOptions]);
+  }, [transportOptions, isOpen]);
 
-  // ── Bloquear scroll ───────────────────────────────────────────────────
   useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = 'unset'; };
   }, [isOpen]);
 
-  // ── Cerrar con ESC ────────────────────────────────────────────────────
   useEffect(() => {
     if (!isOpen) return;
-    const handleEscape = (e) => { if (e.key === 'Escape') onClose(); };
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose, isOpen]);
 
-  // ── Reset form al abrir ───────────────────────────────────────────────
   useEffect(() => {
     if (isOpen) {
-      const fpCotizacion = String(quotation?.formaPago || quotation?.forpag || '').trim();
-    const fpOpciones = fpCotizacion && fpCotizacion !== 'ADE' && fpCotizacion !== 'AD2'
-  ? ['ADE', 'AD2', fpCotizacion]
-  : ['ADE', 'AD2'];
+      const fpCotizacion = String(quotation?.formaPago ?? quotation?.forpag ?? '').trim();
+      const fpOpciones =
+        fpCotizacion && fpCotizacion !== 'ADE' && fpCotizacion !== 'AD2'
+          ? ['ADE', 'AD2', fpCotizacion]
+          : ['ADE', 'AD2'];
 
       isSubmittingRef.current = false;
       setFormData({
-        ordenCompra:            '',
-        formaPago:              fpOpciones[0],  
-        pagoTransporte:         transportOptions.length > 0 ? transportOptions[0].value : '',
-        transporteZona:         'lima_callao',
-        tipoEntrega:            'despacho',
-        direccionDespacho:      '',
-        deptoDespacho:          '',
-        provinciaDespacho:      '',
-        distritoDespacho:       '',
-        deptoNombre:            '',
-        provinciaNombre:        '',
-        distritoNombre:         '',
-        observaciones:          '',
-        observacionesCreditos:  '',
+        ordenCompra: '',
+        formaPago: fpOpciones[0],
+        pagoTransporte: transportOptions.length > 0 ? transportOptions[0].value : '',
+        transporteZona: 'limacallao',
+        tipoEntrega: 'despacho',
+        direccionDespacho: '',
+        deptoDespacho: '',
+        provinciaDespacho: '',
+        distritoDespacho: '',
+        deptoNombre: '',
+        provinciaNombre: '',
+        distritoNombre: '',
+        observaciones: '',
+        observacionesCreditos: '',
         observacionesLogistica: '',
-        fechaEntrega:           '',
-        agenciaDespacho: { nombre: '', dni: '', telefono: '' }
+        fechaEntrega: '',
+        agenciaDespacho: {
+          nombre: '',
+          dni: '',
+          telefono: ''
+        }
       });
       setSelectedAddressId('');
       setErrors({});
       resetUbigeo();
     }
-  }, [isOpen, quotation]);
+  }, [isOpen, quotation, transportOptions, resetUbigeo]);
 
-useEffect(() => {
-  if (!isOpen || !quotation?.id) return;
+  useEffect(() => {
+    if (!isOpen || !quotation?.id) return;
 
-  const loadPreview = async () => {
-    setLoadingPreview(true);
-    try {
-      const data = await getOrderPreview(quotation.id);
-      console.log('🧾 Preview cargado:', data);
-      console.log('🧾 Items payload:', data?.payload?.items);
-      setPreview(data);
-    } catch (error) {
-      console.error('❌ Error cargando preview de pedido:', error);
-      setPreview(null);
-    } finally {
-      setLoadingPreview(false);
-    }
-  };
+    const loadPreview = async () => {
+      setLoadingPreview(true);
+      try {
+        const data = await getOrderPreview(quotation.id);
+        console.log('✅ Preview cargado:', data);
+        console.log('📦 Items payload:', data?.payload?.items);
+        setPreview(data);
+      } catch (error) {
+        console.error('❌ Error cargando preview de pedido:', error);
+        setPreview(null);
+      } finally {
+        setLoadingPreview(false);
+      }
+    };
 
-  loadPreview();
-}, [isOpen, quotation?.id]);
-
+    loadPreview();
+  }, [isOpen, quotation?.id]);
 
   if (!isOpen || !quotation) return null;
 
@@ -164,20 +213,25 @@ useEffect(() => {
     if (field === 'tipoEntrega') {
       setFormData(prev => ({
         ...prev,
-        tipoEntrega:       value,
+        tipoEntrega: value,
         direccionDespacho: '',
-        deptoDespacho:     '',
+        deptoDespacho: '',
         provinciaDespacho: '',
-        distritoDespacho:  '',
-        agenciaDespacho:   { nombre: '', dni: '', telefono: '' }
+        distritoDespacho: '',
+        agenciaDespacho: { nombre: '', dni: '', telefono: '' }
       }));
       setSelectedAddressId('');
       resetUbigeo();
     } else {
       setFormData(prev => ({ ...prev, [field]: value }));
     }
+
     if (errors[field]) {
-      setErrors(prev => { const e = { ...prev }; delete e[field]; return e; });
+      setErrors(prev => {
+        const e = { ...prev };
+        delete e[field];
+        return e;
+      });
     }
   };
 
@@ -191,23 +245,25 @@ useEffect(() => {
 
   const handleAddressSelect = (addressId) => {
     setSelectedAddressId(addressId);
+
     if (!addressId) {
       setFormData(prev => ({
         ...prev,
         direccionDespacho: '',
         provinciaDespacho: '',
-        distritoDespacho:  '',
-        agenciaDespacho:   { nombre: '', dni: '', telefono: '' }
+        distritoDespacho: '',
+        agenciaDespacho: { nombre: '', dni: '', telefono: '' }
       }));
       return;
     }
+
     const address = clientAddresses.find(addr => String(addr.id) === String(addressId));
     if (address) {
       setFormData(prev => ({
         ...prev,
         direccionDespacho: address.direccion,
         provinciaDespacho: address.provinciaNombre,
-        distritoDespacho:  address.distritoNombre,
+        distritoDespacho: address.distritoNombre,
       }));
     }
   };
@@ -218,12 +274,12 @@ useEffect(() => {
     setCodProvincia('');
     setFormData(prev => ({
       ...prev,
-      deptoDespacho:     codDep,
-      deptoNombre:       depto?.descripcion || '',
+      deptoDespacho: codDep,
+      deptoNombre: depto?.descripcion ?? '',
       provinciaDespacho: '',
-      provinciaNombre:   '',
-      distritoDespacho:  '',
-      distritoNombre:    '',
+      provinciaNombre: '',
+      distritoDespacho: '',
+      distritoNombre: '',
     }));
   };
 
@@ -233,65 +289,79 @@ useEffect(() => {
     setFormData(prev => ({
       ...prev,
       provinciaDespacho: codProv,
-      provinciaNombre:   prov?.descripcion || '',
-      distritoDespacho:  '',
-      distritoNombre:    '',
+      provinciaNombre: prov?.descripcion ?? '',
+      distritoDespacho: '',
+      distritoNombre: '',
     }));
   };
 
   const handleAgencyChange = (agencyData) => {
-    setFormData(prev => ({ ...prev, agenciaDespacho: agencyData }));
+    setFormData(prev => ({
+      ...prev,
+      agenciaDespacho: agencyData
+    }));
   };
 
   const validate = () => {
     const newErrors = {};
 
-   if (formData.fechaEntrega) {
-  const selectedDate = new Date(formData.fechaEntrega);
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(0, 0, 0, 0);
+    if (formData.fechaEntrega) {
+      const selectedDate = new Date(formData.fechaEntrega);
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
 
-  if (selectedDate < tomorrow) {
-    newErrors.fechaEntrega = 'La fecha debe ser a partir de mañana';
-  }
-}
-
-    if (!formData.pagoTransporte)
-      newErrors.pagoTransporte = 'Debe seleccionar responsable de transporte';
-
-    if (formData.tipoEntrega !== 'retiro') {
-      if (!formData.direccionDespacho.trim())
-        newErrors.direccionDespacho = 'Dirección de despacho es requerida';
-      if (!formData.distritoDespacho)
-        newErrors.distritoDespacho = 'Distrito es requerido';
-      if (!formData.agenciaDespacho.nombre.trim())
-        newErrors.agenciaNombre = 'Nombre de contacto es requerido';
-      if (!formData.agenciaDespacho.dni.trim() || formData.agenciaDespacho.dni.length !== 8)
-        newErrors.agenciaDni = 'DNI debe tener 8 dígitos';
-      if (!formData.agenciaDespacho.telefono.trim() || formData.agenciaDespacho.telefono.length !== 9)
-        newErrors.agenciaTelefono = 'Teléfono debe tener 9 dígitos';
+      if (selectedDate < tomorrow) {
+        newErrors.fechaEntrega = 'La fecha debe ser a partir de mañana';
+      }
     }
 
-    if (formData.tipoEntrega === 'despacho' && !selectedAddressId)
-      newErrors.direccionDespacho = 'Debe seleccionar una dirección registrada';
+    if (!formData.pagoTransporte) {
+      newErrors.pagoTransporte = 'Debe seleccionar responsable de transporte';
+    }
 
-    if (formData.tipoEntrega === 'nueva_direccion') {
-      if (!formData.deptoDespacho)
+    if (formData.tipoEntrega !== 'retiro') {
+      if (!formData.direccionDespacho.trim()) {
+        newErrors.direccionDespacho = 'Dirección de despacho es requerida';
+      }
+      if (!formData.distritoDespacho) {
+        newErrors.distritoDespacho = 'Distrito es requerido';
+      }
+    }
+
+    if (!formData.agenciaDespacho.nombre.trim()) {
+      newErrors.agenciaNombre = 'Nombre de contacto es requerido';
+    }
+
+    if (!formData.agenciaDespacho.dni.trim() || formData.agenciaDespacho.dni.length !== 8) {
+      newErrors.agenciaDni = 'DNI debe tener 8 dígitos';
+    }
+
+    if (!formData.agenciaDespacho.telefono.trim() || formData.agenciaDespacho.telefono.length !== 9) {
+      newErrors.agenciaTelefono = 'Teléfono debe tener 9 dígitos';
+    }
+
+    if (formData.tipoEntrega === 'despacho' && !selectedAddressId) {
+      newErrors.direccionDespacho = 'Debe seleccionar una dirección registrada';
+    }
+
+    if (formData.tipoEntrega === 'nuevadireccion') {
+      if (!formData.deptoDespacho) {
         newErrors.deptoDespacho = 'Departamento es requerido';
-      if (!formData.provinciaDespacho)
+      }
+      if (!formData.provinciaDespacho) {
         newErrors.provinciaDespacho = 'Provincia es requerida';
+      }
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // ── Submit ─────────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (isSubmittingRef.current) return;
+
     isSubmittingRef.current = true;
 
     if (!validate()) {
@@ -301,10 +371,9 @@ useEffect(() => {
     }
 
     setIsSubmitting(true);
-
     try {
       const result = await transmitOrder(quotation.id, formData);
-      toast.success(`Pedido generado — Folio: ${result.folio_as400}`);
+      toast.success(`Pedido generado. Folio: ${result.folioas400}`);
       onSave?.(result);
       onClose();
     } catch (error) {
@@ -317,44 +386,57 @@ useEffect(() => {
     }
   };
 
-const quotationProducts = Array.isArray(preview?.payload?.items)
-  ? preview.payload.items
-  : Array.isArray(preview?.items)
-    ? preview.items
-    : Array.isArray(preview?.productos)
-      ? preview.productos
-      : Array.isArray(quotation?.productos)
-        ? quotation.productos
-        : [];
+  const quotationProducts = Array.isArray(preview?.payload?.items)
+    ? preview.payload.items
+    : Array.isArray(preview?.items)
+      ? preview.items
+      : Array.isArray(preview?.productos)
+        ? preview.productos
+        : Array.isArray(quotation?.productos)
+          ? quotation.productos
+          : [];
 
-const subtotalDisplay = Number(
-  quotationProducts.reduce((sum, p) => {
-    const qty = Number(p.quantity || p.cantidad || p.qaprbd || p.cantidad || 0);
-    const precioNeto = Number(
-      p.precioNeto ||
-      p.precioUnitario ||
-      ((p.dinet_usd || p.dinets) && qty > 0 ? (p.dinet_usd || p.dinets) / qty : 0)
-    );
-    return sum + (precioNeto * qty);
-  }, 0)
-);
+  const totalsDisplay = quotationProducts.reduce(
+    (acc, p) => {
+      const qty = Number(p.quantity ?? p.cantidad ?? p.qaprbd ?? 0) || 0;
+      const precioLista = Number(
+        p.precioLista ??
+        p.plistadol ??
+        p.preciosDetalle?.importes?.ldol ??
+        p.preciosDetalle?.importes?.dola ??
+        p.dola ??
+        0
+      );
+      const discount1 = Number(p.discount1 ?? p.descuentos?.[0] ?? 0) || 0;
+      const discount5 = Number(p.discount5 ?? p.descuentos?.[4] ?? 0) || 0;
 
-const igvDisplay = subtotalDisplay * 0.18;
-const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (subtotalDisplay + igvDisplay));
+      const calc = calcPrecioVisual(precioLista, discount1, discount5, qty);
+
+      acc.subtotal += calc.precioNetoTotal;
+      acc.igv += calc.igv;
+      acc.total += calc.importeTotal;
+
+      return acc;
+    },
+    { subtotal: 0, igv: 0, total: 0 }
+  );
+
+  const subtotalDisplay = roundTo(totalsDisplay.subtotal, 2);
+  const igvDisplay = roundTo(subtotalDisplay * IGV_RATE, 2);
+  const totalDisplay = roundTo(subtotalDisplay + igvDisplay, 2);
 
   const modalContent = (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div
         className="bg-white rounded-xl shadow-2xl w-full max-w-6xl my-8 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-[#2ecc70] to-[#27ae60] text-white px-6 py-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-3">
             <ShoppingCart className="w-6 h-6" />
             <div>
               <h2 className="text-xl font-bold">Generar Pedido</h2>
-              <p className="text-sm text-green-100">Cotización: {quotation.numeroCotizacion}</p>
+              <p className="text-sm text-green-100">Cotización #{quotation.numeroCotizacion}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg transition">
@@ -363,8 +445,6 @@ const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (sub
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-
-          {/* Información del Cliente */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
               <Package className="w-5 h-5 text-blue-600" />
@@ -381,7 +461,7 @@ const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (sub
               </div>
               <div>
                 <span className="font-medium text-gray-700">Total Cotización:</span>
-                <span className="ml-2 text-gray-900 font-bold">${(quotation.total ?? 0).toFixed(2)}</span>
+                <span className="ml-2 text-gray-900 font-bold">${Number(quotation.total ?? 0).toFixed(2)}</span>
               </div>
               <div>
                 <span className="font-medium text-gray-700">Asesor:</span>
@@ -390,139 +470,140 @@ const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (sub
             </div>
           </div>
 
-          {/* Productos de la Cotización */}
-<div className="border border-gray-200 rounded-lg overflow-hidden">
-  <div className="px-5 py-4 bg-gray-50 border-b">
-    <h3 className="font-bold text-gray-900 flex items-center gap-2">
-      <Package className="w-5 h-5 text-gray-700" />
-      Productos de la Cotización
-    </h3>
-    <p className="text-sm text-gray-500 mt-1">
-      Vista referencial de los productos incluidos en la cotización
-    </p>
-  </div>
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="px-5 py-4 bg-gray-50 border-b">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <Package className="w-5 h-5 text-gray-700" />
+                Productos de la Cotización
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Vista referencial de los productos incluidos en la cotización
+              </p>
+            </div>
 
-  <div className="overflow-x-auto max-h-72 overflow-y-auto">
-    <table className="min-w-full text-sm">
-      <thead className="bg-gray-100">
-        <tr>
-          <th className="px-3 py-2 text-center font-semibold text-gray-700 w-10">#</th>
-          <th className="px-3 py-2 text-left font-semibold text-gray-700">Código</th>
-          <th className="px-3 py-2 text-left font-semibold text-gray-700">Descripción</th>
-          <th className="px-3 py-2 text-right font-semibold text-gray-700">Precio Lista</th>
-          <th className="px-3 py-2 text-right font-semibold text-gray-700">Dscto 1 (%)</th>
-          <th className="px-3 py-2 text-right font-semibold text-gray-700">Dscto 5 (%)</th>
-          <th className="px-3 py-2 text-right font-semibold text-gray-700">Precio Neto</th>
-          <th className="px-3 py-2 text-right font-semibold text-gray-700">Cant.</th>
-          <th className="px-3 py-2 text-right font-semibold text-gray-700">P. Neto Total</th>
-          <th className="px-3 py-2 text-right font-semibold text-gray-700">IGV ($)</th>
-          <th className="px-3 py-2 text-right font-semibold text-gray-700">Total</th>
-        </tr>
-      </thead>
+            <div className="overflow-x-auto max-h-72 overflow-y-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-3 py-2 text-center font-semibold text-gray-700 w-10">#</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-700">Código</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-700">Descripción</th>
+                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Precio Lista</th>
+                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Dscto 1</th>
+                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Dscto 5</th>
+                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Precio Neto</th>
+                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Cant.</th>
+                    <th className="px-3 py-2 text-right font-semibold text-gray-700">P. Neto Total</th>
+                    <th className="px-3 py-2 text-right font-semibold text-gray-700">IGV</th>
+                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {loadingPreview ? (
+                    [1, 2].map(row => (
+                      <tr key={row} className="animate-pulse">
+                        {Array.from({ length: 11 }).map((_, i) => (
+                          <td key={i} className="px-3 py-3">
+                            <div className="h-4 bg-gray-200 rounded w-full" />
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  ) : quotationProducts.length === 0 ? (
+                    <tr>
+                      <td colSpan={11} className="px-4 py-10 text-center text-gray-500 text-sm">
+                        No se encontraron productos en la cotización.
+                      </td>
+                    </tr>
+                  ) : (
+                    quotationProducts.map((p, index) => {
+                      const qty = Number(p.quantity ?? p.cantidad ?? p.qaprbd ?? 0) || 0;
+                      const precioLista = Number(
+                        p.precioLista ??
+                        p.plistadol ??
+                        p.preciosDetalle?.importes?.ldol ??
+                        p.preciosDetalle?.importes?.dola ??
+                        p.dola ??
+                        0
+                      );
+                      const discount1 = Number(p.discount1 ?? p.descuentos?.[0] ?? 0) || 0;
+                      const discount5 = Number(p.discount5 ?? p.descuentos?.[4] ?? 0) || 0;
 
-     <tbody className="divide-y divide-gray-200 bg-white">
-  {loadingPreview ? (
-  [1, 2].map((row) => (
-    <tr key={row} className="animate-pulse">
-      {Array.from({ length: 11 }).map((_, i) => (
-        <td key={i} className="px-3 py-3">
-          <div className="h-4 bg-gray-200 rounded w-full" />
-        </td>
-      ))}
-    </tr>
-  ))
-) : quotationProducts.length === 0 ? (
-  <tr>
-    <td colSpan="11" className="px-4 py-10 text-center text-gray-500 text-sm">
-      No se encontraron productos en la cotización.
-    </td>
-  </tr>
-) : (
-  quotationProducts.map((p, index) => {
-    const qty = Number(p.quantity || p.cantidad || 0);
-    const precioLista = Number(p.precioLista || 0);
-    const discount1 = Number(p.discount1 || p.descuentos?.[0] || 0);
-    const discount5 = Number(p.discount5 || p.descuentos?.[4] || 0);
-    const precioNeto = Number(p.precioNeto || 0);
-    const netoTotal = precioNeto * qty;
-    const igv = netoTotal * 0.18;
-    const total = netoTotal + igv;
+                      const {
+                        precioNeto,
+                        precioNetoTotal,
+                        igv,
+                        importeTotal
+                      } = calcPrecioVisual(precioLista, discount1, discount5, qty);
 
-    return (
-      <tr key={p.id || `${p.codigo}-${index}`} className="hover:bg-gray-50">
-        <td className="px-3 py-2 text-center text-gray-500 font-semibold">
-          {index + 1}
-        </td>
-        <td className="px-3 py-2 text-gray-900 font-medium whitespace-nowrap">
-          {p.codigo || '-'}
-        </td>
-        <td className="px-3 py-2 text-gray-800 min-w-[240px]">
-          {p.descripcion || p.nombre || p.codigo || '-'}
-        </td>
-        <td className="px-3 py-2 text-right text-gray-700">
-          ${precioLista.toFixed(3)}
-        </td>
-        <td className="px-3 py-2 text-right text-indigo-700 font-semibold">
-          {discount1.toFixed(2)}
-        </td>
-        <td className="px-3 py-2 text-right text-orange-700 font-semibold">
-          {discount5.toFixed(2)}
-        </td>
-        <td className="px-3 py-2 text-right text-emerald-700 font-semibold">
-          ${precioNeto.toFixed(3)}
-        </td>
-        <td className="px-3 py-2 text-right text-blue-700 font-bold">
-          {qty}
-        </td>
-        <td className="px-3 py-2 text-right text-blue-800 font-semibold">
-          ${netoTotal.toFixed(2)}
-        </td>
-        <td className="px-3 py-2 text-right text-yellow-700 font-semibold">
-          ${igv.toFixed(2)}
-        </td>
-        <td className="px-3 py-2 text-right text-red-700 font-bold">
-          ${total.toFixed(2)}
-        </td>
-      </tr>
-    );
-  })
-)}
-</tbody>
-    </table>
-  </div>
+                      return (
+                        <tr key={p.id || `${p.codigo}-${index}`} className="hover:bg-gray-50">
+                          <td className="px-3 py-2 text-center text-gray-500 font-semibold">
+                            {index + 1}
+                          </td>
+                          <td className="px-3 py-2 text-gray-900 font-medium whitespace-nowrap">
+                            {p.codigo || '-'}
+                          </td>
+                          <td className="px-3 py-2 text-gray-800 min-w-[240px]">
+                            {p.descripcion || p.nombre || p.codigo || '-'}
+                          </td>
+                          <td className="px-3 py-2 text-right text-gray-700">
+                            {precioLista.toFixed(3)}
+                          </td>
+                          <td className="px-3 py-2 text-right text-indigo-700 font-semibold">
+                            {discount1.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-2 text-right text-orange-700 font-semibold">
+                            {discount5.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-2 text-right text-emerald-700 font-semibold">
+                            {precioNeto.toFixed(4)}
+                          </td>
+                          <td className="px-3 py-2 text-right text-blue-700 font-bold">
+                            {qty}
+                          </td>
+                          <td className="px-3 py-2 text-right text-blue-800 font-semibold">
+                            {precioNetoTotal.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-2 text-right text-yellow-700 font-semibold">
+                            {igv.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-2 text-right text-red-700 font-bold">
+                            {importeTotal.toFixed(2)}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-  <div className="flex justify-end p-4 bg-gray-50 border-t">
-    <div className="space-y-1 w-full max-w-xs bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-      <div className="flex items-center justify-between text-sm">
-        <span className="font-medium text-gray-700">Subtotal:</span>
-        <span className="font-semibold text-gray-900">
-          ${subtotalDisplay.toFixed(2)}
-        </span>
-      </div>
-      <div className="flex items-center justify-between text-sm">
-        <span className="font-medium text-gray-700">IGV (18%):</span>
-        <span className="font-semibold text-yellow-700">
-          ${igvDisplay.toFixed(2)}
-        </span>
-      </div>
-      <div className="flex items-center justify-between text-base border-t pt-2 mt-2">
-        <span className="font-bold text-gray-900">Total:</span>
-        <span className="font-extrabold text-emerald-700 text-lg">
-          ${totalDisplay.toFixed(2)}
-        </span>
-      </div>
-    </div>
-  </div>
-</div>
+            <div className="flex justify-end p-4 bg-gray-50 border-t">
+              <div className="space-y-1 w-full max-w-xs bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium text-gray-700">Subtotal</span>
+                  <span className="font-semibold text-gray-900">{subtotalDisplay.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium text-gray-700">IGV 18%</span>
+                  <span className="font-semibold text-yellow-700">{igvDisplay.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-base border-t pt-2 mt-2">
+                  <span className="font-bold text-gray-900">Total</span>
+                  <span className="font-extrabold text-emerald-700 text-lg">{totalDisplay.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-          {/* Sección 1: Datos de la Orden */}
           <div className="border border-gray-200 rounded-lg p-5">
             <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
               <FileText className="w-5 h-5 text-gray-700" />
               Datos de la Orden
             </h3>
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* N° Orden de Compra */}
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   N° Orden de Compra
@@ -530,14 +611,13 @@ const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (sub
                 <input
                   type="text"
                   value={formData.ordenCompra}
-                  onChange={(e) => handleChange('ordenCompra', e.target.value)}
+                  onChange={e => handleChange('ordenCompra', e.target.value)}
                   placeholder="OC-2025-0001"
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent transition"
                 />
               </div>
 
-              {/* Fecha de Entrega */}
-              {/* <div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Fecha de Entrega <span className="text-red-500">*</span>
                 </label>
@@ -546,7 +626,7 @@ const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (sub
                   <input
                     type="date"
                     value={formData.fechaEntrega}
-                    onChange={(e) => handleChange('fechaEntrega', e.target.value)}
+                    onChange={e => handleChange('fechaEntrega', e.target.value)}
                     min={getTomorrowDate()}
                     className={`w-full pl-10 pr-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent transition ${
                       errors.fechaEntrega ? 'border-red-500 bg-red-50' : 'border-gray-300'
@@ -555,19 +635,19 @@ const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (sub
                 </div>
                 {errors.fechaEntrega && (
                   <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />{errors.fechaEntrega}
+                    <AlertCircle className="w-3 h-3" />
+                    {errors.fechaEntrega}
                   </p>
                 )}
-              </div> */}
+              </div>
 
-              {/*  Forma de Pago */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Forma de Pago
                 </label>
                 <select
                   value={formData.formaPago}
-                  onChange={(e) => handleChange('formaPago', e.target.value)}
+                  onChange={e => handleChange('formaPago', e.target.value)}
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white"
                 >
                   {forpagOpciones.map(op => (
@@ -578,12 +658,12 @@ const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (sub
             </div>
           </div>
 
-          {/* Sección 2: Transporte */}
           <div className="border border-gray-200 rounded-lg p-5">
             <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
               <Truck className="w-5 h-5 text-gray-700" />
               Datos de Transporte
             </h3>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -591,7 +671,7 @@ const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (sub
                 </label>
                 <select
                   value={formData.transporteZona}
-                  onChange={(e) => handleTransportZoneChange(e.target.value)}
+                  onChange={e => handleTransportZoneChange(e.target.value)}
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white"
                 >
                   {transportZones.map(zone => (
@@ -599,37 +679,42 @@ const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (sub
                   ))}
                 </select>
               </div>
-              <SearchableSelect
-                value={formData.pagoTransporte}
-                onChange={(value) => handleChange('pagoTransporte', value)}
-                options={transportOptions}
-                label="Responsable de Transporte"
-                placeholder={loadingTransport ? 'Cargando...' : 'Buscar agencia o responsable...'}
-                required={true}
-                error={errors.pagoTransporte}
-                disabled={loadingTransport || formData.transporteZona === 'lima_callao'}
-              />
-            </div>
-            {transportError ? (
-              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                ⚠ No se pudieron cargar los transportistas. Intente nuevamente.
+
+              <div>
+                <SearchableSelect
+                  value={formData.pagoTransporte}
+                  onChange={value => handleChange('pagoTransporte', value)}
+                  options={transportOptions}
+                  label="Responsable de Transporte"
+                  placeholder={loadingTransport ? 'Cargando...' : 'Buscar agencia o responsable...'}
+                  required={true}
+                  error={errors.pagoTransporte}
+                  disabled={loadingTransport && formData.transporteZona !== 'limacallao'}
+                />
               </div>
-            ) : (
-              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-                {formData.transporteZona === 'lima_callao'
-                  ? <p>✓ Para Lima y Callao, EMASA se encarga del transporte.</p>
-                  : <p>✓ Para envíos a provincia, seleccione la agencia de transporte preferida.</p>
-                }
+            </div>
+
+            {transportError && (
+              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                No se pudieron cargar los transportistas. Intente nuevamente.
               </div>
             )}
+
+            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+              {formData.transporteZona === 'limacallao' ? (
+                <p>Para Lima y Callao, EMASA se encarga del transporte.</p>
+              ) : (
+                <p>Para envíos a provincia, seleccione la agencia de transporte preferida.</p>
+              )}
+            </div>
           </div>
 
-          {/* Sección 3: Entrega */}
           <div className="border border-gray-200 rounded-lg p-5">
             <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
               <MapPin className="w-5 h-5 text-gray-700" />
               Datos de Entrega
             </h3>
+
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Entrega</label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -647,7 +732,7 @@ const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (sub
                       name="tipoEntrega"
                       value={type.value}
                       checked={formData.tipoEntrega === type.value}
-                      onChange={(e) => handleChange('tipoEntrega', e.target.value)}
+                      onChange={e => handleChange('tipoEntrega', e.target.value)}
                       className="w-4 h-4 text-[#2ecc70] focus:ring-[#2ecc70]"
                     />
                     <span className="text-sm font-medium text-gray-900">{type.label}</span>
@@ -661,7 +746,11 @@ const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (sub
                 <ShippingAgencyForm
                   agencyData={formData.agenciaDespacho}
                   onChange={handleAgencyChange}
-                  errors={{ nombre: errors.agenciaNombre, dni: errors.agenciaDni, telefono: errors.agenciaTelefono }}
+                  errors={{
+                    nombre: errors.agenciaNombre,
+                    dni: errors.agenciaDni,
+                    telefono: errors.agenciaTelefono,
+                  }}
                 />
               </div>
             )}
@@ -674,7 +763,7 @@ const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (sub
                   </div>
                 ) : addressError ? (
                   <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                    ⚠ Error al cargar direcciones. Intente nuevamente.
+                    Error al cargar direcciones. Intente nuevamente.
                   </div>
                 ) : clientAddresses.length > 0 ? (
                   <>
@@ -684,7 +773,7 @@ const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (sub
                       </label>
                       <select
                         value={selectedAddressId}
-                        onChange={(e) => handleAddressSelect(e.target.value)}
+                        onChange={e => handleAddressSelect(e.target.value)}
                         className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white ${
                           errors.direccionDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
                         }`}
@@ -692,50 +781,74 @@ const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (sub
                         <option value="">-- Seleccionar dirección --</option>
                         {clientAddresses.map(addr => (
                           <option key={addr.id} value={String(addr.id)}>
-                            {addr.source === 'as400' ? '📍' : '📦'} {addr.direccion} — {addr.distritoNombre}, {addr.provinciaNombre}
-                            {addr.source === 'as400' && ' (Dirección registrada)'}
-                            {addr.source === 'bd' && addr.isDefault === 1 && ' (Principal)'}
+                            {addr.source === 'as400'
+                              ? `${addr.direccion} - ${addr.distritoNombre}, ${addr.provinciaNombre}`
+                              : `${addr.direccion} ${addr.source === 'bd' && addr.isDefault === 1 ? '(Principal)' : ''}`}
                           </option>
                         ))}
                       </select>
                       {errors.direccionDespacho && (
                         <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3" />{errors.direccionDespacho}
+                          <AlertCircle className="w-3 h-3" />
+                          {errors.direccionDespacho}
                         </p>
                       )}
                     </div>
+
                     {selectedAddressId && (() => {
                       const addr = clientAddresses.find(a => String(a.id) === String(selectedAddressId));
                       if (!addr) return null;
+
                       return (
                         <div className="grid grid-cols-1 gap-4">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Dirección de Despacho</label>
-                            <textarea value={formData.direccionDespacho} readOnly rows={2}
-                              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed resize-none" />
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Dirección de Despacho
+                            </label>
+                            <textarea
+                              value={formData.direccionDespacho}
+                              readOnly
+                              rows={2}
+                              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed resize-none"
+                            />
                           </div>
+
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">Departamento</label>
-                              <input readOnly value={addr.deptoNombre}
-                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" />
+                              <input
+                                readOnly
+                                value={addr.deptoNombre}
+                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                              />
                             </div>
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
-                              <input readOnly value={addr.provinciaNombre}
-                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" />
+                              <input
+                                readOnly
+                                value={addr.provinciaNombre}
+                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                              />
                             </div>
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">Distrito</label>
-                              <input readOnly value={addr.distritoNombre}
-                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" />
+                              <input
+                                readOnly
+                                value={addr.distritoNombre}
+                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                              />
                             </div>
                           </div>
+
                           <div className="mt-2">
                             <ShippingAgencyForm
                               agencyData={formData.agenciaDespacho}
                               onChange={handleAgencyChange}
-                              errors={{ nombre: errors.agenciaNombre, dni: errors.agenciaDni, telefono: errors.agenciaTelefono }}
+                              errors={{
+                                nombre: errors.agenciaNombre,
+                                dni: errors.agenciaDni,
+                                telefono: errors.agenciaTelefono,
+                              }}
                             />
                           </div>
                         </div>
@@ -744,13 +857,13 @@ const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (sub
                   </>
                 ) : (
                   <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
-                    ⚠️ No hay direcciones registradas para este cliente. Selecciona "Despacho a Otra Dirección".
+                    No hay direcciones registradas para este cliente. Selecciona Despacho a Otra Dirección.
                   </div>
                 )}
               </>
             )}
 
-            {formData.tipoEntrega === 'nueva_direccion' && (
+            {formData.tipoEntrega === 'nuevadireccion' && (
               <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -758,7 +871,7 @@ const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (sub
                   </label>
                   <textarea
                     value={formData.direccionDespacho}
-                    onChange={(e) => handleChange('direccionDespacho', e.target.value)}
+                    onChange={e => handleChange('direccionDespacho', e.target.value)}
                     placeholder="Av. Ejemplo 123, Oficina 501..."
                     rows={2}
                     className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent resize-none ${
@@ -767,64 +880,86 @@ const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (sub
                   />
                   {errors.direccionDespacho && (
                     <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" />{errors.direccionDespacho}
+                      <AlertCircle className="w-3 h-3" />
+                      {errors.direccionDespacho}
                     </p>
                   )}
                 </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Departamento <span className="text-red-500">*</span>
                     </label>
-                    <select value={formData.deptoDespacho} onChange={(e) => handleDeptoChange(e.target.value)}
+                    <select
+                      value={formData.deptoDespacho}
+                      onChange={e => handleDeptoChange(e.target.value)}
                       disabled={loadingDeptos}
                       className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white disabled:bg-gray-100 disabled:cursor-wait ${
                         errors.deptoDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
                     >
-                      <option value="">{loadingDeptos ? 'Cargando...' : '-- Seleccionar departamento --'}</option>
-                      {departamentos.map(d => <option key={d.codigo} value={d.codigo}>{d.descripcion}</option>)}
+                      <option value="">
+                        {loadingDeptos ? 'Cargando...' : '-- Seleccionar departamento --'}
+                      </option>
+                      {departamentos.map(d => (
+                        <option key={d.codigo} value={d.codigo}>{d.descripcion}</option>
+                      ))}
                     </select>
                     {errors.deptoDespacho && (
                       <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />{errors.deptoDespacho}
+                        <AlertCircle className="w-3 h-3" />
+                        {errors.deptoDespacho}
                       </p>
                     )}
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Provincia <span className="text-red-500">*</span>
                     </label>
-                    <select value={formData.provinciaDespacho} onChange={(e) => handleProvinciaChange(e.target.value)}
+                    <select
+                      value={formData.provinciaDespacho}
+                      onChange={e => handleProvinciaChange(e.target.value)}
                       disabled={!formData.deptoDespacho || loadingProvs}
                       className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white disabled:bg-gray-100 disabled:cursor-not-allowed ${
                         errors.provinciaDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
                     >
-                      <option value="">{loadingProvs ? 'Cargando...' : '-- Seleccionar provincia --'}</option>
-                      {provincias.map(p => <option key={p.codigo} value={p.codigo}>{p.descripcion}</option>)}
+                      <option value="">
+                        {loadingProvs ? 'Cargando...' : '-- Seleccionar provincia --'}
+                      </option>
+                      {provincias.map(p => (
+                        <option key={p.codigo} value={p.codigo}>{p.descripcion}</option>
+                      ))}
                     </select>
                     {errors.provinciaDespacho && (
                       <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />{errors.provinciaDespacho}
+                        <AlertCircle className="w-3 h-3" />
+                        {errors.provinciaDespacho}
                       </p>
                     )}
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Distrito <span className="text-red-500">*</span>
                     </label>
                     <select
                       value={formData.distritoDespacho}
-                      onChange={(e) => {
+                      onChange={e => {
                         const dist = distritos.find(d => d.codigo === e.target.value);
                         setFormData(prev => ({
                           ...prev,
                           distritoDespacho: e.target.value,
-                          distritoNombre:   dist?.descripcion || '',
+                          distritoNombre: dist?.descripcion ?? '',
                         }));
                         if (errors.distritoDespacho) {
-                          setErrors(prev => { const er = { ...prev }; delete er.distritoDespacho; return er; });
+                          setErrors(prev => {
+                            const er = { ...prev };
+                            delete er.distritoDespacho;
+                            return er;
+                          });
                         }
                       }}
                       disabled={!formData.provinciaDespacho || loadingDistritos}
@@ -832,60 +967,93 @@ const totalDisplay = Number(preview?.payload?.imporc ?? quotation?.total ?? (sub
                         errors.distritoDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
                     >
-                      <option value="">{loadingDistritos ? 'Cargando...' : '-- Seleccionar distrito --'}</option>
-                      {distritos.map(d => <option key={d.codigo} value={d.codigo}>{d.descripcion}</option>)}
+                      <option value="">
+                        {loadingDistritos ? 'Cargando...' : '-- Seleccionar distrito --'}
+                      </option>
+                      {distritos.map(d => (
+                        <option key={d.codigo} value={d.codigo}>{d.descripcion}</option>
+                      ))}
                     </select>
                     {errors.distritoDespacho && (
                       <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />{errors.distritoDespacho}
+                        <AlertCircle className="w-3 h-3" />
+                        {errors.distritoDespacho}
                       </p>
                     )}
                   </div>
                 </div>
+
                 <div className="mt-2">
                   <ShippingAgencyForm
                     agencyData={formData.agenciaDespacho}
                     onChange={handleAgencyChange}
-                    errors={{ nombre: errors.agenciaNombre, dni: errors.agenciaDni, telefono: errors.agenciaTelefono }}
+                    errors={{
+                      nombre: errors.agenciaNombre,
+                      dni: errors.agenciaDni,
+                      telefono: errors.agenciaTelefono,
+                    }}
                   />
                 </div>
               </div>
             )}
           </div>
 
-          {/* Observaciones */}
           <div className="border border-gray-200 rounded-lg p-5 space-y-4">
             <h3 className="font-bold text-gray-900 flex items-center gap-2">
               <MessageSquare className="w-5 h-5 text-gray-700" />
               Observaciones
             </h3>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Observaciones Generales</label>
-              <textarea value={formData.observaciones} onChange={(e) => handleChange('observaciones', e.target.value)}
-                placeholder="Indicaciones especiales, horarios de entrega, etc..." rows={3}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent resize-none text-sm" />
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Observaciones Generales
+              </label>
+              <textarea
+                value={formData.observaciones}
+                onChange={e => handleChange('observaciones', e.target.value)}
+                placeholder="Indicaciones especiales, horarios de entrega, etc..."
+                rows={3}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent resize-none text-sm"
+              />
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Observaciones de Créditos</label>
-              <textarea value={formData.observacionesCreditos} onChange={(e) => handleChange('observacionesCreditos', e.target.value)}
-                placeholder="Condiciones de pago, plazos, garantías..." rows={2}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm" />
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Observaciones de Créditos
+              </label>
+              <textarea
+                value={formData.observacionesCreditos}
+                onChange={e => handleChange('observacionesCreditos', e.target.value)}
+                placeholder="Condiciones de pago, plazos, garantías..."
+                rows={2}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+              />
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Observaciones de Logística</label>
-              <textarea value={formData.observacionesLogistica} onChange={(e) => handleChange('observacionesLogistica', e.target.value)}
-                placeholder="Dirección de entrega, contacto, instrucciones de despacho..." rows={2}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none text-sm" />
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Observaciones de Logística
+              </label>
+              <textarea
+                value={formData.observacionesLogistica}
+                onChange={e => handleChange('observacionesLogistica', e.target.value)}
+                placeholder="Dirección de entrega, contacto, instrucciones de despacho..."
+                rows={2}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none text-sm"
+              />
             </div>
           </div>
 
-          {/* Botones */}
           <div className="flex justify-end gap-3 pt-4 border-t">
-            <button type="button" onClick={onClose}
-              className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+            >
               Cancelar
             </button>
-            <button type="submit"
+            <button
+              type="submit"
               disabled={isSubmitting || loadingTransport}
               className="px-6 py-2.5 bg-gradient-to-r from-[#2ecc70] to-[#27ae60] text-white rounded-lg hover:shadow-lg transition font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >

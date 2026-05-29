@@ -9,13 +9,11 @@ import SearchableSelect from '../common/SearchableSelect';
 import { AuthContext } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
-
 const PriceCell = ({ qa, children }) => {
   if (qa?.loading) return <Loader2 className="w-4 h-4 animate-spin text-blue-400 mx-auto" />;
-  if (qa?.error)   return <span className="text-xs text-red-400" title={qa.error}>—</span>;
+  if (qa?.error) return <span className="text-xs text-red-400" title={qa.error}>—</span>;
   return children;
 };
-
 
 const getStockBlockReason = (product) => {
   if (!product.almacenes || product.almacenes.length === 0)
@@ -28,6 +26,15 @@ const getStockBlockReason = (product) => {
   return null;
 };
 
+// ─────────────────────────────────────────────────────────────
+// MEJORA: cálculo interno exacto, redondeo solo para mostrar
+// - Precio Neto Unitario mostrado: 4 decimales
+// - Precio Neto Total mostrado: 2 decimales
+// ─────────────────────────────────────────────────────────────
+const roundTo = (value, decimals = 4) => {
+  const factor = 10 ** decimals;
+  return Math.round((Number(value) + Number.EPSILON) * factor) / factor;
+};
 
 const ProductsTab = ({
   codigoProducto,
@@ -40,23 +47,21 @@ const ProductsTab = ({
   clienteRuc,
   quotationItems,
   autoSearchTrigger,
-  almacenSeleccionado,     
+  almacenSeleccionado,
   setAlmacenSeleccionado,
 }) => {
-  const [modalOpen, setModalOpen]             = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [currentPage, setCurrentPage]         = useState(1);
-  const [productsPerPage]                     = useState(10);
-  const [productos, setProductos]             = useState([]);
-  const [loading, setLoading]                 = useState(false);
-  const [error, setError]                     = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [productsPerPage] = useState(10);
+  const [productos, setProductos] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const [aplicacionProducto, setAplicacionProducto] = useState('');
-
   const [filtroActivo, setFiltroActivo] = useState(null);
 
   const { user } = useContext(AuthContext);
-
   const codAlmacenes = user?.empresa?.cod_almacenes || [];
 
   const almacenOptions = codAlmacenes.map(a => ({
@@ -64,12 +69,8 @@ const ProductsTab = ({
     label: `${a.cod} — ${a.nombre}`,
   }));
 
-  
-
-  //  VALIDACIÓN 2 y 3 — almacén bloqueado si hay productos en cotización
   const almacenBloqueado = quotationItems?.length > 0;
 
-  // ── Auto-búsqueda desde PurchaseHistoryTab ─────────────────────────────
   useEffect(() => {
     if (autoSearchTrigger > 0 && codigoProducto?.trim()) {
       handleSearch();
@@ -77,29 +78,58 @@ const ProductsTab = ({
   }, [autoSearchTrigger]);
 
   useEffect(() => {
-  if (codigoProducto?.trim()) {
-    setFiltroActivo('codigo');
-  } else if (nombreProducto?.trim()) {
-    setFiltroActivo('nombre');
-  } else if (aplicacionProducto?.trim()) {
-    setFiltroActivo('aplicacion');
-  } else {
-    setFiltroActivo(null);
-  }
-}, [codigoProducto, nombreProducto, aplicacionProducto]);
+    if (codigoProducto?.trim()) {
+      setFiltroActivo('codigo');
+    } else if (nombreProducto?.trim()) {
+      setFiltroActivo('nombre');
+    } else if (aplicacionProducto?.trim()) {
+      setFiltroActivo('aplicacion');
+    } else {
+      setFiltroActivo(null);
+    }
+  }, [codigoProducto, nombreProducto, aplicacionProducto]);
 
-  const indexOfLastProduct  = currentPage * productsPerPage;
+  const indexOfLastProduct = currentPage * productsPerPage;
   const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
-  const currentProducts     = productos.slice(indexOfFirstProduct, indexOfLastProduct);
-  const totalPages          = Math.ceil(productos.length / productsPerPage);
-  const handlePageChange    = (pageNumber) => setCurrentPage(pageNumber);
+  const currentProducts = productos.slice(indexOfFirstProduct, indexOfLastProduct);
+  const totalPages = Math.ceil(productos.length / productsPerPage);
+  const handlePageChange = (pageNumber) => setCurrentPage(pageNumber);
 
+  // ─────────────────────────────────────────────────────────────
+  // CÁLCULO CORRECTO:
+  // - precioUnitExacto: interno con todos los decimales
+  // - precioUnit: mostrar con 4 decimales
+  // - precioTotal: calculado con el exacto, mostrar con 2 decimales
+  // ─────────────────────────────────────────────────────────────
   const calcPrecios = (preciosData, discount5, quantity) => {
-    const dola  = preciosData?.importes?.dola || 0;
-    const de05  = (Number(discount5) || 0) / 100;
-    const unit  = dola * (1 - de05);
-    const total = unit * (Number(quantity) || 1);
-    return { precioUnit: unit, precioTotal: total };
+    const precioLista = Number(
+      preciosData?.importes?.ldol ??
+      preciosData?.importes?.dola ??
+      0
+    );
+
+    const de01 = Number(preciosData?.descuentos?.de01 || 0) / 100;
+    const de05 = (Number(discount5) || 0) / 100;
+    const qty = Number(quantity) || 1;
+
+    const despuesPrimerDescuento = precioLista * (1 - de01);
+    const precioUnitExacto = despuesPrimerDescuento * (1 - de05);
+
+    // Mostrar a 4 decimales
+    const precioUnit = roundTo(precioUnitExacto, 4);
+
+    // Total real usando exacto interno
+    const precioTotalExacto = precioUnitExacto * qty;
+
+    // Mostrar a 2 decimales
+    const precioTotal = roundTo(precioTotalExacto, 2);
+
+    return {
+      precioUnit,
+      precioUnitExacto,
+      precioTotal,
+      precioTotalExacto
+    };
   };
 
   const updateProductQuick = (codigo, quickData) => {
@@ -117,8 +147,11 @@ const ProductsTab = ({
       const response = await precioService.obtenerPrecio(clienteRuc, producto.codigo.trim(), 1);
       if (response.success && response.data) {
         updateProductQuick(producto.codigo, {
-          loading: false, error: null,
-          preciosData: response.data, quantity: 1, discount5: ''
+          loading: false,
+          error: null,
+          preciosData: response.data,
+          quantity: 1,
+          discount5: ''
         });
       } else {
         updateProductQuick(producto.codigo, {
@@ -133,7 +166,6 @@ const ProductsTab = ({
   };
 
   const handleSearch = async () => {
-    // VALIDACIÓN 1 — almacén obligatorio
     if (codAlmacenes.length > 0 && !almacenSeleccionado) {
       toast.error('Debe seleccionar un almacén antes de buscar.', {
         position: 'top-right', icon: '🏭'
@@ -142,9 +174,9 @@ const ProductsTab = ({
     }
 
     if (!codigoProducto.trim() && !nombreProducto.trim() && !aplicacionProducto.trim()) {
-  setError('Ingrese al menos un código, nombre o aplicación de producto');
-  return;
-}
+      setError('Ingrese al menos un código, nombre o aplicación de producto');
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -154,15 +186,14 @@ const ProductsTab = ({
     try {
       let response;
       if (aplicacionProducto.trim()) {
-  // Búsqueda por aplicación (googleo) — puede combinarse con código/nombre como extra
-  response = await productService.searchByGoogleo(aplicacionProducto);
-} else if (codigoProducto.trim() && nombreProducto.trim()) {
-  response = await productService.searchByCodigoAndNombre(codigoProducto, nombreProducto);
-} else if (codigoProducto.trim()) {
-  response = await productService.searchByCodigo(codigoProducto);
-} else if (nombreProducto.trim()) {
-  response = await productService.searchByName(nombreProducto);
-}
+        response = await productService.searchByGoogleo(aplicacionProducto);
+      } else if (codigoProducto.trim() && nombreProducto.trim()) {
+        response = await productService.searchByCodigoAndNombre(codigoProducto, nombreProducto);
+      } else if (codigoProducto.trim()) {
+        response = await productService.searchByCodigo(codigoProducto);
+      } else if (nombreProducto.trim()) {
+        response = await productService.searchByName(nombreProducto);
+      }
 
       if (response.success) {
         const productosFormateados = response.data.map(item => {
@@ -175,40 +206,40 @@ const ProductsTab = ({
                 const almacenesAll = item.stock.map(s => ({
                   almacencod: s.almacencod?.trim(),
                   almacendes: s.almacendes?.trim(),
-                  stock:      s.stock   || 0,
-                  reserva:    s.reserva || 0,
+                  stock: s.stock || 0,
+                  reserva: s.reserva || 0,
                 }));
 
                 return {
-                  id:              item.producto.codigo?.trim(),
-                  codigo:          item.producto.codigo?.trim(),
-                  nombre:          item.producto.descripcion?.trim(),
-                  categoria:       item.producto.linea?.trim() || 'Sin categoría',
-                  proveedor:       item.producto.marca?.trim() || 'N/A',
+                  id: item.producto.codigo?.trim(),
+                  codigo: item.producto.codigo?.trim(),
+                  nombre: item.producto.descripcion?.trim(),
+                  categoria: item.producto.linea?.trim() || 'Sin categoría',
+                  proveedor: item.producto.marca?.trim() || 'N/A',
                   precioNetoDolar: item.producto.precioListaDol || 0,
-                  precioBolsa:     item.producto.precioBoletin  || 0,
-                  unidad:          'UND',
+                  precioBolsa: item.producto.precioBoletin || 0,
+                  unidad: 'UND',
                   disponibleVenta: item.producto.disponibleVenta === 'S',
-                  stock:           almacenesFiltrados.reduce((sum, s) => sum + (s.stock || 0), 0),
-                  almacenes:       almacenesFiltrados,
+                  stock: almacenesFiltrados.reduce((sum, s) => sum + (s.stock || 0), 0),
+                  almacenes: almacenesFiltrados,
                   almacenesAll,
-                  equivalencia01:  item.producto.equivalencia01?.trim(),
-                  equivalencia02:  item.producto.equivalencia02?.trim(),
-                  core:            item.producto.core?.trim(),
-                  modelo:          item.producto.modelo?.trim()
+                  equivalencia01: item.producto.equivalencia01?.trim(),
+                  equivalencia02: item.producto.equivalencia02?.trim(),
+                  core: item.producto.core?.trim(),
+                  modelo: item.producto.modelo?.trim()
                 };
               })()
             : {
-                id:              item.codigo?.trim(),
-                codigo:          item.codigo?.trim(),
-                nombre:          item.descripcion?.trim(),
-                categoria:       item.linea?.trim() || 'Sin categoría',
-                proveedor:       item.marca?.trim() || 'N/A',
+                id: item.codigo?.trim(),
+                codigo: item.codigo?.trim(),
+                nombre: item.descripcion?.trim(),
+                categoria: item.linea?.trim() || 'Sin categoría',
+                proveedor: item.marca?.trim() || 'N/A',
                 precioNetoDolar: item.precioListaDol || 0,
-                unidad:          'UND',
-                stock:           0,
-                almacenes:       [],
-                almacenesAll:    []
+                unidad: 'UND',
+                stock: 0,
+                almacenes: [],
+                almacenesAll: []
               };
 
           return {
@@ -240,8 +271,8 @@ const ProductsTab = ({
   const handleClearSearch = () => {
     setCodigoProducto('');
     setNombreProducto('');
-    setAplicacionProducto(''); 
-     setFiltroActivo(null);
+    setAplicacionProducto('');
+    setFiltroActivo(null);
     setHasSearched(false);
     setCurrentPage(1);
     setProductos([]);
@@ -260,10 +291,10 @@ const ProductsTab = ({
   const handleConfirm = (product) => {
     const qa = product.quick;
 
-    const flag  = qa?.preciosData?.flag?.trim();
+    const flag = qa?.preciosData?.flag?.trim();
     const flagT = flag === 'T';
     const flagX = flag === 'X';
-    const minD5 = flagT ? (qa?.preciosData?.descuentos?.de04 ?? 0)   : 0;
+    const minD5 = flagT ? (qa?.preciosData?.descuentos?.de04 ?? 0) : 0;
     const maxD5 = flagT ? (qa?.preciosData?.descuentos?.de05 ?? 100) : 100;
 
     const stockReason = getStockBlockReason(product);
@@ -309,30 +340,45 @@ const ProductsTab = ({
       ? (qa.discount5 === '' || qa.discount5 == null) ? 0 : Number(qa.discount5)
       : Math.min(100, Number(qa.discount5) || 0);
 
-    const { precioUnit, precioTotal } = calcPrecios(qa.preciosData, discount5, qty);
+    const { precioUnit, precioUnitExacto, precioTotal, precioTotalExacto } =
+      calcPrecios(qa.preciosData, discount5, qty);
 
-    const almacenData  = codAlmacenes.find(a => a.cod === almacenSeleccionado);
+    const almacenData = codAlmacenes.find(a => a.cod === almacenSeleccionado);
     const codNumAlmacen = almacenSeleccionado?.codnum ?? null;
 
     console.log('🏭 Almacén seleccionado:', {
-  cod:        almacenSeleccionado,
-  codnum:     codNumAlmacen,
-  almacenData,
-});
+      cod: almacenSeleccionado,
+      codnum: codNumAlmacen,
+      almacenData,
+    });
+
+    console.log('💲 Cálculo exacto producto:', {
+      codigo: product.codigo,
+      precioLista: qa.preciosData.importes?.ldol || qa.preciosData.importes?.dola,
+      discount1: qa.preciosData.descuentos?.de01 || 0,
+      discount5,
+      quantity: qty,
+      precioUnitMostrado: precioUnit,
+      precioUnitExacto,
+      precioTotalMostrado: precioTotal,
+      precioTotalExacto,
+    });
 
     onAddToQuotation({
       ...product,
-      quantity:       qty,
+      quantity: qty,
       cantidadOriginal: qty,
-      discount1:      qa.preciosData.descuentos?.de01 || 0,
+      discount1: qa.preciosData.descuentos?.de01 || 0,
       discount5,
-      precioLista:    qa.preciosData.importes?.ldol || product.precioNetoDolar,
-      precioNeto:     precioUnit,
-      precioCotizar:  precioTotal,
+      precioLista: qa.preciosData.importes?.ldol || product.precioNetoDolar,
+      precioNeto: precioUnit,
+      precioNetoExacto: precioUnitExacto,
+      precioCotizar: precioTotal,
+      precioCotizarExacto: precioTotalExacto,
       preciosDetalle: qa.preciosData,
-      warehouse:     product.almacenes?.[0]?.almacencod         || almacenSeleccionado || '',
+      warehouse: product.almacenes?.[0]?.almacencod || almacenSeleccionado || '',
       warehouseName: product.almacenes?.[0]?.almacendes?.trim() || almacenSeleccionado || '',
-      codNumAlmacen, 
+      codNumAlmacen,
     });
 
     toast.success(`"${product.codigo}" agregado a la cotización`, { position: 'top-right' });
@@ -340,163 +386,153 @@ const ProductsTab = ({
 
   const getWarehouseStockStatus = (stock) => {
     if (stock === 0) return { icon: '❌' };
-    if (stock < 10)  return { icon: '⚠️' };
-    return               { icon: '✅' };
+    if (stock < 10) return { icon: '⚠️' };
+    return { icon: '✅' };
   };
 
-  // ───────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
 
-      {/* ── Formulario de Búsqueda ── */}
-<div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex flex-wrap items-end gap-3">
 
-  {/* ── Una sola fila: Almacén + 3 filtros + Botón ── */}
-  <div className="flex flex-wrap items-end gap-3">
+          {codAlmacenes.length > 0 && (
+            <div className="min-w-[200px] flex-shrink-0">
+              {almacenBloqueado && (
+                <div className="flex items-center gap-1.5 mb-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                  <Lock className="w-3 h-3 shrink-0" />
+                  <span>Almacén fijado</span>
+                </div>
+              )}
+              <SearchableSelect
+                label="Almacén"
+                required
+                value={almacenSeleccionado?.cod || ''}
+                onChange={val => {
+                  if (almacenBloqueado) return;
+                  const almacenData = codAlmacenes.find(a => a.cod === val);
+                  setAlmacenSeleccionado(almacenData || null);
+                  setProductos([]);
+                  setHasSearched(false);
+                }}
+                options={almacenOptions}
+                placeholder="Buscar almacén..."
+                disabled={almacenBloqueado}
+                error={
+                  !almacenSeleccionado && !almacenBloqueado
+                    ? 'Seleccione un almacén'
+                    : null
+                }
+              />
+            </div>
+          )}
 
-    {/* Almacén — lógica intacta */}
-    {codAlmacenes.length > 0 && (
-      <div className="min-w-[200px] flex-shrink-0">
-        {almacenBloqueado && (
-          <div className="flex items-center gap-1.5 mb-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-            <Lock className="w-3 h-3 shrink-0" />
-            <span>Almacén fijado</span>
+          <div className="flex-1 min-w-[160px]">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Código de Producto <span className="text-red-600">*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="Ej: Q3 o Q3.VBETY.4E"
+              value={codigoProducto}
+              onChange={e => {
+                const val = e.target.value.toUpperCase();
+                setCodigoProducto(val);
+                setFiltroActivo(val.trim() ? 'codigo' : null);
+              }}
+              onKeyPress={handleKeyPress}
+              disabled={loading || (filtroActivo !== null && filtroActivo !== 'codigo')}
+              className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition
+                ${filtroActivo !== null && filtroActivo !== 'codigo'
+                  ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'border-gray-300 bg-white'}`}
+            />
+          </div>
+
+          <div className="flex-1 min-w-[160px]">
+            <label className={`block text-sm font-semibold mb-2 ${
+              filtroActivo !== null && filtroActivo !== 'nombre' ? 'text-gray-400' : 'text-gray-700'
+            }`}>
+              Nombre de Producto
+            </label>
+            <input
+              type="text"
+              placeholder="Ej: VALVULA"
+              value={nombreProducto}
+              onChange={e => {
+                const val = e.target.value;
+                setNombreProducto(val);
+                setFiltroActivo(val.trim() ? 'nombre' : null);
+              }}
+              onKeyPress={handleKeyPress}
+              disabled={loading || (filtroActivo !== null && filtroActivo !== 'nombre')}
+              className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition
+                ${filtroActivo !== null && filtroActivo !== 'nombre'
+                  ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'border-gray-300 bg-white'}`}
+            />
+          </div>
+
+          <div className="flex-1 min-w-[160px]">
+            <label className={`block text-sm font-semibold mb-2 ${
+              filtroActivo !== null && filtroActivo !== 'aplicacion' ? 'text-gray-400' : 'text-gray-700'
+            }`}>
+              Aplicaciones
+            </label>
+            <input
+              type="text"
+              placeholder="Ej: Toyota Corolla 2020"
+              value={aplicacionProducto}
+              onChange={e => {
+                const val = e.target.value;
+                setAplicacionProducto(val);
+                setFiltroActivo(val.trim() ? 'aplicacion' : null);
+              }}
+              onKeyPress={handleKeyPress}
+              disabled={loading || (filtroActivo !== null && filtroActivo !== 'aplicacion')}
+              className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition
+                ${filtroActivo !== null && filtroActivo !== 'aplicacion'
+                  ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'border-gray-300 bg-white'}`}
+            />
+          </div>
+
+          <div className="flex items-end gap-2 flex-shrink-0">
+            <button
+              onClick={handleSearch}
+              disabled={!filtroActivo || loading}
+              className="flex items-center justify-center gap-2 bg-[#334a5e] text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed font-medium whitespace-nowrap"
+            >
+              {loading ? (
+                <><Loader2 className="w-5 h-5 animate-spin" /><span>Buscando...</span></>
+              ) : (
+                <><Search className="w-5 h-5" /><span>Buscar</span></>
+              )}
+            </button>
+
+            {(hasSearched || filtroActivo) && !loading && (
+              <button
+                onClick={handleClearSearch}
+                className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium whitespace-nowrap"
+              >
+                Limpiar
+              </button>
+            )}
+          </div>
+        </div>
+
+        <p className="text-xs text-gray-500 mt-3">
+          💡 Tip: Solo un filtro a la vez — al escribir en uno los demás se desactivan. Use Limpiar para cambiar.
+        </p>
+
+        {error && (
+          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
-        <SearchableSelect
-          label="Almacén"
-          required
-          value={almacenSeleccionado?.cod || ''}
-          onChange={val => {
-            if (almacenBloqueado) return;
-            const almacenData = codAlmacenes.find(a => a.cod === val);
-            setAlmacenSeleccionado(almacenData || null);
-            setProductos([]);
-            setHasSearched(false);
-          }}
-          options={almacenOptions}
-          placeholder="Buscar almacén..."
-          disabled={almacenBloqueado}
-          error={
-            !almacenSeleccionado && !almacenBloqueado
-              ? 'Seleccione un almacén'
-              : null
-          }
-        />
       </div>
-    )}
 
-    {/* Código de Producto */}
-    <div className="flex-1 min-w-[160px]">
-      <label className="block text-sm font-semibold text-gray-700 mb-2">
-        Código de Producto <span className="text-red-600">*</span>
-      </label>
-      <input
-        type="text"
-        placeholder="Ej: Q3 o Q3.VBETY.4E"
-        value={codigoProducto}
-        onChange={e => {
-          const val = e.target.value.toUpperCase();
-          setCodigoProducto(val);
-          setFiltroActivo(val.trim() ? 'codigo' : null);
-        }}
-        onKeyPress={handleKeyPress}
-        disabled={loading || (filtroActivo !== null && filtroActivo !== 'codigo')}
-        className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition
-          ${filtroActivo !== null && filtroActivo !== 'codigo'
-            ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
-            : 'border-gray-300 bg-white'}`}
-      />
-    </div>
-
-    {/* Nombre de Producto */}
-    <div className="flex-1 min-w-[160px]">
-      <label className={`block text-sm font-semibold mb-2 ${
-        filtroActivo !== null && filtroActivo !== 'nombre' ? 'text-gray-400' : 'text-gray-700'
-      }`}>
-        Nombre de Producto
-      </label>
-      <input
-        type="text"
-        placeholder="Ej: VALVULA"
-        value={nombreProducto}
-        onChange={e => {
-          const val = e.target.value;
-          setNombreProducto(val);
-          setFiltroActivo(val.trim() ? 'nombre' : null);
-        }}
-        onKeyPress={handleKeyPress}
-        disabled={loading || (filtroActivo !== null && filtroActivo !== 'nombre')}
-        className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition
-          ${filtroActivo !== null && filtroActivo !== 'nombre'
-            ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
-            : 'border-gray-300 bg-white'}`}
-      />
-    </div>
-
-    {/* Aplicaciones */}
-    <div className="flex-1 min-w-[160px]">
-      <label className={`block text-sm font-semibold mb-2 ${
-        filtroActivo !== null && filtroActivo !== 'aplicacion' ? 'text-gray-400' : 'text-gray-700'
-      }`}>
-        Aplicaciones
-      </label>
-      <input
-        type="text"
-        placeholder="Ej: Toyota Corolla 2020"
-        value={aplicacionProducto}
-        onChange={e => {
-          const val = e.target.value;
-          setAplicacionProducto(val);
-          setFiltroActivo(val.trim() ? 'aplicacion' : null);
-        }}
-        onKeyPress={handleKeyPress}
-        disabled={loading || (filtroActivo !== null && filtroActivo !== 'aplicacion')}
-        className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition
-          ${filtroActivo !== null && filtroActivo !== 'aplicacion'
-            ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
-            : 'border-gray-300 bg-white'}`}
-      />
-    </div>
-
-    {/* Botones */}
-    <div className="flex items-end gap-2 flex-shrink-0">
-      <button
-        onClick={handleSearch}
-        disabled={!filtroActivo || loading}
-        className="flex items-center justify-center gap-2 bg-[#334a5e] text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed font-medium whitespace-nowrap"
-      >
-        {loading ? (
-          <><Loader2 className="w-5 h-5 animate-spin" /><span>Buscando...</span></>
-        ) : (
-          <><Search className="w-5 h-5" /><span>Buscar</span></>
-        )}
-      </button>
-
-      {(hasSearched || filtroActivo) && !loading && (
-        <button
-          onClick={handleClearSearch}
-          className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium whitespace-nowrap"
-        >
-          Limpiar
-        </button>
-      )}
-    </div>
-  </div>
-
-  <p className="text-xs text-gray-500 mt-3">
-    💡 Tip: Solo un filtro a la vez — al escribir en uno los demás se desactivan. Use Limpiar para cambiar.
-  </p>
-
-  {error && (
-    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-      <p className="text-sm text-red-700">{error}</p>
-    </div>
-  )}
-</div>
-
-      {/* ── Tabla de Resultados ── */}
       {hasSearched && !loading && (
         <>
           {productos.length > 0 ? (
@@ -506,10 +542,10 @@ const ProductsTab = ({
                   <thead className="bg-[#334a5e] text-white">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider sticky left-0 z-20 bg-[#334a5e] border-r border-[#4a6275]">
-  Código
-</th>
-                      <th className="px-4 py-3 text-left   text-xs font-semibold uppercase tracking-wider">Producto</th>
-                      <th className="px-4 py-3 text-left   text-xs font-semibold uppercase tracking-wider">Marca</th>
+                        Código
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Producto</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Marca</th>
                       <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider whitespace-normal leading-tight">Stock por<br/>Almacén</th>
                       <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider whitespace-normal leading-tight">P. Lista<br/>(Sin IGV)</th>
                       <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider bg-green-700">1er Dsco.</th>
@@ -527,24 +563,27 @@ const ProductsTab = ({
                         ? calcPrecios(qa.preciosData, qa.discount5, qa.quantity)
                         : { precioUnit: 0, precioTotal: 0 };
 
-                      const stockReason  = getStockBlockReason(product);
+                      const stockReason = getStockBlockReason(product);
                       const stockBlocked = !!stockReason;
 
-                      const flag  = qa?.preciosData?.flag?.trim();
+                      const flag = qa?.preciosData?.flag?.trim();
                       const flagT = flag === 'T';
                       const flagX = flag === 'X';
-                      const minD5 = flagT ? (qa?.preciosData?.descuentos?.de04 ?? 0)   : 0;
+                      const minD5 = flagT ? (qa?.preciosData?.descuentos?.de04 ?? 0) : 0;
                       const maxD5 = flagT ? (qa?.preciosData?.descuentos?.de05 ?? 100) : 100;
 
                       return (
-                        <tr key={product.id}
-                          className={`transition ${stockBlocked ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}>
-
-                          <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 z-10 border-r border-gray-200 shadow-[2px_0_4px_rgba(0,0,0,0.06)] ${
-  stockBlocked ? 'bg-red-50' : 'bg-white'
-}`}>
-  {product.codigo}
-</td>
+                        <tr
+                          key={product.id}
+                          className={`transition ${stockBlocked ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}
+                        >
+                          <td
+                            className={`px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 z-10 border-r border-gray-200 shadow-[2px_0_4px_rgba(0,0,0,0.06)] ${
+                              stockBlocked ? 'bg-red-50' : 'bg-white'
+                            }`}
+                          >
+                            {product.codigo}
+                          </td>
                           <td className="px-4 py-4 text-sm text-gray-900 max-w-[200px]">{product.nombre}</td>
                           <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{product.proveedor}</td>
 
@@ -577,7 +616,7 @@ const ProductsTab = ({
                           </td>
 
                           <td className="px-4 py-4 whitespace-nowrap text-center text-sm font-semibold text-gray-800">
-                            ${product.precioNetoDolar.toFixed(3)}
+                            ${product.precioNetoDolar.toFixed(2)}
                           </td>
 
                           <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
@@ -600,9 +639,14 @@ const ProductsTab = ({
                                     onChange={e => {
                                       if (flagX) return;
                                       const raw = e.target.value.replace(/\D/g, '');
-                                      if (raw === '') { updateProductQuick(product.codigo, { discount5: '' }); return; }
+                                      if (raw === '') {
+                                        updateProductQuick(product.codigo, { discount5: '' });
+                                        return;
+                                      }
                                       const num = Number(raw);
-                                      const capped = flagT ? (num > maxD5 ? String(maxD5) : raw) : (num > 100 ? '100' : raw);
+                                      const capped = flagT
+                                        ? (num > maxD5 ? String(maxD5) : raw)
+                                        : (num > 100 ? '100' : raw);
                                       updateProductQuick(product.codigo, { discount5: capped });
                                     }}
                                     onBlur={() => {
@@ -610,77 +654,92 @@ const ProductsTab = ({
                                       const current = product.quick?.discount5;
                                       if (current === '' || current == null) return;
                                       const num = Number(current) || 0;
-                                      const val = flagT ? Math.min(maxD5, Math.max(minD5, num)) : Math.min(100, Math.max(0, num));
+                                      const val = flagT
+                                        ? Math.min(maxD5, Math.max(minD5, num))
+                                        : Math.min(100, Math.max(0, num));
                                       updateProductQuick(product.codigo, { discount5: val });
                                     }}
                                     className={`w-12 text-center text-sm font-bold border rounded px-1 py-0.5 focus:ring-1 outline-none ${
-                                      flagX ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
-                                            : flagT ? 'bg-white border-orange-400 focus:ring-orange-400'
-                                            : 'bg-white border-purple-300 focus:ring-purple-400'}`}
+                                      flagX
+                                        ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
+                                        : flagT
+                                          ? 'bg-white border-orange-400 focus:ring-orange-400'
+                                          : 'bg-white border-purple-300 focus:ring-purple-400'
+                                    }`}
                                   />
                                   <span className="text-xs text-gray-400">%</span>
                                 </div>
-                                {flagX && <span className="text-xs font-semibold text-gray-500 bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5">Sin dscto.</span>}
-                                {flagT && <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">{minD5}% – {maxD5}%</span>}
+                                {flagX && (
+                                  <span className="text-xs font-semibold text-gray-500 bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5">
+                                    Sin dscto.
+                                  </span>
+                                )}
+                                {flagT && (
+                                  <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">
+                                    {minD5}% – {maxD5}%
+                                  </span>
+                                )}
                               </div>
                             </PriceCell>
                           </td>
 
                           <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
                             <PriceCell qa={qa}>
-                              <span className="text-sm font-bold text-green-700">${precioUnit.toFixed(3)}</span>
+                              <span className="text-sm font-bold text-green-700">
+                                ${precioUnit.toFixed(4)}
+                              </span>
                             </PriceCell>
                           </td>
 
                           <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
-  <PriceCell qa={qa}>
-    <input
-      type="text"
-      inputMode="numeric"
-      value={qa?.quantity === 0 ? '' : (qa?.quantity ?? '')}
-      onChange={e => {
-        const raw      = e.target.value.replace(/\D/g, '');
-        const maxStock = product.stock || 0;
+                            <PriceCell qa={qa}>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={qa?.quantity === 0 ? '' : (qa?.quantity ?? '')}
+                                onChange={e => {
+                                  const raw = e.target.value.replace(/\D/g, '');
+                                  const maxStock = product.stock || 0;
 
-        if (raw === '') {
-          updateProductQuick(product.codigo, { quantity: '' });
-          return;
-        }
+                                  if (raw === '') {
+                                    updateProductQuick(product.codigo, { quantity: '' });
+                                    return;
+                                  }
 
-        const clean = String(Number(raw));   // "03" → "3", "01" → "1"
-  const num   = Number(clean);
+                                  const clean = String(Number(raw));
+                                  const num = Number(clean);
 
-        // ✅ Validación en tiempo real — restaura a 0 si supera stock
-        if (maxStock > 0 && num > maxStock) {
-          toast.error(
-            <span>
-              Stock insuficiente para <strong>"{product.codigo}"</strong>.<br/>
-              Solo hay <strong>{maxStock} unid.</strong> disponibles.<br/>
-              Se restauró la cantidad a <strong>0</strong>.
-            </span>,
-            { position: 'top-right', duration: 5000, icon: '📦' }
-          );
-          updateProductQuick(product.codigo, { quantity: 0 });
-          return;
-        }
+                                  if (maxStock > 0 && num > maxStock) {
+                                    toast.error(
+                                      <span>
+                                        Stock insuficiente para <strong>"{product.codigo}"</strong>.<br/>
+                                        Solo hay <strong>{maxStock} unid.</strong> disponibles.<br/>
+                                        Se restauró la cantidad a <strong>0</strong>.
+                                      </span>,
+                                      { position: 'top-right', duration: 5000, icon: '📦' }
+                                    );
+                                    updateProductQuick(product.codigo, { quantity: 0 });
+                                    return;
+                                  }
 
-        updateProductQuick(product.codigo, { quantity: raw });
-      }}
-      onBlur={() => {
-        // Solo normaliza vacío — sin lógica de stock (ya se validó en onChange)
-        const current = product.quick?.quantity;
-        if (current === '' || current == null || Number(current) === 0) {
-    updateProductQuick(product.codigo, { quantity: '' });
-        }
-      }}
-      className="w-14 text-center text-sm font-bold border border-green-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-green-400 outline-none bg-white"
-    />
-  </PriceCell>
-</td>
+                                  updateProductQuick(product.codigo, { quantity: raw });
+                                }}
+                                onBlur={() => {
+                                  const current = product.quick?.quantity;
+                                  if (current === '' || current == null || Number(current) === 0) {
+                                    updateProductQuick(product.codigo, { quantity: '' });
+                                  }
+                                }}
+                                className="w-14 text-center text-sm font-bold border border-green-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-green-400 outline-none bg-white"
+                              />
+                            </PriceCell>
+                          </td>
 
                           <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
                             <PriceCell qa={qa}>
-                              <span className="text-sm font-bold text-blue-700">${precioTotal.toFixed(3)}</span>
+                              <span className="text-sm font-bold text-blue-700">
+                                ${precioTotal.toFixed(2)}
+                              </span>
                             </PriceCell>
                           </td>
 
@@ -691,15 +750,18 @@ const ProductsTab = ({
                                   onClick={() => handleConfirm(product)}
                                   disabled={!!qa?.loading || !!qa?.error || stockBlocked}
                                   className={`px-3 py-2 text-white rounded-lg transition inline-flex items-center text-sm font-bold shadow
-                                    ${stockBlocked ? 'bg-gray-400 cursor-not-allowed opacity-50'
-                                      : 'bg-green-600 hover:bg-green-700 hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100'}`}>
+                                    ${stockBlocked
+                                      ? 'bg-gray-400 cursor-not-allowed opacity-50'
+                                      : 'bg-green-600 hover:bg-green-700 hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100'}`}
+                                >
                                   <ShoppingCart className="w-4 h-4" />
                                 </button>
                               </Tooltip>
                               <Tooltip text="Ver detalle">
                                 <button
                                   onClick={() => handleOpenModal(product)}
-                                  className="px-3 py-2 bg-[#334a5e] text-white rounded-lg hover:bg-blue-700 hover:scale-105 transition inline-flex items-center text-sm font-bold shadow">
+                                  className="px-3 py-2 bg-[#334a5e] text-white rounded-lg hover:bg-blue-700 hover:scale-105 transition inline-flex items-center text-sm font-bold shadow"
+                                >
                                   <Eye className="w-4 h-4" />
                                 </button>
                               </Tooltip>
@@ -712,7 +774,6 @@ const ProductsTab = ({
                 </table>
               </div>
 
-              {/* Paginación */}
               {productos.length > productsPerPage && (
                 <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="text-sm text-gray-600">
@@ -721,19 +782,31 @@ const ProductsTab = ({
                     de <span className="font-semibold">{productos.length}</span> productos
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-white transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    <button
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       Anterior
                     </button>
                     <div className="flex gap-1">
                       {[...Array(totalPages)].map((_, index) => {
                         const pageNumber = index + 1;
-                        if (pageNumber === 1 || pageNumber === totalPages ||
-                          (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)) {
+                        if (
+                          pageNumber === 1 ||
+                          pageNumber === totalPages ||
+                          (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                        ) {
                           return (
-                            <button key={pageNumber} onClick={() => handlePageChange(pageNumber)}
+                            <button
+                              key={pageNumber}
+                              onClick={() => handlePageChange(pageNumber)}
                               className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                                currentPage === pageNumber ? 'bg-[#334a5e] text-white' : 'border border-gray-300 hover:bg-gray-50'}`}>
+                                currentPage === pageNumber
+                                  ? 'bg-[#334a5e] text-white'
+                                  : 'border border-gray-300 hover:bg-gray-50'
+                              }`}
+                            >
                               {pageNumber}
                             </button>
                           );
@@ -743,8 +816,11 @@ const ProductsTab = ({
                         return null;
                       })}
                     </div>
-                    <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-white transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    <button
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       Siguiente
                     </button>
                   </div>
@@ -756,8 +832,10 @@ const ProductsTab = ({
               <div className="bg-white rounded-lg shadow-md p-12 text-center">
                 <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-500 text-lg">No se encontraron productos</p>
-                <button onClick={handleClearSearch}
-                  className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                <button
+                  onClick={handleClearSearch}
+                  className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
                   Nueva búsqueda
                 </button>
               </div>
@@ -766,7 +844,6 @@ const ProductsTab = ({
         </>
       )}
 
-      {/* ── Estado Inicial ── */}
       {!hasSearched && !loading && (
         <div className="bg-white rounded-lg shadow-md p-12 text-center border-2 border-dashed border-gray-300">
           <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
