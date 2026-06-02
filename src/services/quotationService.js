@@ -248,7 +248,7 @@ export const prepareQuotationPayload = (
         selectedClient.Vendedor
       );
 
-  const numeroCorrelativo = extractCorrelativeNumber(quotationNumber);
+  // const numeroCorrelativo = extractCorrelativeNumber(quotationNumber);
   const formaPago = selectedClient.fpago || selectedClient.formaPago || 'ADE';
   const esUSD = currency === 'USD';
 
@@ -264,7 +264,7 @@ export const prepareQuotationPayload = (
       itemd: idx + 1,
       codigd: (item.codigo || '').substring(0, 20),
       qaprbd: calc.quantity,
-      regd: numeroCorrelativo,
+      // regd: numeroCorrelativo,
       nom_prod: (item.nombre || item.descripcion || '').substring(0, 150),
 
       dprun_usd: esUSD ? roundTo6(calc.precioLista) : 0,
@@ -303,7 +303,7 @@ export const prepareQuotationPayload = (
     imporc: roundTo6(totalVisual),
     fechac,
     horac,
-    reg: numeroCorrelativo,
+    // reg: numeroCorrelativo,
     succ: 1,
     vend: codigoVendedor,
     forpag: formaPago,
@@ -339,12 +339,12 @@ export const prepareUpdatePayload = (formData, correlativo = null, codigoVendedo
   const fechac = formatDateToYYYYMMDD(formData.fecha || new Date());
   const horac = formatTimeToHHMM();
 
-  const numeroCorrelativo = extractCorrelativeNumber(
-    correlativo ||
-    formData.correlativo_cotiza ||
-    formData.correlativo ||
-    null
-  );
+  // const numeroCorrelativo = extractCorrelativeNumber(
+  //   correlativo ||
+  //   formData.correlativo_cotiza ||
+  //   formData.correlativo ||
+  //   null
+  // );
 
   console.log('📅 Fecha formateada:', fechac);
   console.log('🔢 Correlativo:', numeroCorrelativo);
@@ -382,7 +382,7 @@ export const prepareUpdatePayload = (formData, correlativo = null, codigoVendedo
       itemd: idx + 1,
       codigd: (item.codigo || '').substring(0, 20),
       qaprbd: calc.quantity,
-      regd: numeroCorrelativo,
+      // regd: numeroCorrelativo,
       nom_prod: (item.nombre || item.descripcion || '').substring(0, 150),
 
       dprun_usd: esUSD ? roundTo6(calc.precioLista) : 0,
@@ -443,7 +443,7 @@ export const prepareUpdatePayload = (formData, correlativo = null, codigoVendedo
 
   console.log('=== PAYLOAD FINAL ===');
   console.log('Cabecera MONEDC:', cabecera.monedc, '| IMPORC:', cabecera.imporc);
-  console.log('Correlativo detalles (regd):', numeroCorrelativo);
+  // console.log('Correlativo detalles (regd):', numeroCorrelativo);
   console.log('Total detalles:', detalles.length);
 
   return { cabecera, detalles };
@@ -473,7 +473,7 @@ export default {
   normalizeRUC,
   extractRUCDigit,
   extractVendorCode,
-  extractCorrelativeNumber,
+  // extractCorrelativeNumber,
   prepareQuotationPayload,
   prepareUpdatePayload
 };

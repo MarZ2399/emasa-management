@@ -442,11 +442,18 @@ const handleCancelQuotation = async (quotation) => {
   };
 
   // ── Generar pedido ────────────────────────────────────────────
-  const handleGenerateOrder = (orderData) => {
+ const handleGenerateOrder = (orderData) => {
   setQuotations(prev =>
     prev.map(q =>
       q.id === selectedQuotationForOrder.id
-        ? { ...q, estado: 'enviado' }  //  antes era 'convertida'
+        ? {
+            ...q,
+            estado:          'enviado',
+            numeroRegistro:  orderData?.reg   ?? q.numeroRegistro,
+            numeroFolio:     orderData?.folio_as400
+                               ? Number(orderData.folio_as400)
+                               : q.numeroFolio,
+          }
         : q
     )
   );
@@ -644,7 +651,7 @@ const handleCancelQuotation = async (quotation) => {
           <table className="w-full">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
               <tr>
-                {['N° Cotización','N° Registro','N° Folio','Fecha','Cliente','RUC','Asesor','Total','Estado','Acciones'].map(h => (
+                {['N° Cotización','N° Pedido','N° Folio','Fecha','Cliente','RUC','Asesor','Total','Estado','Acciones'].map(h => (
                   <th
                     key={h}
                     className={`px-6 py-4 text-xs font-semibold text-gray-700 uppercase tracking-wider ${h === 'Acciones' ? 'text-center' : 'text-left'}`}
