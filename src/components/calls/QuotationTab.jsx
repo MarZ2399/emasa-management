@@ -51,6 +51,26 @@ const calcPrecioExacto = (precioLista, discount1, discount5, quantity = 1) => {
   };
 };
 
+const getPrecioListaByFlag = (item) => {
+  const flag = item?.preciosDetalle?.flag?.trim();
+
+  if (flag === 'X') {
+    return Number(
+      item?.preciosDetalle?.importes?.dola ??
+      item?.dola ??
+      0
+    );
+  }
+
+  return Number(
+    item?.precioLista ??
+    item?.preciosDetalle?.importes?.ldol ??
+    item?.preciosDetalle?.importes?.dola ??
+    item?.dola ??
+    0
+  );
+};
+
 const QuotationTab = ({
   quotationItems,
   setQuotationItems,
@@ -84,13 +104,7 @@ const QuotationTab = ({
 
   // ── Normalizar item con cálculo exacto / visual ─────────────────────────
   const normalizeItem = (item) => {
-    const precioLista = Number(
-      item.precioLista ??
-      item.preciosDetalle?.importes?.ldol ??
-      item.preciosDetalle?.importes?.dola ??
-      item.dola ??
-      0
-    );
+    const precioLista = getPrecioListaByFlag(item);
 
     const discount1 = Math.max(0, Math.min(100, Number(item.discount1) || 0));
     const discount5 = Math.max(0, Math.min(100, Number(item.discount5) || 0));
@@ -161,13 +175,7 @@ const QuotationTab = ({
 
   // ── Totales en vivo usando valores visuales por línea ───────────────────
   const subtotal = roundTo((quotationItems ?? []).reduce((sum, item) => {
-    const precioLista = Number(
-      item.precioLista ??
-      item.preciosDetalle?.importes?.ldol ??
-      item.preciosDetalle?.importes?.dola ??
-      item.dola ??
-      0
-    );
+    const precioLista = getPrecioListaByFlag(item);
 
     const discount1 = Number(item.discount1) || 0;
     const discount5 = Number(item.discount5) || 0;
@@ -385,13 +393,7 @@ const QuotationTab = ({
                 const minD5 = flagT ? (item.preciosDetalle?.descuentos?.de04 ?? 0) : 0;
                 const maxD5 = flagT ? (item.preciosDetalle?.descuentos?.de05 ?? 100) : 100;
 
-                const precioLista = Number(
-                  item.precioLista ??
-                  item.preciosDetalle?.importes?.ldol ??
-                  item.preciosDetalle?.importes?.dola ??
-                  item.dola ??
-                  0
-                );
+                const precioLista = getPrecioListaByFlag(item);
 
                 const discount1 = Number(item.discount1) || 0;
                 const discount5 = Number(item.discount5) || 0;

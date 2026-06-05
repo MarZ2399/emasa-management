@@ -45,15 +45,29 @@ const calcPrecioVisual = (precioLista, discount1, discount5, quantity = 1) => {
   };
 };
 
-const normalizeProductForVisualCalc = (p) => {
-  const precioLista = Number(
-    p.precioLista ??
-    p.plistadol ??
-    p.preciosDetalle?.importes?.ldol ??
-    p.preciosDetalle?.importes?.dola ??
-    p.dola ??
+const getPrecioListaByFlag = (item) => {
+  const flag = item?.preciosDetalle?.flag?.trim() ?? item?.flag?.trim();
+
+  if (flag === 'X') {
+    return Number(
+      item?.preciosDetalle?.importes?.dola ??
+      item?.dola ??
+      0
+    );
+  }
+
+  return Number(
+    item?.precioLista ??
+    item?.plistadol ??
+    item?.preciosDetalle?.importes?.ldol ??
+    item?.preciosDetalle?.importes?.dola ??
+    item?.dola ??
     0
   );
+};
+
+const normalizeProductForVisualCalc = (p) => {
+  const precioLista = getPrecioListaByFlag(p);
 
   const discount1 = Number(p.discount1 ?? p.descuento ?? 0) || 0;
   const discount5 = Number(p.discount5 ?? p.descuento5to ?? 0) || 0;
@@ -196,14 +210,10 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                 }
               }
 
-              const precioListaActualizado = Number(
-                p.precioLista ??
-                importes.ldol ??
-                importes.dola ??
-                p.dola ??
-                p.precioNeto ??
-                0
-              );
+              const precioListaActualizado = getPrecioListaByFlag({
+  ...p,
+  preciosDetalle: { flag, descuentos, importes, costos },
+});
 
               return normalizeProductForVisualCalc({
                 ...p,
@@ -355,13 +365,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
       const nextId = (prev.productos[prev.productos.length - 1]?.id || 0) + 1;
       const qtyDefault = 1;
 
-      const precioLista = Number(
-        product.precioLista ??
-        product.preciosDetalle?.importes?.ldol ??
-        product.preciosDetalle?.importes?.dola ??
-        product.dola ??
-        0
-      );
+      const precioLista = getPrecioListaByFlag(product);
 
       const discount1 = Number(product.discount1 || 0);
       const discount5 = 0;

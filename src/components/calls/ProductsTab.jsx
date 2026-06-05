@@ -102,11 +102,13 @@ const ProductsTab = ({
   // - precioTotal: calculado con el exacto, mostrar con 2 decimales
   // ─────────────────────────────────────────────────────────────
   const calcPrecios = (preciosData, discount5, quantity) => {
-    const precioLista = Number(
-      preciosData?.importes?.ldol ??
-      preciosData?.importes?.dola ??
-      0
-    );
+    const flag = preciosData?.flag?.trim();
+
+  const precioLista = Number(
+    flag === 'X'
+      ? (preciosData?.importes?.dola ?? 0)
+      : (preciosData?.importes?.ldol ?? preciosData?.importes?.dola ?? 0)
+  );
 
     const de01 = Number(preciosData?.descuentos?.de01 || 0) / 100;
     const de05 = (Number(discount5) || 0) / 100;
@@ -354,7 +356,10 @@ const ProductsTab = ({
 
     console.log('💲 Cálculo exacto producto:', {
       codigo: product.codigo,
-      precioLista: qa.preciosData.importes?.ldol || qa.preciosData.importes?.dola,
+      precioLista:
+  qa?.preciosData?.flag?.trim() === 'X'
+    ? qa?.preciosData?.importes?.dola
+    : (qa?.preciosData?.importes?.ldol ?? qa?.preciosData?.importes?.dola),
       discount1: qa.preciosData.descuentos?.de01 || 0,
       discount5,
       quantity: qty,
@@ -370,7 +375,10 @@ const ProductsTab = ({
       cantidadOriginal: qty,
       discount1: qa.preciosData.descuentos?.de01 || 0,
       discount5,
-      precioLista: qa.preciosData.importes?.ldol || product.precioNetoDolar,
+      precioLista:
+  qa?.preciosData?.flag?.trim() === 'X'
+    ? (qa?.preciosData?.importes?.dola ?? product.precioNetoDolar)
+    : (qa?.preciosData?.importes?.ldol ?? qa?.preciosData?.importes?.dola ?? product.precioNetoDolar),
       precioNeto: precioUnit,
       precioNetoExacto: precioUnitExacto,
       precioCotizar: precioTotal,
