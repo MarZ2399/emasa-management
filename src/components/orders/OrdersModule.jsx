@@ -170,7 +170,7 @@ const OrdersModule = () => {
     />
     <AlertTriangle className="w-4 h-4" />
     <span>
-      <strong>{allOrders.filter(o => o.codfase === 15).length}</strong> anulado(s)
+      Excluir <strong>{allOrders.filter(o => o.codfase === 15).length}</strong> anulado(s) 
     </span>
   </label>
 )}
@@ -200,7 +200,7 @@ const OrdersModule = () => {
                 className="w-4 h-4 accent-amber-500"
               />
               <Filter className="w-3.5 h-3.5 text-amber-600" />
-              <span className="font-medium">Solo pendientes</span>
+              <span className="font-medium">Ver Solo pendientes</span>
             </label>
 
             {/* Contador */}

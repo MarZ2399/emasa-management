@@ -28,6 +28,12 @@ const todayInt = () => {
   return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 };
 
+const daysAgoInt = (days) => {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+};
+
 const intToInputDate = (n) => {
   if (!n) return '';
   const s = String(n).padStart(8, '0');
@@ -180,7 +186,8 @@ const OrdersList = ({ orders, loading, nivelAcceso = 2 }) => {
   const [trackingPedido, setTrackingPedido] = useState(null);
 
   const hoy = todayInt();
-  const [fechaDesde, setFechaDesde] = useState(hoy);
+  const hace3Dias = daysAgoInt(3);
+  const [fechaDesde, setFechaDesde] = useState(hace3Dias);
   const [fechaHasta, setFechaHasta] = useState(hoy);
 
   const columns = useMemo(() => buildColumns(nivelAcceso), [nivelAcceso]);
@@ -228,9 +235,9 @@ const OrdersList = ({ orders, loading, nivelAcceso = 2 }) => {
 
   const handleFechaDesde = (e) => { setFechaDesde(inputDateToInt(e.target.value)); setPage(1); };
   const handleFechaHasta = (e) => { setFechaHasta(inputDateToInt(e.target.value)); setPage(1); };
-  const limpiarFechas    = () =>  { setFechaDesde(hoy); setFechaHasta(hoy); setPage(1); };
+  const limpiarFechas    = () =>  { setFechaDesde(hace3Dias); setFechaHasta(hoy); setPage(1); };
 
-  const esFiltroFechaActivo = fechaDesde !== hoy || fechaHasta !== hoy;
+  const esFiltroFechaActivo = fechaDesde !== hace3Dias || fechaHasta !== hoy;
 
   if (loading) {
     return (
