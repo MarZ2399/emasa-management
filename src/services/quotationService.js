@@ -347,7 +347,7 @@ export const prepareUpdatePayload = (formData, correlativo = null, codigoVendedo
   // );
 
   console.log('📅 Fecha formateada:', fechac);
-  console.log('🔢 Correlativo:', numeroCorrelativo);
+  // console.log('🔢 Correlativo:', numeroCorrelativo);
 
   const monedaInput = formData.moneda || formData.currency;
   let monedcCodigo = 2;
