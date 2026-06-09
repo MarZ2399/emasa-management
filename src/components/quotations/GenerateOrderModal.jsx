@@ -436,15 +436,28 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
           </div>
 
           <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <div className="px-5 py-4 bg-gray-50 border-b">
-              <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                <Package className="w-5 h-5 text-gray-700" />
-                Productos de la Cotización
-              </h3>
-              <p className="text-sm text-gray-500 mt-1">
-                Vista referencial de los productos incluidos en la cotización
-              </p>
-            </div>
+            <div className="px-5 py-4 bg-gray-50 border-b flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+  <div>
+    <h3 className="font-bold text-gray-900 flex items-center gap-2">
+      <Package className="w-5 h-5 text-gray-700" />
+      Productos de la Cotización
+    </h3>
+    <p className="text-sm text-gray-500 mt-1">
+      Vista referencial de los productos incluidos en la cotización
+    </p>
+  </div>
+
+  <div className="md:text-right md:shrink-0">
+    <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+      Almacén seleccionado
+    </p>
+    <p className="text-sm font-semibold text-gray-900 mt-0.5">
+      {String(preview?.payload?.codAlmacen ?? '—').trim()}
+      {' / '}
+      {String(preview?.payload?.codigoAlmacen ?? '—').trim()}
+    </p>
+  </div>
+</div>
 
             <div className="overflow-x-auto max-h-72 overflow-y-auto">
               <table className="min-w-full text-sm">

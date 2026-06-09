@@ -66,7 +66,7 @@ const getPrecioListaByFlag = (item) => {
   );
 };
 
-const normalizeProductForVisualCalc = (p) => {
+const normalizeProductForVisualCalc = (p, cabecera = {}) => {
   const precioLista = getPrecioListaByFlag(p);
 
   const discount1 = Number(p.discount1 ?? p.descuento ?? 0) || 0;
@@ -90,11 +90,17 @@ const normalizeProductForVisualCalc = (p) => {
     subtotal: calc.precioNetoTotal,
     igvItem: calc.igv,
     totalItem: calc.importeTotal,
+
+    // Prioridad: almacén de cabecera
+    cod_alm: cabecera?.cod_alm ?? p.cod_alm ?? p.warehouse ?? null,
+    codnum_alm: cabecera?.codnum_alm ?? p.codnum_alm ?? p.codNumAlmacen ?? null,
+    codNumAlmacen: cabecera?.codnum_alm ?? p.codNumAlmacen ?? p.codnum_alm ?? null,
+    warehouse: cabecera?.cod_alm ?? p.warehouse ?? p.cod_alm ?? null,
   };
 };
 
-const buildVisualTotals = (products = []) => {
-  const productos = products.map(normalizeProductForVisualCalc);
+const buildVisualTotals = (products = [], cabecera = {}) => {
+  const productos = products.map(p => normalizeProductForVisualCalc(p, cabecera));
   const subtotal = roundTo(
     productos.reduce((sum, p) => sum + Number(p.subtotal || 0), 0),
     2
@@ -126,26 +132,39 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
         cantidadOriginal: quantity,
         quantity,
         cantidad: quantity,
+
+        // Siempre fijar almacén desde cabecera en edición
+        cod_alm: quotation.cod_alm ?? p.cod_alm ?? p.warehouse ?? null,
+        codnum_alm: quotation.codnum_alm ?? p.codnum_alm ?? p.codNumAlmacen ?? null,
+        codNumAlmacen: quotation.codnum_alm ?? p.codNumAlmacen ?? p.codnum_alm ?? null,
+        warehouse: quotation.cod_alm ?? p.warehouse ?? p.cod_alm ?? null,
       };
     });
 
-    const { productos, subtotal, igv, total } = buildVisualTotals(productosBase);
+    const { productos, subtotal, igv, total } = buildVisualTotals(productosBase, quotation);
 
     setFormData({
-      ...quotation,
-      productos,
-      subtotal,
-      igv,
-      total,
-      observaciones: quotation.observaciones || '',
-      observacionesCreditos: quotation.observacionesCreditos || '',
-      observacionesLogistica: quotation.observacionesLogistica || '',
-    });
+  ...quotation,
+  cod_alm: quotation.cod_alm ?? quotation.warehouse ?? quotation.cabecera?.cod_alm ?? null,
+  codnum_alm: quotation.codnum_alm ?? quotation.codNumAlmacen ?? quotation.cabecera?.codnum_alm ?? null,
+  codNumAlmacen: quotation.codnum_alm ?? quotation.codNumAlmacen ?? quotation.cabecera?.codnum_alm ?? null,
+  warehouse: quotation.cod_alm ?? quotation.warehouse ?? quotation.cabecera?.cod_alm ?? null,
+  productos,
+  subtotal,
+  igv,
+  total,
+  observaciones: quotation.observaciones || '',
+  observacionesCreditos: quotation.observacionesCreditos || '',
+  observacionesLogistica: quotation.observacionesLogistica || '',
+});
 
     setErrors({});
 
     if (quotation.ruc && quotation.productos?.length > 0) {
-      enrichProductsWithPrices(quotation);
+      enrichProductsWithPrices({
+        ...quotation,
+        productos: productosBase,
+      });
     }
   }, [quotation, isOpen]);
 
@@ -168,12 +187,13 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
 
               if (stockDisponible === null) {
                 try {
+                  // Siempre usar primero cabecera
                   const codAlmacenTxt = String(
-                    quot.cod_alm ?? p.warehouse ?? ''
+                    quot.cod_alm ?? ''
                   ).trim().toUpperCase();
 
                   const codAlmacenNum = String(
-                    quot.codnum_alm ?? p.codnum_alm ?? p.codNumAlmacen ?? ''
+                    quot.codnum_alm ?? ''
                   ).trim();
 
                   const stockRes = await productService.searchByCodigo(p.codigo?.trim());
@@ -194,7 +214,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
 
                     stockDisponible = Number(almacenStock?.stock ?? almacenStock?.cantidad ?? 0);
 
-                    console.log('📦 Stock resuelto en edición:', {
+                    console.log('📦 Stock resuelto en edición desde cabecera:', {
                       producto: p.codigo,
                       codAlmacenTxt,
                       codAlmacenNum,
@@ -211,9 +231,9 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
               }
 
               const precioListaActualizado = getPrecioListaByFlag({
-  ...p,
-  preciosDetalle: { flag, descuentos, importes, costos },
-});
+                ...p,
+                preciosDetalle: { flag, descuentos, importes, costos },
+              });
 
               return normalizeProductForVisualCalc({
                 ...p,
@@ -222,17 +242,35 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                 stock: stockDisponible,
                 cantidadOriginal: p.cantidadOriginal ?? p.quantity ?? p.cantidad ?? 1,
                 preciosDetalle: { flag, descuentos, importes, costos },
-              });
+
+                // Reforzar almacén de cabecera
+                cod_alm: quot.cod_alm ?? p.cod_alm ?? p.warehouse ?? null,
+                codnum_alm: quot.codnum_alm ?? p.codnum_alm ?? p.codNumAlmacen ?? null,
+                codNumAlmacen: quot.codnum_alm ?? p.codNumAlmacen ?? p.codnum_alm ?? null,
+                warehouse: quot.cod_alm ?? p.warehouse ?? p.cod_alm ?? null,
+              }, quot);
             }
 
-            return normalizeProductForVisualCalc(p);
+            return normalizeProductForVisualCalc({
+              ...p,
+              cod_alm: quot.cod_alm ?? p.cod_alm ?? p.warehouse ?? null,
+              codnum_alm: quot.codnum_alm ?? p.codnum_alm ?? p.codNumAlmacen ?? null,
+              codNumAlmacen: quot.codnum_alm ?? p.codNumAlmacen ?? p.codnum_alm ?? null,
+              warehouse: quot.cod_alm ?? p.warehouse ?? p.cod_alm ?? null,
+            }, quot);
           } catch {
-            return normalizeProductForVisualCalc(p);
+            return normalizeProductForVisualCalc({
+              ...p,
+              cod_alm: quot.cod_alm ?? p.cod_alm ?? p.warehouse ?? null,
+              codnum_alm: quot.codnum_alm ?? p.codnum_alm ?? p.codNumAlmacen ?? null,
+              codNumAlmacen: quot.codnum_alm ?? p.codNumAlmacen ?? p.codnum_alm ?? null,
+              warehouse: quot.cod_alm ?? p.warehouse ?? p.cod_alm ?? null,
+            }, quot);
           }
         })
       );
 
-      const { productos, subtotal, igv, total } = buildVisualTotals(enriched);
+      const { productos, subtotal, igv, total } = buildVisualTotals(enriched, quot);
 
       setFormData(prev => {
         if (!prev) return prev;
@@ -254,7 +292,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
   if (!isOpen || !formData) return null;
 
   const updateTotals = (updatedProducts) => {
-    const { productos, subtotal, igv, total } = buildVisualTotals(updatedProducts);
+    const { productos, subtotal, igv, total } = buildVisualTotals(updatedProducts, formData);
 
     setFormData(prev => ({
       ...prev,
@@ -292,9 +330,9 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
         product[field] = value;
       }
 
-      products[index] = normalizeProductForVisualCalc(product);
+      products[index] = normalizeProductForVisualCalc(product, prev);
 
-      const { productos, subtotal, igv, total } = buildVisualTotals(products);
+      const { productos, subtotal, igv, total } = buildVisualTotals(products, prev);
 
       return {
         ...prev,
@@ -332,9 +370,9 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
       }
 
       product.descuento5to = product.discount5;
-      products[index] = normalizeProductForVisualCalc(product);
+      products[index] = normalizeProductForVisualCalc(product, prev);
 
-      const { productos, subtotal, igv, total } = buildVisualTotals(products);
+      const { productos, subtotal, igv, total } = buildVisualTotals(products, prev);
 
       return {
         ...prev,
@@ -389,13 +427,16 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
         flag: product.flag || '',
         preciosDetalle: product.preciosDetalle || null,
         stock: product.stockDisponible ?? product.stock ?? 0,
-        warehouse: product.warehouse ?? formData.cod_alm ?? null,
-        codnum_alm: product.codnum_alm ?? product.codNumAlmacen ?? formData.codnum_alm ?? null,
-        codNumAlmacen: product.codNumAlmacen ?? product.codnum_alm ?? formData.codnum_alm ?? null,
-      });
+
+        // En edición, el almacén lo manda la cabecera
+        cod_alm: prev.cod_alm ?? null,
+        warehouse: prev.cod_alm ?? null,
+        codnum_alm: prev.codnum_alm ?? null,
+        codNumAlmacen: prev.codnum_alm ?? null,
+      }, prev);
 
       const products = [...prev.productos, newProduct];
-      const { productos, subtotal, igv, total } = buildVisualTotals(products);
+      const { productos, subtotal, igv, total } = buildVisualTotals(products, prev);
 
       return {
         ...prev,
@@ -410,7 +451,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
   const handleRemoveProduct = (index) => {
     setFormData(prev => {
       const products = prev.productos.filter((_, i) => i !== index);
-      const { productos, subtotal, igv, total } = buildVisualTotals(products);
+      const { productos, subtotal, igv, total } = buildVisualTotals(products, prev);
 
       return {
         ...prev,
@@ -463,7 +504,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
     e.preventDefault();
     if (!validate()) return;
 
-    const { productos, subtotal, igv, total } = buildVisualTotals(formData.productos);
+    const { productos, subtotal, igv, total } = buildVisualTotals(formData.productos, formData);
 
     onSave({
       ...formData,
@@ -524,6 +565,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                   <input
                     type="text"
                     value={formData.cliente}
+                    readOnly
                     onChange={e => handleHeaderChange('cliente', e.target.value)}
                     className={`w-full pl-9 pr-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${
                       errors.cliente ? 'border-red-500 bg-red-50' : 'border-gray-300'
@@ -542,6 +584,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                   <input
                     type="text"
                     value={formData.ruc}
+                    readOnly
                     onChange={e => handleHeaderChange('ruc', e.target.value)}
                     className={`w-full pl-9 pr-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${
                       errors.ruc ? 'border-red-500 bg-red-50' : 'border-gray-300'
@@ -562,6 +605,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                   <input
                     type="text"
                     value={formData.asesor}
+                    readOnly
                     onChange={e => handleHeaderChange('asesor', e.target.value)}
                     className={`w-full pl-9 pr-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${
                       errors.asesor ? 'border-red-500 bg-red-50' : 'border-gray-300'
@@ -593,10 +637,16 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
 
             <div className="border border-gray-200 rounded-lg">
               <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b">
-                <h3 className="text-sm font-semibold text-gray-800">Productos de la Cotización</h3>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-800">Productos de la Cotización</h3>
+                  <p className="text-[14px] font-semibold text-gray-500 mt-0.5">
+                    Almacén seleccionado: {formData.cod_alm || '—'} / {formData.codnum_alm || '—'}
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={handleAddProduct}
+                  disabled={loadingPrices}
                   className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition"
                 >
                   <Plus className="w-4 h-4" />
@@ -604,7 +654,21 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                 </button>
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto relative">
+                {loadingPrices && (
+    <div className="absolute inset-0 z-20 bg-white/75 backdrop-blur-[1px] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3 px-6 py-5 rounded-xl bg-white shadow-lg border border-gray-200">
+        <svg className="w-6 h-6 animate-spin text-emerald-600" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+        <div className="text-center">
+          <p className="text-sm font-semibold text-gray-800">Cargando ítems...</p>
+          <p className="text-xs text-gray-500">Espere a que se complete la validación de precios, stock y descuentos.</p>
+        </div>
+      </div>
+    </div>
+  )}
                 <table className="min-w-full text-xs">
                   <thead className="bg-gray-100">
                     <tr>
@@ -652,6 +716,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                             <input
                               type="text"
                               value={p.codigo}
+                              readOnly
                               onChange={e => handleProductChange(index, 'codigo', e.target.value)}
                               className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
                             />
@@ -661,6 +726,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                             <input
                               type="text"
                               value={p.nombre}
+                              readOnly
                               onChange={e => handleProductChange(index, 'nombre', e.target.value)}
                               className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
                             />
@@ -846,24 +912,29 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                 Cancelar
               </button>
               <button
-                type="submit"
-                className="px-4 py-2.5 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 shadow-md hover:shadow-lg transition"
-              >
-                Guardar cambios
-              </button>
+  type="submit"
+  disabled={loadingPrices}
+  className="px-4 py-2.5 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 shadow-md hover:shadow-lg transition disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:shadow-none"
+>
+  {loadingPrices ? 'Cargando ítems...' : 'Guardar cambios'}
+</button>
             </div>
           </form>
         </div>
       </div>
 
       <ProductSelectorModal
-        isOpen={isProductSelectorOpen}
-        onClose={() => setIsProductSelectorOpen(false)}
-        onSelect={handleSelectProductForQuotation}
-        selectedClient={selectedClient}
-        title="Agregar Producto a la Cotización"
-        existingProducts={formData.productos}
-      />
+  isOpen={isProductSelectorOpen}
+  onClose={() => setIsProductSelectorOpen(false)}
+  onSelect={handleSelectProductForQuotation}
+  selectedClient={selectedClient}
+  selectedWarehouse={{
+    cod_alm: formData.cod_alm,
+    codnum_alm: formData.codnum_alm,
+  }}
+  title="Agregar Producto a la Cotización"
+  existingProducts={formData.productos}
+/>
     </>
   );
 

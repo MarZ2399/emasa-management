@@ -5,22 +5,22 @@ import { Search, X, Package, Filter, Loader } from 'lucide-react';
 import { searchProducts } from '../../services/productService';
 import { precioService } from '../../services/precioService';
 
-
 const ProductSelectorModal = ({
   isOpen,
   onClose,
   onSelect,
   selectedClient,
+  selectedWarehouse,
   title = 'Seleccionar producto',
-  existingProducts = [],             //  productos ya en la cotización
+  existingProducts = [],
 }) => {
-  const [searchTerm, setSearchTerm]                 = useState('');
-  const [categoryFilter, setCategoryFilter]         = useState('all');
-  const [products, setProducts]                     = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [products, setProducts] = useState([]);
   const [productsWithPrices, setProductsWithPrices] = useState([]);
-  const [loading, setLoading]                       = useState(false);
-  const [loadingPrices, setLoadingPrices]           = useState(false);
-  const [categories, setCategories]                 = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingPrices, setLoadingPrices] = useState(false);
+  const [categories, setCategories] = useState([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -32,65 +32,121 @@ const ProductSelectorModal = ({
     }
   }, [isOpen]);
 
-  useEffect(() => {
-    if (isOpen && searchTerm.trim() !== '') {
-      const debounceTimer = setTimeout(() => {
-        loadProducts(searchTerm);
-      }, 500);
-      return () => clearTimeout(debounceTimer);
-    } else if (isOpen && searchTerm.trim() === '') {
-      setProducts([]);
-      setProductsWithPrices([]);
-    }
-  }, [searchTerm, isOpen]);
+  // useEffect(() => {
+  //   if (isOpen && searchTerm.trim() !== '') {
+  //     const debounceTimer = setTimeout(() => {
+  //       loadProducts(searchTerm);
+  //     }, 800);
+  //     return () => clearTimeout(debounceTimer);
+  //   } else if (isOpen && searchTerm.trim() === '') {
+  //     setProducts([]);
+  //     setProductsWithPrices([]);
+  //   }
+  // }, [searchTerm, isOpen]);
+
+  const getWarehouseStock = (stockData = []) => {
+    if (!Array.isArray(stockData) || stockData.length === 0) return 0;
+
+    const codAlmObjetivo = String(
+      selectedWarehouse?.cod_alm ??
+      selectedWarehouse?.codigo ??
+      ''
+    ).trim().toUpperCase();
+
+    const codNumAlmObjetivo = String(
+      selectedWarehouse?.codnum_alm ??
+      selectedWarehouse?.codnumAlm ??
+      selectedWarehouse?.codigoNumerico ??
+      ''
+    ).trim();
+
+    const almacenEncontrado = stockData.find((almacen) => {
+      const codAlmItem = String(
+        almacen.almacencod ??
+        almacen.cod_alm ??
+        almacen.codalm ??
+        almacen.codigo ??
+        almacen.almacen ??
+        almacen.abreviatura ??
+        ''
+      ).trim().toUpperCase();
+
+      const codNumAlmItem = String(
+        almacen.almacencod2 ??
+        almacen.codnum_alm ??
+        almacen.codnumAlm ??
+        almacen.codnum ??
+        almacen.codigo_numerico ??
+        almacen.id_almacen ??
+        ''
+      ).trim();
+
+      return (
+        (codAlmObjetivo && codAlmItem === codAlmObjetivo) ||
+        (codNumAlmObjetivo && codNumAlmItem === codNumAlmObjetivo)
+      );
+    });
+
+    return Number(almacenEncontrado?.stock ?? almacenEncontrado?.cantidad ?? 0);
+  };
 
   const mapProductFromAPI = (item) => {
-    const producto   = item.producto || item;
-    const stockData  = item.stock    || [];
-    const stockTotal = stockData.reduce((sum, almacen) => sum + (almacen.stock || 0), 0);
+    const producto = item.producto || item;
+    const stockData = Array.isArray(item.stock) ? item.stock : [];
+
+    const stockTotal = stockData.reduce(
+      (sum, almacen) => sum + Number(almacen.stock || 0),
+      0
+    );
+
+    const stockSeleccionado = getWarehouseStock(stockData);
+
     return {
-      Codigo:         (producto.codigo      || '').trim(),
-      Nombre:         (producto.descripcion || '').trim(),
-      Familia:        producto.core ? producto.core.trim() : 'Sin categoría',
-      Proveedor:      (producto.marca       || '').trim(),
-      Stotal:         stockTotal,
-      precioListaDol: producto.precioListaDol || 0,
-      linea:          producto.linea          || '',
-      modelo:         (producto.modelo        || '').trim(),
-      stockDetalle:   stockData,
+      Codigo: (producto.codigo || '').trim(),
+      Nombre: (producto.descripcion || '').trim(),
+      Familia: producto.core ? producto.core.trim() : 'Sin categoría',
+      Proveedor: (producto.marca || '').trim(),
+      Stotal: stockTotal,
+      StockSeleccionado: stockSeleccionado,
+      precioListaDol: Number(producto.precioListaDol || 0),
+      linea: producto.linea || '',
+      modelo: (producto.modelo || '').trim(),
+      stockDetalle: stockData,
     };
   };
 
-  // ── Buscar productos ──────────────────────────────────────────────────────────
   const loadProducts = async (term) => {
     setLoading(true);
     try {
       const response = await searchProducts(term);
+
       if (response.success && response.data) {
-        const rawData     = Array.isArray(response.data) ? response.data : [];
+        const rawData = Array.isArray(response.data) ? response.data : [];
         const productList = rawData.map(mapProductFromAPI);
 
         setProducts(productList);
 
-        const uniqueCategories = [...new Set(productList.map(p => p.Familia))];
+        const uniqueCategories = [...new Set(productList.map((p) => p.Familia))];
         setCategories(uniqueCategories.sort());
 
         if (selectedClient?.ruc && productList.length > 0) {
           await loadPricesForProducts(productList);
         } else {
-          setProductsWithPrices(productList.map(p => ({
-            ...p,
-            precioLista:    p.precioListaDol || 0,
-            precioNeto:     p.precioListaDol || 0,
-            flag:           '',
-            discount1:      0,
-            discount2:      0,
-            discount3:      0,
-            discount4:      0,
-            discount5:      0,
-            hasPriceData:   false,
-            preciosDetalle: null,
-          })));
+          setProductsWithPrices(
+            productList.map((p) => ({
+              ...p,
+              precioLista: p.precioListaDol || 0,
+              precioNeto: p.precioListaDol || 0,
+              flag: '',
+              discount1: 0,
+              discount2: 0,
+              discount3: 0,
+              discount4: 0,
+              discount5: 0,
+              hasPriceData: false,
+              preciosDetalle: null,
+            }))
+          );
         }
       } else {
         setProducts([]);
@@ -105,7 +161,21 @@ const ProductSelectorModal = ({
     }
   };
 
-  // ── Cargar precios ────────────────────────────────────────────────────────────
+  const handleSearch = async () => {
+  const term = searchTerm.trim();
+
+  if (!isOpen) return;
+
+  if (term === '') {
+    setProducts([]);
+    setProductsWithPrices([]);
+    setCategories([]);
+    return;
+  }
+
+  await loadProducts(term);
+};
+
   const loadPricesForProducts = async (productList) => {
     if (!selectedClient?.ruc) return;
 
@@ -113,15 +183,15 @@ const ProductSelectorModal = ({
 
     const fallback = (product) => ({
       ...product,
-      precioLista:    product.precioListaDol || 0,
-      precioNeto:     product.precioListaDol || 0,
-      flag:           '',
-      discount1:      0,
-      discount2:      0,
-      discount3:      0,
-      discount4:      0,
-      discount5:      0,
-      hasPriceData:   false,
+      precioLista: product.precioListaDol || 0,
+      precioNeto: product.precioListaDol || 0,
+      flag: '',
+      discount1: 0,
+      discount2: 0,
+      discount3: 0,
+      discount4: 0,
+      discount5: 0,
+      hasPriceData: false,
       preciosDetalle: null,
     });
 
@@ -138,28 +208,24 @@ const ProductSelectorModal = ({
             );
 
             if (precioResponse.success && precioResponse.data) {
-              const data       = precioResponse.data;
+              const data = precioResponse.data;
               const descuentos = data.descuentos || {};
-              const importes   = data.importes   || {};
-              const costos     = data.costos     || {};
-
-              //  flag con trim() — misma lógica que ProductsTab y QuotationTab
+              const importes = data.importes || {};
+              const costos = data.costos || {};
               const flag = data.flag?.trim() ?? '';
-
-              //  dola = precio neto con de01 ya aplicado por el backend
               const precioListaDolares = importes.ldol || product.precioListaDol || 0;
-              const precioNetoDolares  = importes.dola || product.precioListaDol || 0;
+              const precioNetoDolares = importes.dola || product.precioListaDol || 0;
 
               return {
                 ...product,
-                precioLista:  precioListaDolares,
-                precioNeto:   precioNetoDolares,
+                precioLista: precioListaDolares,
+                precioNeto: precioNetoDolares,
                 flag,
-                discount1:    descuentos.de01 || 0,
-                discount2:    descuentos.de02 || 0,
-                discount3:    descuentos.de03 || 0,
-                discount4:    descuentos.de04 || 0,
-                discount5:    descuentos.de05 || 0,
+                discount1: descuentos.de01 || 0,
+                discount2: descuentos.de02 || 0,
+                discount3: descuentos.de03 || 0,
+                discount4: descuentos.de04 || 0,
+                discount5: descuentos.de05 || 0,
                 hasPriceData: true,
                 preciosDetalle: {
                   flag,
@@ -168,8 +234,8 @@ const ProductSelectorModal = ({
                   costos,
                 },
                 descuentosCompletos: descuentos,
-                importesCompletos:   importes,
-                costosCompletos:     costos,
+                importesCompletos: importes,
+                costosCompletos: costos,
               };
             }
 
@@ -189,49 +255,46 @@ const ProductSelectorModal = ({
     }
   };
 
-  // ── Filtrado ──────────────────────────────────────────────────────────────────
   const filteredProducts = useMemo(() => {
     const dataToFilter = productsWithPrices.length > 0 ? productsWithPrices : products;
     if (categoryFilter === 'all') return dataToFilter;
-    return dataToFilter.filter(p => p.Familia === categoryFilter);
+    return dataToFilter.filter((p) => p.Familia === categoryFilter);
   }, [categoryFilter, products, productsWithPrices]);
 
   if (!isOpen) return null;
 
-  // ── Seleccionar producto ──────────────────────────────────────────────────────
   const handleSelect = (product) => {
     const productToSend = {
-      id:        product.Codigo,
-      codigo:    product.Codigo,
-      nombre:    product.Nombre,
+      id: product.Codigo,
+      codigo: product.Codigo,
+      nombre: product.Nombre,
       proveedor: product.Proveedor,
       categoria: product.Familia,
-      precioLista:  product.precioLista  || 0,
-      precioNeto:   product.precioNeto   || 0,
-      flag:         product.flag         || '',
-      discount1:    product.discount1    || 0,
-      discount2:    product.discount2    || 0,
-      discount3:    product.discount3    || 0,
-      discount4:    product.discount4    || 0,
-      discount5:    product.discount5    || 0,
-      stock:        product.Stotal       || 0,
+      precioLista: product.precioLista || 0,
+      precioNeto: product.precioNeto || 0,
+      flag: product.flag || '',
+      discount1: product.discount1 || 0,
+      discount2: product.discount2 || 0,
+      discount3: product.discount3 || 0,
+      discount4: product.discount4 || 0,
+      discount5: product.discount5 || 0,
+      stock: product.StockSeleccionado ?? 0,
+      stockTotal: product.Stotal || 0,
+      stockDetalle: product.stockDetalle || [],
       hasPriceData: product.hasPriceData || false,
-      preciosDetalle:      product.preciosDetalle      || null,
+      preciosDetalle: product.preciosDetalle || null,
       descuentosCompletos: product.descuentosCompletos || null,
-      importesCompletos:   product.importesCompletos   || null,
-      costosCompletos:     product.costosCompletos     || null,
+      importesCompletos: product.importesCompletos || null,
+      costosCompletos: product.costosCompletos || null,
     };
 
     onSelect(productToSend);
     onClose();
   };
 
-  // ─────────────────────────────────────────────────────────────────────────────
   const content = (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[85vh] overflow-hidden">
-
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b bg-gradient-to-r from-sky-500 to-blue-600 text-white">
           <div className="flex items-center gap-2">
             <Package className="w-5 h-5" />
@@ -242,39 +305,61 @@ const ProductSelectorModal = ({
                   ? `Precios para: ${selectedClient.nombreCliente || selectedClient.nombre || selectedClient.ruc}`
                   : 'Busca productos por código'}
               </p>
+              <p className="text-[11px] md:text-xs text-sky-100">
+                Almacén: {selectedWarehouse?.cod_alm || '—'} / {selectedWarehouse?.codnum_alm || '—'}
+              </p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition">
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-white/10 transition"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Filtros */}
         <div className="px-5 py-3 border-b bg-gray-50 flex flex-col md:flex-row gap-3">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Escribe el código del producto (ej: 21.0.986.AF1.001)..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
-              disabled={loading}
-              autoFocus
-            />
-          </div>
+          <div className="flex-1 flex items-center gap-2">
+  <div className="flex-1 relative">
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+    <input
+      type="text"
+      placeholder="Escribe el código del producto (ej: 21.0.986.AF1.001)..."
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleSearch();
+        }
+      }}
+      className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+      autoFocus
+    />
+  </div>
+
+  <button
+    type="button"
+    onClick={handleSearch}
+    disabled={loading || searchTerm.trim() === ''}
+    className="shrink-0 px-4 py-2.5 rounded-lg bg-sky-600 text-white text-sm font-medium hover:bg-sky-700 transition disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed"
+  >
+    Buscar
+  </button>
+</div>
 
           {categories.length > 0 && (
             <div className="w-full md:w-60 flex items-center gap-2">
               <Filter className="w-4 h-4 text-gray-400" />
               <select
                 value={categoryFilter}
-                onChange={e => setCategoryFilter(e.target.value)}
+                onChange={(e) => setCategoryFilter(e.target.value)}
                 className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
                 disabled={loading}
               >
                 <option value="all">Todas las categorías</option>
-                {categories.map(cat => (
+                {categories.map((cat) => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
@@ -282,7 +367,6 @@ const ProductSelectorModal = ({
           )}
         </div>
 
-        {/* Loading productos */}
         {loading && (
           <div className="py-10 flex flex-col items-center justify-center">
             <Loader className="w-8 h-8 text-sky-600 animate-spin mb-2" />
@@ -290,7 +374,6 @@ const ProductSelectorModal = ({
           </div>
         )}
 
-        {/* Loading precios */}
         {loadingPrices && !loading && (
           <div className="px-5 py-2 bg-blue-50 border-b border-blue-200 flex items-center gap-2 text-sm text-blue-700">
             <Loader className="w-4 h-4 animate-spin" />
@@ -298,7 +381,6 @@ const ProductSelectorModal = ({
           </div>
         )}
 
-        {/* Contenido */}
         {!loading && (
           <div className="overflow-y-auto max-h-[60vh]">
             {searchTerm.trim() === '' ? (
@@ -315,71 +397,80 @@ const ProductSelectorModal = ({
               </div>
             ) : (
               <table className="min-w-full text-xs md:text-sm">
-                <thead className="bg-gray-100 border-b sticky top-0">
-                  <tr>
-                    <th className="px-3 py-2 text-left  font-semibold text-gray-700">Código</th>
-                    <th className="px-3 py-2 text-left  font-semibold text-gray-700">Nombre</th>
-                    <th className="px-3 py-2 text-left  font-semibold text-gray-700">Categoría</th>
-                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Precio Lista</th>
-                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Dscto 1(%)</th>
-                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Precio Neto</th>
-                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Stock</th>
-                    <th className="px-3 py-2 text-center font-semibold text-gray-700">Acción</th>
-                  </tr>
-                </thead>
+                <thead>
+  <tr>
+    <th className="sticky top-0 z-20 bg-gray-100 bg-clip-padding border-b border-gray-300 px-3 py-2 text-left font-semibold text-gray-700">
+      Código
+    </th>
+    <th className="sticky top-0 z-20 bg-gray-100 bg-clip-padding border-b border-gray-300 px-3 py-2 text-left font-semibold text-gray-700">
+      Nombre
+    </th>
+   <th className="sticky top-0 z-20 bg-gray-100 bg-clip-padding border-b border-gray-300 px-3 py-2 text-left font-semibold text-gray-700">
+      Categoría
+    </th>
+    <th className="sticky top-0 z-20 bg-gray-100 bg-clip-padding border-b border-gray-300 px-3 py-2 text-left font-semibold text-gray-700">
+      Precio Lista
+    </th>
+   <th className="sticky top-0 z-20 bg-gray-100 bg-clip-padding border-b border-gray-300 px-3 py-2 text-left font-semibold text-gray-700">
+      Dscto 1(%)
+    </th>
+    <th className="sticky top-0 z-20 bg-gray-100 bg-clip-padding border-b border-gray-300 px-3 py-2 text-left font-semibold text-gray-700">
+      Precio Neto
+    </th>
+   <th className="sticky top-0 z-20 bg-gray-100 bg-clip-padding border-b border-gray-300 px-3 py-2 text-left font-semibold text-gray-700">
+      Stock
+    </th>
+    <th className="sticky top-0 z-20 bg-gray-100 bg-clip-padding border-b border-gray-300 px-3 py-2 text-left font-semibold text-gray-700">
+      Acción
+    </th>
+  </tr>
+</thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredProducts.map(product => {
-                    //  Flag badges
-                    const flag  = product.flag?.trim() ?? '';
+                  {filteredProducts.map((product) => {
+                    const flag = product.flag?.trim() ?? '';
                     const flagT = flag === 'T';
                     const flagX = flag === 'X';
-                    const minD5 = flagT ? (product.discount4 ?? 0)   : 0;
+                    const minD5 = flagT ? (product.discount4 ?? 0) : 0;
                     const maxD5 = flagT ? (product.discount5 ?? 100) : 100;
 
-                    //  Verificar si ya está en la cotización
+                    const sinStock = (product.StockSeleccionado ?? 0) <= 0;
+
                     const yaAgregado = existingProducts.some(
-                      ep => ep.codigo?.trim() === product.Codigo?.trim()
+                      (ep) => ep.codigo?.trim() === product.Codigo?.trim()
                     );
 
                     return (
                       <tr
                         key={product.Codigo}
                         className={`transition ${
-                          yaAgregado
-                            ? 'bg-gray-50 opacity-60'
-                            : 'hover:bg-blue-50/60'
+                          yaAgregado || sinStock  ? 'bg-gray-50 opacity-60' : 'hover:bg-blue-50/60'
                         }`}
                       >
-
-                        {/* Código */}
                         <td className="px-3 py-2 whitespace-nowrap text-[11px] md:text-xs font-medium text-gray-800">
                           {product.Codigo}
                         </td>
 
-                        {/* Nombre + proveedor */}
                         <td className="px-3 py-2">
-                          <div className="text-xs md:text-sm font-semibold text-gray-900">{product.Nombre}</div>
+                          <div className="text-xs md:text-sm font-semibold text-gray-900">
+                            {product.Nombre}
+                          </div>
                           {product.Proveedor && (
                             <div className="text-[11px] text-gray-500">{product.Proveedor}</div>
                           )}
                         </td>
 
-                        {/* Categoría */}
                         <td className="px-3 py-2 whitespace-nowrap text-[11px] text-gray-700">
                           {product.Familia}
                         </td>
 
-                        {/* Precio Lista */}
                         <td className="px-3 py-2 text-right text-[11px] md:text-xs text-gray-800">
                           {product.precioLista > 0 ? `$${product.precioLista.toFixed(2)}` : '-'}
                         </td>
 
-                        {/* Dscto 1 */}
                         <td className="px-3 py-2 text-right text-[11px] md:text-xs text-blue-600 font-medium">
                           {product.hasPriceData && product.discount1 > 0 ? `${product.discount1}%` : '-'}
                         </td>
 
-                        {/*  Precio Neto (dola) + badge de flag */}
                         <td className="px-3 py-2 text-right text-[11px] md:text-xs font-semibold">
                           {product.precioNeto > 0 ? (
                             <div className="flex flex-col items-end gap-0.5">
@@ -398,28 +489,29 @@ const ProductSelectorModal = ({
                           ) : '-'}
                         </td>
 
-                        {/* Stock */}
                         <td className="px-3 py-2 text-right text-[11px] text-gray-800">
-                          {product.Stotal || 0}
+                          {product.StockSeleccionado ?? 0}
                         </td>
 
-                        {/*  Acción — deshabilitada si ya está agregado */}
                         <td className="px-3 py-2 text-center">
-                          {yaAgregado ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg bg-gray-200 text-gray-500 cursor-not-allowed">
-                              ✓ Agregado
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleSelect(product)}
-                              className="inline-flex items-center px-2.5 py-1.5 text-[11px] font-semibold rounded-lg transition bg-emerald-600 text-white hover:bg-emerald-700"
-                            >
-                              Usar
-                            </button>
-                          )}
-                        </td>
-
+  {yaAgregado ? (
+    <span className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg bg-gray-200 text-gray-500 cursor-not-allowed">
+      ✓ Agregado
+    </span>
+  ) : sinStock ? (
+    <span className="inline-flex items-center px-2.5 py-1.5 text-[11px] font-semibold rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200">
+      Sin stock
+    </span>
+  ) : (
+    <button
+      type="button"
+      onClick={() => handleSelect(product)}
+      className="inline-flex items-center px-2.5 py-1.5 text-[11px] font-semibold rounded-lg transition bg-emerald-600 text-white hover:bg-emerald-700"
+    >
+      Usar
+    </button>
+  )}
+</td>
                       </tr>
                     );
                   })}

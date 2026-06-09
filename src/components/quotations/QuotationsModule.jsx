@@ -61,30 +61,33 @@ const KPI_CARDS = [
   },
 ];
 
-
 const QuotationsModule = () => {
-  const [quotations, setQuotations]   = useState([]);
-  const [loading, setLoading]         = useState(true);
-  const [searchTerm, setSearchTerm]   = useState('');
+  const [quotations, setQuotations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
   // ── Filtros de fecha ──────────────────────────────────────────
   const today = new Date().toISOString().split('T')[0];
-  const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-    .toISOString().split('T')[0];
+  const firstDayOfMonth = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth(),
+    1
+  ).toISOString().split('T')[0];
+
   const [dateFrom, setDateFrom] = useState(firstDayOfMonth);
-  const [dateTo,   setDateTo]   = useState(today);
+  const [dateTo, setDateTo] = useState(today);
 
   // ── Paginación ────────────────────────────────────────────────
   const [currentPage, setCurrentPage] = useState(1);
 
   // ── Modales ───────────────────────────────────────────────────
   const [selectedQuotationForOrder, setSelectedQuotationForOrder] = useState(null);
-  const [isOrderModalOpen,  setIsOrderModalOpen]  = useState(false);
-  const [editingQuotation,  setEditingQuotation]  = useState(null);
-  const [isEditModalOpen,   setIsEditModalOpen]   = useState(false);
-  const [pdfQuotation,      setPdfQuotation]      = useState(null);
-  const [isPdfModalOpen,    setIsPdfModalOpen]    = useState(false);
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [editingQuotation, setEditingQuotation] = useState(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [pdfQuotation, setPdfQuotation] = useState(null);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
   useEffect(() => {
     fetchQuotations();
@@ -92,42 +95,42 @@ const QuotationsModule = () => {
 
   // ── Helpers ───────────────────────────────────────────────────
   const mapEstadoBackendToFrontend = (estadoBackend) => {
-  const estadoMap = {
-    'PENDIENTE': 'pendiente',
-    'ENVIADO':   'enviado',
-    'ANULADO':   'anulado',
+    const estadoMap = {
+      PENDIENTE: 'pendiente',
+      ENVIADO: 'enviado',
+      ANULADO: 'anulado',
+    };
+    return estadoMap[estadoBackend] || 'pendiente';
   };
-  return estadoMap[estadoBackend] || 'pendiente';
-};
 
   const formatDateFromInt = (dateInt) => {
     if (!dateInt) return new Date().toISOString().split('T')[0];
     const dateStr = String(dateInt).padStart(8, '0');
-    return `${dateStr.substring(0,4)}-${dateStr.substring(4,6)}-${dateStr.substring(6,8)}`;
+    return `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
   };
 
   const formatDisplayDate = (dateStr) => {
-  if (!dateStr) return '';
-  const [year, month, day] = dateStr.split('-');
-  return `${day}/${month}/${year}`;
-};
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
+  };
 
-const parseFecha = (fechaRaw) => {
-  if (!fechaRaw) return new Date().toISOString().split('T')[0];
+  const parseFecha = (fechaRaw) => {
+    if (!fechaRaw) return new Date().toISOString().split('T')[0];
 
-  // Si ya viene como string ISO "2026-02-23T05:00:00.000Z"
-  if (typeof fechaRaw === 'string' && fechaRaw.includes('T')) {
-    return fechaRaw.split('T')[0]; //  toma solo "2026-02-23", sin timezone
-  }
+    // Si ya viene como string ISO "2026-02-23T05:00:00.000Z"
+    if (typeof fechaRaw === 'string' && fechaRaw.includes('T')) {
+      return fechaRaw.split('T')[0];
+    }
 
-  // Si viene como string ISO sin T "2026-02-23"
-  if (typeof fechaRaw === 'string' && fechaRaw.includes('-')) {
-    return fechaRaw; //  ya está bien
-  }
+    // Si viene como string ISO sin T "2026-02-23"
+    if (typeof fechaRaw === 'string' && fechaRaw.includes('-')) {
+      return fechaRaw;
+    }
 
-  // Si viene como entero 20260223
-  return formatDateFromInt(fechaRaw);
-};
+    // Si viene como entero 20260223
+    return formatDateFromInt(fechaRaw);
+  };
 
   // ── Fetch ─────────────────────────────────────────────────────
   const fetchQuotations = async () => {
@@ -138,24 +141,26 @@ const parseFecha = (fechaRaw) => {
       if (response.success) {
         console.log('🔍 Primera cotización RAW:', response.data[0]);
         console.log('🔍 forpag RAW:', response.data[0]?.forpag);
-console.log('🔍 forma_pago RAW:', response.data[0]?.forma_pago);         // ← AQUÍ
-      console.log('🔍 fechac RAW:', response.data[0]?.fechac);             // ← AQUÍ
-      console.log('🔍 typeof fechac:', typeof response.data[0]?.fechac);   // ← AQUÍ
+        console.log('🔍 forma_pago RAW:', response.data[0]?.forma_pago);
+        console.log('🔍 fechac RAW:', response.data[0]?.fechac);
+        console.log('🔍 typeof fechac:', typeof response.data[0]?.fechac);
+
         const transformed = response.data.map(q => ({
-          id:               q.id_cotizac,
+          id: q.id_cotizac,
           numeroCotizacion: q.correlativo_cotiza,
           numeroRegistro: q.reg ?? null,
           numeroFolio: q.folio ?? null,
-          fecha:            parseFecha(q.fechac),
-          cliente:          q.cliente_nombre,
-          ruc:              q.cliente_ruc,
-          asesor:           q.vendedor || 'N/A',
-          total:            parseFloat(q.total) || 0,
-          estado:           mapEstadoBackendToFrontend(q.estado_transmision),
-          monedc:           q.monedc,
-          currency:         q.monedc === 2 ? 'USD' : 'PEN',
-          formaPago:        q.forpag || 'ADE',
+          fecha: parseFecha(q.fechac),
+          cliente: q.cliente_nombre,
+          ruc: q.cliente_ruc,
+          asesor: q.vendedor || 'N/A',
+          total: parseFloat(q.total) || 0,
+          estado: mapEstadoBackendToFrontend(q.estado_transmision),
+          monedc: q.monedc,
+          currency: q.monedc === 2 ? 'USD' : 'PEN',
+          formaPago: q.forpag || 'ADE',
         }));
+
         setQuotations(transformed);
         setCurrentPage(1);
       }
@@ -171,7 +176,7 @@ console.log('🔍 forma_pago RAW:', response.data[0]?.forma_pago);         // �
     toast.promise(fetchQuotations(), {
       loading: 'Actualizando...',
       success: 'Lista actualizada',
-      error:   'Error al actualizar'
+      error: 'Error al actualizar'
     });
   };
 
@@ -184,73 +189,87 @@ console.log('🔍 forma_pago RAW:', response.data[0]?.forma_pago);         // �
       if (response.success) {
         const { cabecera, detalles } = response.data;
 
+        const codAlmCabecera = cabecera?.cod_alm ?? null;
+        const codnumAlmCabecera = cabecera?.codnum_alm ?? null;
+
         const productos = detalles.map((d, idx) => {
-          const esUSD           = cabecera.monedc === 'USD' || cabecera.monedc === 2;
-          const precioLista     = parseFloat(esUSD ? d.dprun_usd : d.dpruns) || 0;
+          const esUSD = cabecera.monedc === 'USD' || cabecera.monedc === 2;
+          const precioLista = parseFloat(esUSD ? d.dprun_usd : d.dpruns) || 0;
           const precioNetoTotal = parseFloat(esUSD ? d.dinet_usd : d.dinets) || 0;
-          const cantidad        = d.qaprbd || 0;
+          const cantidad = d.qaprbd || 0;
           const precioNetoUnitario = cantidad > 0
             ? parseFloat((precioNetoTotal / cantidad).toFixed(2))
             : 0;
 
           return {
-            id:          idx + 1,
-            codigo:      d.codigd,
-            nombre:      d.nom_prod || d.nombre_producto || 'Producto sin nombre',
+            id: idx + 1,
+            codigo: d.codigd,
+            nombre: d.nom_prod || d.nombre_producto || 'Producto sin nombre',
             descripcion: d.nom_prod || d.nombre_producto || 'Producto sin nombre',
             precioLista,
             precioUnitario: precioNetoUnitario,
-            precioNeto:     precioNetoUnitario,
+            precioNeto: precioNetoUnitario,
             cantidad,
-            quantity:    cantidad,
-            discount1:   d.pdsc1d || 0,
-            discount2:   d.pdsc2d || 0,
-            discount3:   d.pdsc3d || 0,
-            discount4:   d.pdsc4d || 0,
-            discount5:   d.pdsc5d || 0,
-            descuento:   d.pdsc1d || 0,
+            quantity: cantidad,
+            discount1: d.pdsc1d || 0,
+            discount2: d.pdsc2d || 0,
+            discount3: d.pdsc3d || 0,
+            discount4: d.pdsc4d || 0,
+            discount5: d.pdsc5d || 0,
+            descuento: d.pdsc1d || 0,
             descuento5to: d.pdsc5d || 0,
-            subtotal:    precioNetoTotal
+            subtotal: precioNetoTotal,
+
+            // ── Almacén: siempre heredar de cabecera si no viene en detalle ──
+            cod_alm: d.cod_alm ?? codAlmCabecera,
+            codnum_alm: d.codnum_alm ?? codnumAlmCabecera,
+            warehouse: d.warehouse ?? d.codnum_alm ?? codnumAlmCabecera,
           };
         });
 
         const subtotal = productos.reduce((s, p) => s + (p.subtotal || 0), 0);
-        const igv      = subtotal * 0.18;
-        const total    = subtotal + igv;
+        const igv = subtotal * 0.18;
+        const total = subtotal + igv;
 
         setEditingQuotation({
-          id:               quotation.id,
+          id: quotation.id,
           numeroCotizacion: cabecera.correlativo_cotiza,
-          fecha:            formatDateFromInt(cabecera.fechac),
-          cliente:          cabecera.nomc,
-          ruc:              String(cabecera.rucc),
-          direccion:        cabecera.dirc || '',
-          contacto:         cabecera.contac || '',
-          telefono:         cabecera.telef1 || '',
-          asesor:           cabecera.vend || 'N/A',
-          moneda:           cabecera.monedc,
-          currency:         cabecera.monedc === 'USD' || cabecera.monedc === 2 ? 'USD' : 'PEN',
-          tipoCambio:       cabecera.tcvta || 3.75,
-          formaPago:        cabecera.forpag || 'ADE',
-          cod_alm: cabecera.cod_alm ?? null,
-  codnum_alm: cabecera.codnum_alm ?? null,
+          fecha: formatDateFromInt(cabecera.fechac),
+          cliente: cabecera.nomc,
+          ruc: String(cabecera.rucc),
+          direccion: cabecera.dirc || '',
+          contacto: cabecera.contac || '',
+          telefono: cabecera.telef1 || '',
+          asesor: cabecera.vend || 'N/A',
+          moneda: cabecera.monedc,
+          currency: cabecera.monedc === 'USD' || cabecera.monedc === 2 ? 'USD' : 'PEN',
+          tipoCambio: cabecera.tcvta || 3.75,
+          formaPago: cabecera.forpag || 'ADE',
+
+          // ── Almacén principal de la cotización ──
+          cod_alm: codAlmCabecera,
+          codnum_alm: codnumAlmCabecera,
+
           productos,
-          subtotal, igv, total,
-          observaciones:          cabecera.observaciones || '',
-          observacionesCreditos:  cabecera.observaciones_creditos || '',
+          subtotal,
+          igv,
+          total,
+          observaciones: cabecera.observaciones || '',
+          observacionesCreditos: cabecera.observaciones_creditos || '',
           observacionesLogistica: cabecera.observaciones_logistica || '',
           selectedClient: {
             nombreCliente: cabecera.nomc,
-            ruc:           String(cabecera.rucc),
-            direccion:     cabecera.dirc,
-            distrito:      cabecera.disc,
-            contacto:      cabecera.contac,
-            telefono:      cabecera.telef1,
-            vendedor:      cabecera.vend,
-            fpago:         cabecera.forpag
+            ruc: String(cabecera.rucc),
+            direccion: cabecera.dirc,
+            distrito: cabecera.disc,
+            contacto: cabecera.contac,
+            telefono: cabecera.telef1,
+            vendedor: cabecera.vend,
+            fpago: cabecera.forpag
           },
           estado: quotation.estado
         });
+
         setIsEditModalOpen(true);
       }
     } catch (error) {
@@ -273,7 +292,7 @@ console.log('🔍 forma_pago RAW:', response.data[0]?.forma_pago);         // �
 
       const productosValidos = updatedQuotation.productos.every(p =>
         Number(p.precioNeto || p.precioUnitario || 0) > 0 &&
-        Number(p.cantidad   || p.quantity       || 0) > 0
+        Number(p.cantidad || p.quantity || 0) > 0
       );
 
       if (!productosValidos) {
@@ -281,8 +300,20 @@ console.log('🔍 forma_pago RAW:', response.data[0]?.forma_pago);         // �
         return;
       }
 
+      const payloadConAlmacenCabecera = {
+        ...updatedQuotation,
+        cod_alm: updatedQuotation.cod_alm ?? editingQuotation?.cod_alm ?? null,
+        codnum_alm: updatedQuotation.codnum_alm ?? editingQuotation?.codnum_alm ?? null,
+        productos: (updatedQuotation.productos || []).map(p => ({
+          ...p,
+          cod_alm: p.cod_alm ?? updatedQuotation.cod_alm ?? editingQuotation?.cod_alm ?? null,
+          codnum_alm: p.codnum_alm ?? updatedQuotation.codnum_alm ?? editingQuotation?.codnum_alm ?? null,
+          warehouse: p.warehouse ?? p.codnum_alm ?? updatedQuotation.codnum_alm ?? editingQuotation?.codnum_alm ?? null,
+        })),
+      };
+
       const { cabecera, detalles } = quotationService.prepareUpdatePayload(
-        updatedQuotation,
+        payloadConAlmacenCabecera,
         editingQuotation?.numeroCotizacion
       );
 
@@ -292,13 +323,15 @@ console.log('🔍 forma_pago RAW:', response.data[0]?.forma_pago);         // �
       }
 
       const response = await quotationService.updateQuotation(
-        editingQuotation.id, cabecera, detalles
+        editingQuotation.id,
+        cabecera,
+        detalles
       );
 
       if (response.success) {
         logActivity(EVENTOS.COTIZACION_EDITADA, editingQuotation.id);
 
-        toast.success(' Cotización actualizada exitosamente');
+        toast.success('Cotización actualizada exitosamente');
         setIsEditModalOpen(false);
         setEditingQuotation(null);
         await fetchQuotations();
@@ -314,83 +347,79 @@ console.log('🔍 forma_pago RAW:', response.data[0]?.forma_pago);         // �
   };
 
   // ── Duplicar ──────────────────────────────────────────────────
-const handleDuplicateQuotation = async (quotation) => {
-  try {
-    setLoading(true);
-    const response = await quotationService.duplicateQuotation(quotation.id);
+  const handleDuplicateQuotation = async (quotation) => {
+    try {
+      setLoading(true);
+      const response = await quotationService.duplicateQuotation(quotation.id);
 
-    if (response.success) {
+      if (response.success) {
+        logActivity(EVENTOS.COTIZACION_DUPLICADA, response.data.id_cotizac);
 
-       logActivity(EVENTOS.COTIZACION_DUPLICADA, response.data.id_cotizac);
-       
-      toast.success(
-        `Cotización duplicada como ${response.data.correlativo_cotiza}`,
-        { duration: 4000 }
-      );
-      await fetchQuotations();
-    } else {
-      toast.error(response.error || 'Error al duplicar la cotización');
+        toast.success(
+          `Cotización duplicada como ${response.data.correlativo_cotiza}`,
+          { duration: 4000 }
+        );
+        await fetchQuotations();
+      } else {
+        toast.error(response.error || 'Error al duplicar la cotización');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Error al duplicar');
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    toast.error(err.response?.data?.error || err.message || 'Error al duplicar');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
+  const handleCancelQuotation = async (quotation) => {
+    toast.custom((t) => (
+      <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} 
+        max-w-sm w-full bg-white shadow-lg rounded-xl border border-red-100 p-4 flex flex-col gap-3`}>
 
-const handleCancelQuotation = async (quotation) => {
-  // ── Confirmación con toast personalizado ──
-  toast.custom((t) => (
-    <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} 
-      max-w-sm w-full bg-white shadow-lg rounded-xl border border-red-100 p-4 flex flex-col gap-3`}>
-      
-      <div className="flex items-start gap-3">
-        <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-          <Ban className="w-5 h-5 text-red-600" />
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+            <Ban className="w-5 h-5 text-red-600" />
+          </div>
+          <div>
+            <p className="font-semibold text-gray-900 text-sm">¿Anular cotización?</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              <span className="font-medium text-gray-700">{quotation.numeroCotizacion}</span> — Esta acción no se puede deshacer.
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="font-semibold text-gray-900 text-sm">¿Anular cotización?</p>
-          <p className="text-xs text-gray-500 mt-0.5">
-            <span className="font-medium text-gray-700">{quotation.numeroCotizacion}</span> — Esta acción no se puede deshacer.
-          </p>
+
+        <div className="flex gap-2 justify-end">
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={async () => {
+              toast.dismiss(t.id);
+              try {
+                setLoading(true);
+                await quotationService.cancelQuotation(quotation.id);
+                logActivity(EVENTOS.COTIZACION_ANULADA, quotation.id);
+                toast.success(`Cotización ${quotation.numeroCotizacion} anulada correctamente`);
+                setQuotations(prev =>
+                  prev.map(q => q.id === quotation.id ? { ...q, estado: 'anulado' } : q)
+                );
+              } catch (error) {
+                const msg = error.response?.data?.error || error.message || 'Error al anular';
+                toast.error(msg);
+              } finally {
+                setLoading(false);
+              }
+            }}
+            className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition"
+          >
+            Sí, anular
+          </button>
         </div>
       </div>
-
-      <div className="flex gap-2 justify-end">
-        <button
-          onClick={() => toast.dismiss(t.id)}
-          className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-        >
-          Cancelar
-        </button>
-        <button
-          onClick={async () => {
-            toast.dismiss(t.id);
-            try {
-              setLoading(true);
-              await quotationService.cancelQuotation(quotation.id);
-              logActivity(EVENTOS.COTIZACION_ANULADA, quotation.id);
-              toast.success(`Cotización ${quotation.numeroCotizacion} anulada correctamente`);
-              setQuotations(prev =>
-                prev.map(q => q.id === quotation.id ? { ...q, estado: 'anulado' } : q)
-              );
-            } catch (error) {
-              const msg = error.response?.data?.error || error.message || 'Error al anular';
-              toast.error(msg);
-            } finally {
-              setLoading(false);
-            }
-          }}
-          className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition"
-        >
-          Sí, anular
-        </button>
-      </div>
-    </div>
-  ), { duration: Infinity }); // ← no se cierra solo, espera acción del usuario
-};
-
+    ), { duration: Infinity });
+  };
 
   // ── Ver PDF ───────────────────────────────────────────────────
   const handleViewPDF = async (quotation) => {
@@ -402,32 +431,35 @@ const handleCancelQuotation = async (quotation) => {
         const { cabecera, detalles } = response.data;
 
         const productos = detalles.map((d, idx) => ({
-          id:          idx + 1,
-          codigo:      d.codigd,
-          nombre:      d.nom_prod || d.nombre_producto || 'Producto sin nombre',
+          id: idx + 1,
+          codigo: d.codigd,
+          nombre: d.nom_prod || d.nombre_producto || 'Producto sin nombre',
           precioLista: parseFloat(d.dprun_usd || d.dpruns || 0),
-          precioNeto:  parseFloat((parseFloat(d.dinet_usd || d.dinets || 0) / (d.qaprbd || 1)).toFixed(2)),
-          quantity:    d.qaprbd || 0,
-          discount1:   d.pdsc1d || 0,
-          discount5:   d.pdsc5d || 0
+          precioNeto: parseFloat((parseFloat(d.dinet_usd || d.dinets || 0) / (d.qaprbd || 1)).toFixed(2)),
+          quantity: d.qaprbd || 0,
+          discount1: d.pdsc1d || 0,
+          discount5: d.pdsc5d || 0
         }));
 
         const subtotal = productos.reduce((s, p) => s + p.precioNeto * p.quantity, 0);
-        const igv      = subtotal * 0.18;
-        const total    = subtotal + igv;
+        const igv = subtotal * 0.18;
+        const total = subtotal + igv;
 
         setPdfQuotation({
-          id:               quotation.id,
+          id: quotation.id,
           numeroCotizacion: cabecera.correlativo_cotiza,
-          fecha:            formatDateFromInt(cabecera.fechac),
-          productos, subtotal, igv, total,
+          fecha: formatDateFromInt(cabecera.fechac),
+          productos,
+          subtotal,
+          igv,
+          total,
           selectedClient: {
             nombreCliente: cabecera.nomc,
-            ruc:           String(cabecera.rucc),
-            direccion:     cabecera.dirc,
-            distrito:      cabecera.disc,
-            contacto:      cabecera.contac,
-            telefono:      cabecera.telef1
+            ruc: String(cabecera.rucc),
+            direccion: cabecera.dirc,
+            distrito: cabecera.disc,
+            contacto: cabecera.contac,
+            telefono: cabecera.telef1
           },
           currency: cabecera.monedc === 2 ? 'USD' : 'PEN'
         });
@@ -442,44 +474,44 @@ const handleCancelQuotation = async (quotation) => {
   };
 
   // ── Generar pedido ────────────────────────────────────────────
- const handleGenerateOrder = (orderData) => {
-  setQuotations(prev =>
-    prev.map(q =>
-      q.id === selectedQuotationForOrder.id
-        ? {
-            ...q,
-            estado:          'enviado',
-            numeroRegistro:  orderData?.reg   ?? q.numeroRegistro,
-            numeroFolio:     orderData?.folio_as400
-                               ? Number(orderData.folio_as400)
-                               : q.numeroFolio,
-          }
-        : q
-    )
-  );
-  toast.success('¡Pedido generado y enviado al AS400 exitosamente!');
-  setIsOrderModalOpen(false);
-  setSelectedQuotationForOrder(null);
-};
+  const handleGenerateOrder = (orderData) => {
+    setQuotations(prev =>
+      prev.map(q =>
+        q.id === selectedQuotationForOrder.id
+          ? {
+              ...q,
+              estado: 'enviado',
+              numeroRegistro: orderData?.reg ?? q.numeroRegistro,
+              numeroFolio: orderData?.folio_as400
+                ? Number(orderData.folio_as400)
+                : q.numeroFolio,
+            }
+          : q
+      )
+    );
+
+    toast.success('¡Pedido generado y enviado al AS400 exitosamente!');
+    setIsOrderModalOpen(false);
+    setSelectedQuotationForOrder(null);
+  };
 
   const openGenerateOrderModal = (quotation) => {
-  if (quotation.estado === 'enviado') {  //  antes era 'convertida'
-    toast.error('Esta cotización ya fue enviada al AS400');
-    return;
+    if (quotation.estado === 'enviado') {
+      toast.error('Esta cotización ya fue enviada al AS400');
+      return;
+    }
 
-    
-  }
+    console.log('🧾 quotation.formaPago antes del modal:', quotation.formaPago);
 
-    console.log('🧾 quotation.formaPago antes del modal:', quotation.formaPago);  // ← AGREGAR
-  setSelectedQuotationForOrder({
-    ...quotation,
-    clienteId:     quotation.id,
-    clienteNombre: quotation.cliente,
-    clienteRuc:    quotation.ruc,
-    formaPago:     quotation.formaPago || 'ADE',
-  });
-  setIsOrderModalOpen(true);
-};
+    setSelectedQuotationForOrder({
+      ...quotation,
+      clienteId: quotation.id,
+      clienteNombre: quotation.cliente,
+      clienteRuc: quotation.ruc,
+      formaPago: quotation.formaPago || 'ADE',
+    });
+    setIsOrderModalOpen(true);
+  };
 
   // ── Filtrado por búsqueda + estado + fecha ────────────────────
   const filteredQuotations = quotations.filter(q => {
@@ -490,25 +522,25 @@ const handleCancelQuotation = async (quotation) => {
 
     const matchesStatus = statusFilter === 'all' || q.estado === statusFilter;
 
-    const qDate = q.fecha; // "YYYY-MM-DD"
+    const qDate = q.fecha;
     const matchesDateFrom = !dateFrom || qDate >= dateFrom;
-    const matchesDateTo   = !dateTo   || qDate <= dateTo;
+    const matchesDateTo = !dateTo || qDate <= dateTo;
 
     return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo;
   });
 
   // ── Paginación ────────────────────────────────────────────────
-  const totalPages  = Math.max(1, Math.ceil(filteredQuotations.length / PAGE_SIZE));
-  const safePage    = Math.min(currentPage, totalPages);
-  const pageStart   = (safePage - 1) * PAGE_SIZE;
-  const pageEnd     = pageStart + PAGE_SIZE;
+  const totalPages = Math.max(1, Math.ceil(filteredQuotations.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const pageEnd = pageStart + PAGE_SIZE;
   const paginatedQuotations = filteredQuotations.slice(pageStart, pageEnd);
 
   // Resetear a página 1 cuando cambian filtros
-  const handleSearchChange  = (v) => { setSearchTerm(v);    setCurrentPage(1); };
-  const handleStatusChange  = (v) => { setStatusFilter(v);  setCurrentPage(1); };
-  const handleDateFromChange = (v) => { setDateFrom(v);     setCurrentPage(1); };
-  const handleDateToChange   = (v) => { setDateTo(v);       setCurrentPage(1); };
+  const handleSearchChange = (v) => { setSearchTerm(v); setCurrentPage(1); };
+  const handleStatusChange = (v) => { setStatusFilter(v); setCurrentPage(1); };
+  const handleDateFromChange = (v) => { setDateFrom(v); setCurrentPage(1); };
+  const handleDateToChange = (v) => { setDateTo(v); setCurrentPage(1); };
 
   // ── Página de carga inicial ───────────────────────────────────
   if (loading && quotations.length === 0) {
@@ -589,7 +621,7 @@ const handleCancelQuotation = async (quotation) => {
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
                 />
               </div>
-              
+
               <div className="flex items-center gap-2 flex-1">
                 <label className="text-xs text-gray-500 whitespace-nowrap">Hasta</label>
                 <input
@@ -600,7 +632,6 @@ const handleCancelQuotation = async (quotation) => {
                 />
               </div>
 
-              {/* Limpiar fechas */}
               {(dateFrom || dateTo) && (
                 <button
                   onClick={() => { setDateFrom(''); setDateTo(''); setCurrentPage(1); }}
@@ -615,35 +646,35 @@ const handleCancelQuotation = async (quotation) => {
       </div>
 
       {/* ── KPIs ── */}
-<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-  {KPI_CARDS.map(kpi => {
-    const Icon = kpi.icon;
-    return (
-      <div
-        key={kpi.key}
-        className="
-          bg-gradient-to-br from-[#5982A6] to-[#1a2f3d]
-          rounded-2xl border border-white/10
-          shadow-sm p-4
-        "
-      >
-        <div className="flex items-center gap-3">
-          <div className={`w-11 h-11 rounded-2xl ${kpi.iconBg} flex items-center justify-center shrink-0`}>
-            <Icon className={`w-5 h-5 ${kpi.iconText}`} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-2xl font-bold text-white leading-tight tabular-nums">
-              {kpi.getValue(filteredQuotations)}
-            </p>
-            <p className="text-xs font-semibold uppercase tracking-wide text-white/70 truncate mt-0.5">
-              {kpi.label}
-            </p>
-          </div>
-        </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {KPI_CARDS.map(kpi => {
+          const Icon = kpi.icon;
+          return (
+            <div
+              key={kpi.key}
+              className="
+                bg-gradient-to-br from-[#5982A6] to-[#1a2f3d]
+                rounded-2xl border border-white/10
+                shadow-sm p-4
+              "
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-11 h-11 rounded-2xl ${kpi.iconBg} flex items-center justify-center shrink-0`}>
+                  <Icon className={`w-5 h-5 ${kpi.iconText}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-2xl font-bold text-white leading-tight tabular-nums">
+                    {kpi.getValue(filteredQuotations)}
+                  </p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-white/70 truncate mt-0.5">
+                    {kpi.label}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
-    );
-  })}
-</div>
 
       {/* ── Tabla ── */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -651,7 +682,7 @@ const handleCancelQuotation = async (quotation) => {
           <table className="w-full">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
               <tr>
-                {['N° Cotización','N° Pedido','N° Folio','Fecha','Cliente','RUC','Asesor','Total','Estado','Acciones'].map(h => (
+                {['N° Cotización', 'N° Pedido', 'N° Folio', 'Fecha', 'Cliente', 'RUC', 'Asesor', 'Total', 'Estado', 'Acciones'].map(h => (
                   <th
                     key={h}
                     className={`px-6 py-4 text-xs font-semibold text-gray-700 uppercase tracking-wider ${h === 'Acciones' ? 'text-center' : 'text-left'}`}
@@ -661,6 +692,7 @@ const handleCancelQuotation = async (quotation) => {
                 ))}
               </tr>
             </thead>
+
             <tbody className="divide-y divide-gray-200">
               {paginatedQuotations.length === 0 ? (
                 <tr>
@@ -676,68 +708,74 @@ const handleCancelQuotation = async (quotation) => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-semibold text-green-600">{quotation.numeroCotizacion}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-  {quotation.numeroRegistro ?? '—'}
-</td>
 
-<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-  {quotation.numeroFolio ?? '—'}
-</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-  {formatDisplayDate(quotation.fecha)}  
-</td>
+                      {quotation.numeroRegistro ?? '—'}
+                    </td>
+
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {quotation.numeroFolio ?? '—'}
+                    </td>
+
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {formatDisplayDate(quotation.fecha)}
+                    </td>
+
                     <td className="px-6 py-4 text-sm text-gray-900 font-medium">{quotation.cliente}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{quotation.ruc}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{quotation.asesor}</td>
+
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-semibold text-green-600">${quotation.total.toFixed(2)}</span>
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap">
                       <QuotationStatusBadge estado={quotation.estado} />
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <div className="flex items-center justify-center gap-2">
-                        
                         <Tooltip text={
-  quotation.estado === 'pendiente'
-    ? 'No se puede duplicar en estado Pendiente'
-    : 'Duplicar cotización'
-}>
-  <button
-    onClick={() => handleDuplicateQuotation(quotation)}
-    disabled={loading || quotation.estado === 'pendiente'}
-    className={`px-3 py-2 rounded-lg transition inline-flex items-center gap-2 text-sm font-bold shadow
-      ${quotation.estado === 'pendiente'
-        ? 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-50'
-        : 'bg-[#1a2f3d] text-white hover:bg-indigo-700 hover:scale-105'
-      }`}
-  >
-    <Copy className="w-4 h-4" />
-  </button>
-</Tooltip>
+                          quotation.estado === 'pendiente'
+                            ? 'No se puede duplicar en estado Pendiente'
+                            : 'Duplicar cotización'
+                        }>
+                          <button
+                            onClick={() => handleDuplicateQuotation(quotation)}
+                            disabled={loading || quotation.estado === 'pendiente'}
+                            className={`px-3 py-2 rounded-lg transition inline-flex items-center gap-2 text-sm font-bold shadow
+                              ${quotation.estado === 'pendiente'
+                                ? 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-50'
+                                : 'bg-[#1a2f3d] text-white hover:bg-indigo-700 hover:scale-105'
+                              }`}
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+                        </Tooltip>
 
                         <Tooltip text={quotation.estado === 'enviado' ? 'Cotización ya enviada al AS400' : 'Editar cotización'}>
                           <button
                             onClick={() => handleEditQuotation(quotation)}
-                            disabled={loading || quotation.estado === 'enviado' || quotation.estado === 'anulado'}  
+                            disabled={loading || quotation.estado === 'enviado' || quotation.estado === 'anulado'}
                             className={`px-3 py-2 rounded-lg font-medium transition inline-flex items-center gap-2 text-sm ${
-  quotation.estado === 'enviado' || quotation.estado === 'anulado'
-    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-    : 'bg-gradient-to-r from-[#1a2f3d] to-[#1a2f3d] text-white hover:from-green-700 hover:to-emerald-700 shadow-md hover:shadow-lg'
-}`}>
+                              quotation.estado === 'enviado' || quotation.estado === 'anulado'
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-[#1a2f3d] to-[#1a2f3d] text-white hover:from-green-700 hover:to-emerald-700 shadow-md hover:shadow-lg'
+                            }`}
+                          >
                             <Pencil className="w-4 h-4" />
                           </button>
                         </Tooltip>
 
                         <Tooltip text="Vista previa PDF">
-                        <button
-                          onClick={() => handleViewPDF(quotation)}
-                          disabled={loading}
-                          className="px-3 py-2 bg-[#1a2f3d] text-white rounded-lg hover:bg-orange-700 hover:scale-105 transition inline-flex items-center gap-2 text-sm font-bold shadow disabled:opacity-50"
-                          title="Previsualizar PDF"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
+                          <button
+                            onClick={() => handleViewPDF(quotation)}
+                            disabled={loading}
+                            className="px-3 py-2 bg-[#1a2f3d] text-white rounded-lg hover:bg-orange-700 hover:scale-105 transition inline-flex items-center gap-2 text-sm font-bold shadow disabled:opacity-50"
+                            title="Previsualizar PDF"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
                         </Tooltip>
 
                         <Tooltip
@@ -746,37 +784,34 @@ const handleCancelQuotation = async (quotation) => {
                         >
                           <button
                             onClick={() => openGenerateOrderModal(quotation)}
-                            disabled={quotation.estado === 'enviado' || quotation.estado === 'anulado'}  
+                            disabled={quotation.estado === 'enviado' || quotation.estado === 'anulado'}
                             className={`px-3 py-2 rounded-lg font-medium transition inline-flex items-center gap-2 text-sm ${
-  quotation.estado === 'enviado' || quotation.estado === 'anulado'
-    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-    : 'bg-gradient-to-r from-[#1a2f3d] to-[#1a2f3d] text-white hover:from-green-700 hover:to-emerald-700 shadow-md hover:shadow-lg'
-}`}
+                              quotation.estado === 'enviado' || quotation.estado === 'anulado'
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-[#1a2f3d] to-[#1a2f3d] text-white hover:from-green-700 hover:to-emerald-700 shadow-md hover:shadow-lg'
+                            }`}
                           >
                             <Package className="w-4 h-4" />
                           </button>
                         </Tooltip>
 
-
-<Tooltip text={
-  quotation.estado === 'anulado' ? 'Ya está anulada' :
-  quotation.estado === 'enviado' ? 'No se puede anular una cotización enviada' :
-  'Anular cotización'
-}>
-  <button
-    onClick={() => handleCancelQuotation(quotation)}
-    disabled={loading || quotation.estado === 'anulado' || quotation.estado === 'enviado'}
-    className={`px-3 py-2 rounded-lg transition inline-flex items-center gap-2 text-sm font-bold shadow
-      ${quotation.estado === 'anulado' || quotation.estado === 'enviado'
-        ? 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-50'
-        : 'bg-red-600 text-white hover:bg-red-700 hover:scale-105'
-      }`}
-  >
-    <Ban className="w-4 h-4" />
-  </button>
-</Tooltip>
-   
-
+                        <Tooltip text={
+                          quotation.estado === 'anulado' ? 'Ya está anulada' :
+                          quotation.estado === 'enviado' ? 'No se puede anular una cotización enviada' :
+                          'Anular cotización'
+                        }>
+                          <button
+                            onClick={() => handleCancelQuotation(quotation)}
+                            disabled={loading || quotation.estado === 'anulado' || quotation.estado === 'enviado'}
+                            className={`px-3 py-2 rounded-lg transition inline-flex items-center gap-2 text-sm font-bold shadow
+                              ${quotation.estado === 'anulado' || quotation.estado === 'enviado'
+                                ? 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-50'
+                                : 'bg-red-600 text-white hover:bg-red-700 hover:scale-105'
+                              }`}
+                          >
+                            <Ban className="w-4 h-4" />
+                          </button>
+                        </Tooltip>
                       </div>
                     </td>
                   </tr>
@@ -787,16 +822,15 @@ const handleCancelQuotation = async (quotation) => {
         </div>
 
         {/* ── Paginación ── */}
-        {/* ── Paginación ── */}
-{filteredQuotations.length > 0 && (
-  <TablePaginator
-    page={safePage}
-    totalPages={totalPages}
-    total={filteredQuotations.length}
-    pageSize={PAGE_SIZE}
-    onPage={setCurrentPage}
-  />
-)}
+        {filteredQuotations.length > 0 && (
+          <TablePaginator
+            page={safePage}
+            totalPages={totalPages}
+            total={filteredQuotations.length}
+            pageSize={PAGE_SIZE}
+            onPage={setCurrentPage}
+          />
+        )}
       </div>
 
       {/* ── Modales ── */}
