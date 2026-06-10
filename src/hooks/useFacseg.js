@@ -3,9 +3,15 @@ import { useState, useCallback, useRef } from 'react';
 import { facsegService } from '../services/facseg-service';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-const todayInt = () => {
+const dateToInt = (date) =>
+  date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate();
+
+const todayInt = () => dateToInt(new Date());
+
+const daysAgoInt = (days) => {
   const d = new Date();
-  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  d.setDate(d.getDate() - days);
+  return dateToInt(d);
 };
 
 export const intToInput = (n) => {
@@ -19,27 +25,26 @@ export const inputToInt = (s) => (s ? Number(s.replace(/-/g, '')) : null);
 // ── Hook ───────────────────────────────────────────────────────────────────────
 export const useFacseg = () => {
   const hoy = todayInt();
+  const desdeInicial = daysAgoInt(3);
 
-  const [ruc,        setRuc]        = useState('');
-  const [fechaDesde, setFechaDesde] = useState(hoy);
+  const [ruc, setRuc] = useState('');
+  const [fechaDesde, setFechaDesde] = useState(desdeInicial);
   const [fechaHasta, setFechaHasta] = useState(hoy);
-  const [data,       setData]       = useState([]);
-  const [total,      setTotal]      = useState(0);
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState(null);
-  const [buscado,    setBuscado]    = useState(false);
-  const [sinAcceso,  setSinAcceso]  = useState(false);
- 
+  const [data, setData] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [buscado, setBuscado] = useState(false);
+  const [sinAcceso, setSinAcceso] = useState(false);
 
   // ── Buscador sensitivo por nombre ──────────────────────────────────────────
-  const [nombreInput,   setNombreInput]   = useState('');
-  const [sugerencias,   setSugerencias]   = useState([]);
+  const [nombreInput, setNombreInput] = useState('');
+  const [sugerencias, setSugerencias] = useState([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [rucBuscado, setRucBuscado] = useState('');
   const [nombreBuscado, setNombreBuscado] = useState('');
   const debounceRef = useRef(null);
   const rucDesdeSelector = useRef(false);
-   
 
   const handleNombreChange = useCallback((texto) => {
     setNombreInput(texto);
@@ -64,18 +69,18 @@ export const useFacseg = () => {
 
   // Al seleccionar del dropdown → rellena RUC automáticamente
   const handleSelectCliente = useCallback((cliente) => {
-    rucDesdeSelector.current = true; 
+    rucDesdeSelector.current = true;
     setNombreInput(cliente.nombre);
     setRuc(cliente.ruc);
     setSugerencias([]);
   }, []);
 
   const handleRucChange = useCallback((valor) => {
-  rucDesdeSelector.current = false;  // el usuario está escribiendo manualmente
-  setRuc(valor.replace(/\D/g, ''));
-  setNombreInput('');                // ✅ limpia razón social al tipear RUC
-  setSugerencias([]);
-}, []);
+    rucDesdeSelector.current = false;
+    setRuc(valor.replace(/\D/g, ''));
+    setNombreInput('');
+    setSugerencias([]);
+  }, []);
 
   // Cierra el dropdown al perder foco
   const handleNombreBlur = useCallback(() => {
@@ -85,33 +90,38 @@ export const useFacseg = () => {
   // ── Buscar facturas ────────────────────────────────────────────────────────
   const buscar = useCallback(async () => {
     const rucTrim = ruc.trim();
+
     if (rucTrim.length < 7 || rucTrim.length > 11) {
       setError('El RUC/documento debe tener entre 7 y 11 caracteres');
       return;
     }
+
     setError(null);
     setSinAcceso(false);
-     setBuscado(false);   // ✅ AGREGAR — resetea el estado anterior
-  setData([]);         // ✅ AGREGAR — evita mostrar datos viejos
-  setTotal(0);         // ✅ AGREGAR — evita que total=0 dispare la alerta
-  setLoading(true);
+    setBuscado(false);
+    setData([]);
+    setTotal(0);
+    setLoading(true);
+
     try {
       const { total, data, sinAcceso } = await facsegService.getFacseg(
-        rucTrim, fechaDesde, fechaHasta
+        rucTrim,
+        fechaDesde,
+        fechaHasta
       );
+
       setData(data);
       setTotal(total);
       setBuscado(true);
       setSinAcceso(sinAcceso ?? false);
       setRucBuscado(rucTrim);
       setNombreBuscado(nombreInput);
-       setBuscado(true);
     } catch (err) {
       setError(err.response?.data?.error || 'Error al consultar');
       setData([]);
       setTotal(0);
       setSinAcceso(false);
-      setBuscado(true); 
+      setBuscado(true);
     } finally {
       setLoading(false);
     }
@@ -119,30 +129,41 @@ export const useFacseg = () => {
 
   const limpiar = useCallback(() => {
     setRuc('');
-    setNombreInput('');      // ← también limpia el nombre
-    setSugerencias([]);      // ← también limpia sugerencias
-    setFechaDesde(hoy);
-    setFechaHasta(hoy);
+    setNombreInput('');
+    setSugerencias([]);
+    setFechaDesde(daysAgoInt(3));
+    setFechaHasta(todayInt());
     setData([]);
     setTotal(0);
     setError(null);
     setBuscado(false);
     setSinAcceso(false);
-    setRucBuscado(''); 
+    setRucBuscado('');
     setNombreBuscado('');
-  }, [hoy]);
+  }, []);
 
   return {
     // filtros
-    ruc,        setRuc,
-    fechaDesde, setFechaDesde,
-    fechaHasta, setFechaHasta,
+    ruc,
+    setRuc,
+    fechaDesde,
+    setFechaDesde,
+    fechaHasta,
+    setFechaHasta,
     hoy,
+
     // resultados
-    data, total, loading, error, buscado,
+    data,
+    total,
+    loading,
+    error,
+    buscado,
     sinAcceso,
+
     // acciones
-    buscar, limpiar,
+    buscar,
+    limpiar,
+
     // buscador por nombre
     nombreInput,
     sugerencias,
@@ -152,6 +173,6 @@ export const useFacseg = () => {
     handleNombreBlur,
     rucBuscado,
     handleRucChange,
-    nombreBuscado
+    nombreBuscado,
   };
 };

@@ -4,6 +4,7 @@ import { ChevronLeft } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import logoImage from "../../assets/logo-emasa1.png";
+import { APP_VERSION } from '../../config/version';
 
 const Sidebar = ({ isOpen, onToggle }) => {
   const { user } = useAuth();
@@ -56,6 +57,15 @@ const Sidebar = ({ isOpen, onToggle }) => {
           );
         })}
       </nav>
+       {/* Footer versión */}
+<div className={`border-t border-white/10 ${isOpen ? 'px-4 py-3' : 'px-2 py-3'}`}>
+  <div className="flex justify-center items-center">
+    <span className="text-[11px] text-white/50 tracking-[0.15em]">
+      {APP_VERSION}
+    </span>
+  </div>
+</div>
+
     </aside>
   );
 };

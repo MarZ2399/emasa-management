@@ -247,7 +247,7 @@ const PDFPreview = React.forwardRef(
                   {item.discount1.toFixed(2)}%
                 </td>
                 <td className="border border-gray-300 p-2 text-center">
-                  {item.discount5.toFixed(2)}%
+                  {item.discount5.toFixed(3)}%
                 </td>
                 <td className="border border-gray-300 p-2 text-right">
                   {item.precioNeto.toFixed(4)}

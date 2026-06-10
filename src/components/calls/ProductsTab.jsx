@@ -645,12 +645,15 @@ const ProductsTab = ({
                                 <div className="flex items-center gap-0.5">
                                   <input
                                     type="text"
-                                    inputMode="numeric"
+                                    inputMode="decimal"
                                     value={qa?.discount5 ?? ''}
                                     disabled={flagX}
                                     onChange={e => {
                                       if (flagX) return;
-                                      const raw = e.target.value.replace(/\D/g, '');
+                                      const raw = e.target.value
+  .replace(',', '.')
+  .replace(/[^0-9.]/g, '')
+  .replace(/(\..*)\./g, '$1');
                                       if (raw === '') {
                                         updateProductQuick(product.codigo, { discount5: '' });
                                         return;

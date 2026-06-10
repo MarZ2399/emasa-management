@@ -441,12 +441,15 @@ const QuotationTab = ({
                         <div className="flex items-center gap-1">
                           <input
                             type="text"
-                            inputMode="numeric"
+                            inputMode="decimal"
                             value={item.discount5 ?? ''}
                             disabled={flagX}
                             onChange={e => {
                               if (flagX) return;
-                              const raw = e.target.value.replace(/\D/g, '');
+                              const raw = e.target.value
+  .replace(',', '.')
+  .replace(/[^0-9.]/g, '')
+  .replace(/(\..*)\./g, '$1');
                               if (raw === '') {
                                 setItemField(idx, 'discount5', '');
                                 return;

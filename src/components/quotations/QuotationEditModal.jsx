@@ -116,6 +116,7 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
   const [errors, setErrors] = useState({});
   const [isProductSelectorOpen, setIsProductSelectorOpen] = useState(false);
   const [loadingPrices, setLoadingPrices] = useState(false);
+  const [editingDiscount5, setEditingDiscount5] = useState({});
 
   useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden';
@@ -754,23 +755,54 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                             <div className="flex flex-col items-end gap-0.5">
                               <input
                                 type="text"
-                                inputMode="numeric"
-                                value={p.discount5 ?? ''}
-                                disabled={flagX}
-                                onChange={e => {
-                                  if (flagX) return;
-                                  const raw = e.target.value.replace(/\D/g, '');
-                                  if (raw === '') {
-                                    handleProductChange(index, 'discount5', '');
-                                    return;
-                                  }
-                                  const num = Number(raw);
-                                  const capped = flagT
-                                    ? (num > maxD5 ? String(maxD5) : raw)
-                                    : (num > 100 ? '100' : raw);
-                                  handleProductChange(index, 'discount5', capped);
-                                }}
-                                onBlur={() => handleDiscount5Blur(index)}
+                                inputMode="decimal"
+                                value={editingDiscount5[index] ?? String(p.discount5 ?? '')}
+      disabled={flagX}
+      onChange={e => {
+        if (flagX) return;
+
+        const value = e.target.value
+          .replace(',', '.')
+          .replace(/[^0-9.]/g, '')
+          .replace(/(\..*)\./g, '$1');
+
+        if (value === '' || /^\d*\.?\d{0,3}$/.test(value)) {
+          setEditingDiscount5(prev => ({
+            ...prev,
+            [index]: value,
+          }));
+        }
+      }}
+      onBlur={() => {
+        if (flagX) return;
+
+        const current = editingDiscount5[index] ?? String(p.discount5 ?? '');
+
+        if (current === '') {
+          handleProductChange(index, 'discount5', '');
+          setEditingDiscount5(prev => {
+            const copy = { ...prev };
+            delete copy[index];
+            return copy;
+          });
+          return;
+        }
+
+        const num = Number(current) || 0;
+        const val = flagT
+          ? Math.min(maxD5, Math.max(minD5, num))
+          : Math.min(100, Math.max(0, num));
+
+        handleProductChange(index, 'discount5', val);
+
+        setEditingDiscount5(prev => {
+          const copy = { ...prev };
+          delete copy[index];
+          return copy;
+        });
+
+        handleDiscount5Blur(index);
+      }}
                                 className={`w-20 px-2 py-1 rounded text-right text-xs font-semibold focus:ring-1 outline-none border ${
                                   flagX
                                     ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'

@@ -544,7 +544,7 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
                             {discount1.toFixed(2)}
                           </td>
                           <td className="px-3 py-2 text-right text-orange-700 font-semibold">
-                            {discount5.toFixed(2)}
+                            {discount5.toFixed(3)}
                           </td>
                           <td className="px-3 py-2 text-right text-emerald-700 font-semibold">
                             ${precioNeto.toFixed(4)}
