@@ -34,7 +34,7 @@ export const paymentMethods = [
 ];
 
 export const deliveryTypes = [
-  { value: 'retiro', label: 'Retiro en Agencia' },
+  { value: 'retiro', label: 'Retira Cliente' },
   { value: 'despacho', label: 'Despacho a Dirección Registrada' },
   { value: 'nueva_direccion', label: 'Despacho a Otra Dirección' }
 ];

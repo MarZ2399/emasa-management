@@ -71,6 +71,8 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
   });
 
   const [selectedAddressId, setSelectedAddressId] = useState('');
+  const [selectedOtherAddressMode, setSelectedOtherAddressMode] = useState('manual');
+  const [selectedOtherAddressId, setSelectedOtherAddressId] = useState('');
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
@@ -91,10 +93,13 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
   } = useUbigeo();
 
   const {
-    addresses: clientAddresses,
-    loading: loadingAddresses,
-    error: addressError,
-  } = useClientShippingAddresses(isOpen ? rucCli : null);
+  addresses: clientAddresses,
+  registeredAddresses = [],
+  savedAddresses = [],
+  registeredAddress,
+  loading: loadingAddresses,
+  error: addressError,
+} = useClientShippingAddresses(isOpen ? rucCli : null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -144,6 +149,8 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
         agenciaDespacho: { nombre: '', dni: '', telefono: '' }
       });
       setSelectedAddressId('');
+      setSelectedOtherAddressMode('manual');
+      setSelectedOtherAddressId('');
       setErrors({});
       resetUbigeo();
     }
@@ -178,6 +185,20 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
     return tomorrow.toISOString().split('T')[0];
   };
 
+  const clearDeliveryAddressFields = () => {
+    setFormData(prev => ({
+      ...prev,
+      direccionDespacho: '',
+      deptoDespacho: '',
+      provinciaDespacho: '',
+      distritoDespacho: '',
+      deptoNombre: '',
+      provinciaNombre: '',
+      distritoNombre: '',
+      agenciaDespacho: { nombre: '', dni: '', telefono: '' }
+    }));
+  };
+
   const handleChange = (field, value) => {
     if (field === 'tipoEntrega') {
       setFormData(prev => ({
@@ -187,9 +208,14 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
         deptoDespacho: '',
         provinciaDespacho: '',
         distritoDespacho: '',
+        deptoNombre: '',
+        provinciaNombre: '',
+        distritoNombre: '',
         agenciaDespacho: { nombre: '', dni: '', telefono: '' }
       }));
       setSelectedAddressId('');
+      setSelectedOtherAddressMode('manual');
+      setSelectedOtherAddressId('');
       resetUbigeo();
     } else {
       setFormData(prev => ({ ...prev, [field]: value }));
@@ -212,27 +238,64 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
     }));
   };
 
-  const handleAddressSelect = (addressId) => {
-    setSelectedAddressId(addressId);
+const handleAddressSelect = (addressId) => {
+  setSelectedAddressId(addressId);
+
+  if (!addressId) {
+    setFormData(prev => ({
+      ...prev,
+      direccionDespacho: '',
+      provinciaDespacho: '',
+      distritoDespacho: '',
+      deptoNombre: '',
+      provinciaNombre: '',
+      distritoNombre: '',
+      agenciaDespacho: { nombre: '', dni: '', telefono: '' }
+    }));
+    return;
+  }
+
+  const address = registeredAddresses.find(addr => String(addr.id) === String(addressId));
+  if (address) {
+    setFormData(prev => ({
+      ...prev,
+      direccionDespacho: address.direccion,
+      deptoDespacho: address.ubigeoDepto || '',
+      provinciaDespacho: address.ubigeoProvinca || '',
+      distritoDespacho: address.ubigeoDistrito || '',
+      deptoNombre: address.deptoNombre || '',
+      provinciaNombre: address.provinciaNombre || '',
+      distritoNombre: address.distritoNombre || '',
+    }));
+  }
+};
+
+  const handleOtherAddressModeChange = (mode) => {
+    setSelectedOtherAddressMode(mode);
+    setSelectedOtherAddressId('');
+    clearDeliveryAddressFields();
+    resetUbigeo();
+  };
+
+  const handleOtherAddressSelect = (addressId) => {
+    setSelectedOtherAddressId(addressId);
 
     if (!addressId) {
-      setFormData(prev => ({
-        ...prev,
-        direccionDespacho: '',
-        provinciaDespacho: '',
-        distritoDespacho: '',
-        agenciaDespacho: { nombre: '', dni: '', telefono: '' }
-      }));
-      return;
-    }
+    clearDeliveryAddressFields();
+    return;
+  }
 
-    const address = clientAddresses.find(addr => String(addr.id) === String(addressId));
+    const address = savedAddresses.find(addr => String(addr.id) === String(addressId));
     if (address) {
       setFormData(prev => ({
         ...prev,
-        direccionDespacho: address.direccion,
-        provinciaDespacho: address.provinciaNombre,
-        distritoDespacho: address.distritoNombre,
+        direccionDespacho: address.direccion || '',
+        deptoDespacho: address.ubigeoDepto || '',
+        provinciaDespacho: address.ubigeoProvinca || '',
+        distritoDespacho: address.ubigeoDistrito || '',
+        deptoNombre: address.deptoNombre || '',
+        provinciaNombre: address.provinciaNombre || '',
+        distritoNombre: address.distritoNombre || '',
       }));
     }
   };
@@ -302,44 +365,62 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
       newErrors.direccionDespacho = 'Debe seleccionar una dirección registrada';
 
     if (formData.tipoEntrega === 'nueva_direccion') {
-      if (!formData.deptoDespacho)
-        newErrors.deptoDespacho = 'Departamento es requerido';
-      if (!formData.provinciaDespacho)
-        newErrors.provinciaDespacho = 'Provincia es requerida';
+      if (selectedOtherAddressMode === 'manual') {
+        if (!formData.deptoDespacho)
+          newErrors.deptoDespacho = 'Departamento es requerido';
+        if (!formData.provinciaDespacho)
+          newErrors.provinciaDespacho = 'Provincia es requerida';
+      }
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+ const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    if (isSubmittingRef.current) return;
-    isSubmittingRef.current = true;
+  if (isSubmittingRef.current) return;
+  isSubmittingRef.current = true;
 
-    if (!validate()) {
-      toast.error('Por favor complete todos los campos requeridos');
-      isSubmittingRef.current = false;
-      return;
+  if (!validate()) {
+    toast.error('Por favor complete todos los campos requeridos');
+    isSubmittingRef.current = false;
+    return;
+  }
+
+  setIsSubmitting(true);
+
+  try {
+    let selectedShippingAddressId = null;
+
+    if (formData.tipoEntrega === 'despacho') {
+      selectedShippingAddressId = selectedAddressId || null;
+    } else if (
+      formData.tipoEntrega === 'nueva_direccion' &&
+      selectedOtherAddressMode === 'saved'
+    ) {
+      selectedShippingAddressId = selectedOtherAddressId || null;
     }
 
-    setIsSubmitting(true);
+    const payloadToSend = {
+      ...formData,
+      selectedShippingAddressId,
+    };
 
-    try {
-      const result = await transmitOrder(quotation.id, formData);
-      toast.success(`Pedido generado — Folio: ${result.folio_as400}`);
-      onSave?.(result);
-      onClose();
-    } catch (error) {
-      const msg = error.response?.data?.error || 'Error al generar el pedido';
-      toast.error(msg);
-      console.error(error);
-    } finally {
-      setIsSubmitting(false);
-      isSubmittingRef.current = false;
-    }
-  };
+    const result = await transmitOrder(quotation.id, payloadToSend);
+    toast.success(`Pedido generado — Folio: ${result.folio_as400}`);
+    onSave?.(result);
+    onClose();
+  } catch (error) {
+    const msg = error.response?.data?.error || 'Error al generar el pedido';
+    toast.error(msg);
+    console.error(error);
+  } finally {
+    setIsSubmitting(false);
+    isSubmittingRef.current = false;
+  }
+};
 
   const quotationProducts = Array.isArray(preview?.payload?.items)
     ? preview.payload.items
@@ -437,27 +518,27 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
 
           <div className="border border-gray-200 rounded-lg overflow-hidden">
             <div className="px-5 py-4 bg-gray-50 border-b flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-  <div>
-    <h3 className="font-bold text-gray-900 flex items-center gap-2">
-      <Package className="w-5 h-5 text-gray-700" />
-      Productos de la Cotización
-    </h3>
-    <p className="text-sm text-gray-500 mt-1">
-      Vista referencial de los productos incluidos en la cotización
-    </p>
-  </div>
+              <div>
+                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                  <Package className="w-5 h-5 text-gray-700" />
+                  Productos de la Cotización
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Vista referencial de los productos incluidos en la cotización
+                </p>
+              </div>
 
-  <div className="md:text-right md:shrink-0">
-    <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-      Almacén seleccionado
-    </p>
-    <p className="text-sm font-semibold text-gray-900 mt-0.5">
-      {String(preview?.payload?.codAlmacen ?? '—').trim()}
-      {' / '}
-      {String(preview?.payload?.codigoAlmacen ?? '—').trim()}
-    </p>
-  </div>
-</div>
+              <div className="md:text-right md:shrink-0">
+                <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+                  Almacén seleccionado
+                </p>
+                <p className="text-sm font-semibold text-gray-900 mt-0.5">
+                  {String(preview?.payload?.codAlmacen ?? '—').trim()}
+                  {' / '}
+                  {String(preview?.payload?.codigoAlmacen ?? '—').trim()}
+                </p>
+              </div>
+            </div>
 
             <div className="overflow-x-auto max-h-72 overflow-y-auto">
               <table className="min-w-full text-sm">
@@ -612,29 +693,6 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
                 />
               </div>
 
-              {/* <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fecha de Entrega <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="date"
-                    value={formData.fechaEntrega}
-                    onChange={(e) => handleChange('fechaEntrega', e.target.value)}
-                    min={getTomorrowDate()}
-                    className={`w-full pl-10 pr-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent transition ${
-                      errors.fechaEntrega ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                    }`}
-                  />
-                </div>
-                {errors.fechaEntrega && (
-                  <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />{errors.fechaEntrega}
-                  </p>
-                )}
-              </div> */}
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Forma de Pago
@@ -751,7 +809,7 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
                   <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
                     ⚠ Error al cargar direcciones. Intente nuevamente.
                   </div>
-                ) : clientAddresses.length > 0 ? (
+                ) : registeredAddresses.length > 0 ? (
                   <>
                     <div className="mb-4">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -765,13 +823,11 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
                         }`}
                       >
                         <option value="">-- Seleccionar dirección --</option>
-                        {clientAddresses.map(addr => (
-                          <option key={addr.id} value={String(addr.id)}>
-                            {addr.source === 'as400' ? '📍' : '📦'} {addr.direccion} — {addr.distritoNombre}, {addr.provinciaNombre}
-                            {addr.source === 'as400' && ' (Dirección registrada)'}
-                            {addr.source === 'bd' && addr.isDefault === 1 && ' (Principal)'}
-                          </option>
-                        ))}
+                        {registeredAddresses.map(addr => (
+  <option key={addr.id} value={String(addr.id)}>
+    📍 {addr.direccion} — {addr.distritoNombre}, {addr.provinciaNombre} (Dirección registrada)
+  </option>
+))}
                       </select>
                       {errors.direccionDespacho && (
                         <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
@@ -781,7 +837,7 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
                     </div>
 
                     {selectedAddressId && (() => {
-                      const addr = clientAddresses.find(a => String(a.id) === String(selectedAddressId));
+                      const addr = registeredAddresses.find(a => String(a.id) === String(selectedAddressId));
                       if (!addr) return null;
 
                       return (
@@ -846,127 +902,266 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
 
             {formData.tipoEntrega === 'nueva_direccion' && (
               <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Dirección de Despacho <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={formData.direccionDespacho}
-                    onChange={(e) => handleChange('direccionDespacho', e.target.value)}
-                    placeholder="Av. Ejemplo 123, Oficina 501..."
-                    rows={2}
-                    className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent resize-none ${
-                      errors.direccionDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                    }`}
-                  />
-                  {errors.direccionDespacho && (
-                    <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" />{errors.direccionDespacho}
-                    </p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Departamento <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={formData.deptoDespacho}
-                      onChange={(e) => handleDeptoChange(e.target.value)}
-                      disabled={loadingDeptos}
-                      className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white disabled:bg-gray-100 disabled:cursor-wait ${
-                        errors.deptoDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                      }`}
-                    >
-                      <option value="">{loadingDeptos ? 'Cargando...' : '-- Seleccionar departamento --'}</option>
-                      {departamentos.map(d => <option key={d.codigo} value={d.codigo}>{d.descripcion}</option>)}
-                    </select>
-                    {errors.deptoDespacho && (
-                      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />{errors.deptoDespacho}
-                      </p>
-                    )}
+                {loadingAddresses ? (
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500 animate-pulse">
+                    Cargando direcciones guardadas...
                   </div>
+                ) : (
+                  <>
+                    {savedAddresses.length > 0 && (
+                      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                          Origen de la dirección
+                        </label>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Provincia <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={formData.provinciaDespacho}
-                      onChange={(e) => handleProvinciaChange(e.target.value)}
-                      disabled={!formData.deptoDespacho || loadingProvs}
-                      className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white disabled:bg-gray-100 disabled:cursor-not-allowed ${
-                        errors.provinciaDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                      }`}
-                    >
-                      <option value="">{loadingProvs ? 'Cargando...' : '-- Seleccionar provincia --'}</option>
-                      {provincias.map(p => <option key={p.codigo} value={p.codigo}>{p.descripcion}</option>)}
-                    </select>
-                    {errors.provinciaDespacho && (
-                      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />{errors.provinciaDespacho}
-                      </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                          <label
+                            className={`flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition ${
+                              selectedOtherAddressMode === 'manual'
+                                ? 'border-[#2ecc70] bg-green-50'
+                                : 'border-gray-200 hover:border-gray-300 bg-white'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="otherAddressMode"
+                              value="manual"
+                              checked={selectedOtherAddressMode === 'manual'}
+                              onChange={(e) => handleOtherAddressModeChange(e.target.value)}
+                              className="w-4 h-4 text-[#2ecc70] focus:ring-[#2ecc70]"
+                            />
+                            <span className="text-sm font-medium text-gray-900">Ingresar nueva dirección</span>
+                          </label>
+
+                          <label
+                            className={`flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition ${
+                              selectedOtherAddressMode === 'saved'
+                                ? 'border-[#2ecc70] bg-green-50'
+                                : 'border-gray-200 hover:border-gray-300 bg-white'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="otherAddressMode"
+                              value="saved"
+                              checked={selectedOtherAddressMode === 'saved'}
+                              onChange={(e) => handleOtherAddressModeChange(e.target.value)}
+                              className="w-4 h-4 text-[#2ecc70] focus:ring-[#2ecc70]"
+                            />
+                            <span className="text-sm font-medium text-gray-900">Usar dirección guardada</span>
+                          </label>
+                        </div>
+
+                        {selectedOtherAddressMode === 'saved' && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Seleccionar dirección guardada <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              value={selectedOtherAddressId}
+                              onChange={(e) => handleOtherAddressSelect(e.target.value)}
+                              className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white ${
+                                errors.direccionDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                              }`}
+                            >
+                              <option value="">-- Seleccionar dirección guardada --</option>
+                              {savedAddresses.map(addr => (
+                                <option key={addr.id} value={String(addr.id)}>
+                                  📦 {addr.direccion} — {addr.distritoNombre}, {addr.provinciaNombre}
+                                  {addr.isDefault === 1 ? ' (Principal)' : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                      </div>
                     )}
-                  </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Distrito <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={formData.distritoDespacho}
-                      onChange={(e) => {
-                        const dist = distritos.find(d => d.codigo === e.target.value);
-                        setFormData(prev => ({
-                          ...prev,
-                          distritoDespacho: e.target.value,
-                          distritoNombre: dist?.descripcion || '',
-                        }));
-                        if (errors.distritoDespacho) {
-                          setErrors(prev => {
-                            const er = { ...prev };
-                            delete er.distritoDespacho;
-                            return er;
-                          });
-                        }
-                      }}
-                      disabled={!formData.provinciaDespacho || loadingDistritos}
-                      className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white disabled:bg-gray-100 disabled:cursor-not-allowed ${
-                        errors.distritoDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                      }`}
-                    >
-                      <option value="">{loadingDistritos ? 'Cargando...' : '-- Seleccionar distrito --'}</option>
-                      {distritos.map(d => <option key={d.codigo} value={d.codigo}>{d.descripcion}</option>)}
-                    </select>
-                    {errors.distritoDespacho && (
-                      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />{errors.distritoDespacho}
-                      </p>
+                    {selectedOtherAddressMode === 'saved' ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Dirección de Despacho <span className="text-red-500">*</span>
+                          </label>
+                          <textarea
+                            value={formData.direccionDespacho}
+                            readOnly
+                            rows={2}
+                            className={`w-full px-3 py-2.5 border rounded-lg bg-gray-100 cursor-not-allowed resize-none ${
+                              errors.direccionDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                            }`}
+                          />
+                          {errors.direccionDespacho && (
+                            <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" />{errors.direccionDespacho}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Departamento</label>
+                            <input
+                              readOnly
+                              value={formData.deptoNombre}
+                              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                            <input
+                              readOnly
+                              value={formData.provinciaNombre}
+                              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Distrito <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              readOnly
+                              value={formData.distritoNombre}
+                              className={`w-full px-3 py-2.5 border rounded-lg bg-gray-100 cursor-not-allowed ${
+                                errors.distritoDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                              }`}
+                            />
+                            {errors.distritoDespacho && (
+                              <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" />{errors.distritoDespacho}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Dirección de Despacho <span className="text-red-500">*</span>
+                          </label>
+                          <textarea
+                            value={formData.direccionDespacho}
+                            onChange={(e) => handleChange('direccionDespacho', e.target.value)}
+                            placeholder="Av. Ejemplo 123, Oficina 501..."
+                            rows={2}
+                            className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent resize-none ${
+                              errors.direccionDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                            }`}
+                          />
+                          {errors.direccionDespacho && (
+                            <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" />{errors.direccionDespacho}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Departamento <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              value={formData.deptoDespacho}
+                              onChange={(e) => handleDeptoChange(e.target.value)}
+                              disabled={loadingDeptos}
+                              className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white disabled:bg-gray-100 disabled:cursor-wait ${
+                                errors.deptoDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                              }`}
+                            >
+                              <option value="">{loadingDeptos ? 'Cargando...' : '-- Seleccionar departamento --'}</option>
+                              {departamentos.map(d => <option key={d.codigo} value={d.codigo}>{d.descripcion}</option>)}
+                            </select>
+                            {errors.deptoDespacho && (
+                              <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" />{errors.deptoDespacho}
+                              </p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Provincia <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              value={formData.provinciaDespacho}
+                              onChange={(e) => handleProvinciaChange(e.target.value)}
+                              disabled={!formData.deptoDespacho || loadingProvs}
+                              className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white disabled:bg-gray-100 disabled:cursor-not-allowed ${
+                                errors.provinciaDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                              }`}
+                            >
+                              <option value="">{loadingProvs ? 'Cargando...' : '-- Seleccionar provincia --'}</option>
+                              {provincias.map(p => <option key={p.codigo} value={p.codigo}>{p.descripcion}</option>)}
+                            </select>
+                            {errors.provinciaDespacho && (
+                              <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" />{errors.provinciaDespacho}
+                              </p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Distrito <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              value={formData.distritoDespacho}
+                              onChange={(e) => {
+                                const dist = distritos.find(d => d.codigo === e.target.value);
+                                setFormData(prev => ({
+                                  ...prev,
+                                  distritoDespacho: e.target.value,
+                                  distritoNombre: dist?.descripcion || '',
+                                }));
+                                if (errors.distritoDespacho) {
+                                  setErrors(prev => {
+                                    const er = { ...prev };
+                                    delete er.distritoDespacho;
+                                    return er;
+                                  });
+                                }
+                              }}
+                              disabled={!formData.provinciaDespacho || loadingDistritos}
+                              className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white disabled:bg-gray-100 disabled:cursor-not-allowed ${
+                                errors.distritoDespacho ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                              }`}
+                            >
+                              <option value="">{loadingDistritos ? 'Cargando...' : '-- Seleccionar distrito --'}</option>
+                              {distritos.map(d => <option key={d.codigo} value={d.codigo}>{d.descripcion}</option>)}
+                            </select>
+                            {errors.distritoDespacho && (
+                              <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" />{errors.distritoDespacho}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </>
                     )}
-                  </div>
-                </div>
 
-                <div className="mt-2">
-                  <ShippingAgencyForm
-                    agencyData={formData.agenciaDespacho}
-                    onChange={handleAgencyChange}
-                    errors={{ nombre: errors.agenciaNombre, dni: errors.agenciaDni, telefono: errors.agenciaTelefono }}
-                  />
-                </div>
+                    <div className="mt-2">
+                      <ShippingAgencyForm
+                        agencyData={formData.agenciaDespacho}
+                        onChange={handleAgencyChange}
+                        errors={{ nombre: errors.agenciaNombre, dni: errors.agenciaDni, telefono: errors.agenciaTelefono }}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
 
-          {/* <div className="border border-gray-200 rounded-lg p-5 space-y-4">
+          <div className="border border-gray-200 rounded-lg p-5 space-y-4">
             <h3 className="font-bold text-gray-900 flex items-center gap-2">
               <MessageSquare className="w-5 h-5 text-gray-700" />
-              Observaciones
+              Observaciones Generales
             </h3>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Observaciones Generales</label>
               <textarea
                 value={formData.observaciones}
                 onChange={(e) => handleChange('observaciones', e.target.value)}
@@ -975,29 +1170,7 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent resize-none text-sm"
               />
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Observaciones de Créditos</label>
-              <textarea
-                value={formData.observacionesCreditos}
-                onChange={(e) => handleChange('observacionesCreditos', e.target.value)}
-                placeholder="Condiciones de pago, plazos, garantías..."
-                rows={2}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Observaciones de Logística</label>
-              <textarea
-                value={formData.observacionesLogistica}
-                onChange={(e) => handleChange('observacionesLogistica', e.target.value)}
-                placeholder="Dirección de entrega, contacto, instrucciones de despacho..."
-                rows={2}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none text-sm"
-              />
-            </div>
-          </div> */}
+          </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t">
             <button
