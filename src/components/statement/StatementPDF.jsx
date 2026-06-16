@@ -37,72 +37,55 @@ const transformData = (rawData) => {
 
   const first = rawData[0];
 
-  const codMon = clean(first.ECCODMON);
-  const nomMon = clean(first.ECNOMMON).toUpperCase();
-
-  const isSoles =
-    codMon === '1' ||
-    nomMon.includes('SOL');
-
-  const currency = {
-    code: isSoles ? 'PEN' : 'USD',
-    symbol: isSoles ? 'S/.' : 'USD',
-    importLabel: isSoles ? 'Importe Origen S/.' : 'Importe Origen USD',
-    balanceLabel: isSoles ? 'Saldo S/.' : 'Saldo USD',
-    creditLabel: isSoles ? 'RESUMEN: / S/.' : 'RESUMEN: / USD',
-    amountField: isSoles ? 'ECVMNDOC' : 'ECVMEDOC',
-    balanceField: isSoles ? 'ECSMNDOC' : 'ECSMEDOC',
-  };
-
   const telNumUnico = clean(first.ECTELNUU);
   const celNumUnico = clean(first.ECCELNUU);
   const numUnicoFinal = [telNumUnico, celNumUnico].filter(v => v && v !== '0').join(' | ');
 
   const resolveSalesRep = (rows) => {
-  const nombres = rows
-    .map(r => clean(r.ECNOMVEN))
-    .filter(Boolean);
+    const nombres = rows
+      .map(r => clean(r.ECNOMVEN))
+      .filter(Boolean);
 
-  const realName = nombres.find(
-    n => n.toUpperCase() !== 'NO IDENTIFICADO'
-  );
+    const realName = nombres.find(
+      n => n.toUpperCase() !== 'NO IDENTIFICADO'
+    );
 
-  if (realName) return realName;
+    if (realName) return realName;
 
-  const fallback = nombres.find(
-    n => n.toUpperCase() === 'NO IDENTIFICADO'
-  );
+    const fallback = nombres.find(
+      n => n.toUpperCase() === 'NO IDENTIFICADO'
+    );
 
-  return fallback || '—';
-};
+    return fallback || '—';
+  };
 
   const cli = {
-    ruc:             clean(first.ECRUCEMP || first.ECRUCCLI),
-    razonSocial:     clean(first.ECNOMCLI),
-    repLegal:        clean(first.ECREPLEG),
-    direccion:       clean(first.ECDIRCLI),
-    distrito:        clean(first.ECDISCLI),
-    provincia:       clean(first.ECPROCLI),
-    departamento:    clean(first.ECDEPCLI),
-    telefono:        clean(first.ECTELCLI),
-    celular:         clean(first.ECCELCLI),
-    fax:             clean(first.ECFAXCLI),
-    email:           clean(first.ECCORCLI),
-    lineaCredito:    first.ECLCRCLI || 0,
-    lineaUtilizada:  first.ECLUTCLI || 0,
+    ruc: clean(first.ECRUCEMP || first.ECRUCCLI),
+    razonSocial: clean(first.ECNOMCLI),
+    repLegal: clean(first.ECREPLEG),
+    direccion: clean(first.ECDIRCLI),
+    distrito: clean(first.ECDISCLI),
+    provincia: clean(first.ECPROCLI),
+    departamento: clean(first.ECDEPCLI),
+    telefono: clean(first.ECTELCLI),
+    celular: clean(first.ECCELCLI),
+    fax: clean(first.ECFAXCLI),
+    email: clean(first.ECCORCLI),
+    lineaCredito: first.ECLCRCLI || 0,
+    lineaUtilizada: first.ECLUTCLI || 0,
     lineaDisponible: first.ECLDICLI || 0,
-    numUnico:        numUnicoFinal,
-    fechaCorte:      clean(first.ECFECCOR),
+    numUnico: numUnicoFinal,
+    fechaCorte: clean(first.ECFECCOR),
     venCli: resolveSalesRep(rawData),
-    contacto1:       clean(first.ECCONT01),
-    rpc1:            clean(first.ECCELC01),
-    emailC1:         clean(first.ECCORC01),
-    contacto2:       clean(first.ECCONT02),
-    rpc2:            clean(first.ECCELC02),
-    emailC2:         clean(first.ECCORC02),
-    contacto3:       clean(first.ECCONT03),
-    rpc3:            clean(first.ECCELC03),
-    emailC3:         clean(first.ECCORC03),
+    contacto1: clean(first.ECCONT01),
+    rpc1: clean(first.ECCELC01),
+    emailC1: clean(first.ECCORC01),
+    contacto2: clean(first.ECCONT02),
+    rpc2: clean(first.ECCELC02),
+    emailC2: clean(first.ECCORC02),
+    contacto3: clean(first.ECCONT03),
+    rpc3: clean(first.ECCELC03),
+    emailC3: clean(first.ECCORC03),
   };
 
   const facturas = [];
@@ -126,21 +109,30 @@ const transformData = (rawData) => {
     const numFormatted = numRaw.padStart(8, '0');
     const docStr = `${serie} ${numFormatted}`;
 
-    const importe = Number(r[currency.amountField] || 0);
-    const saldo = Number(r[currency.balanceField] || 0);
+    const codMon = clean(r.ECCODMON);
+    const nomMon = clean(r.ECNOMMON).toUpperCase();
+
+    const isSoles =
+      codMon === '1' ||
+      nomMon.includes('SOL');
+
+    const moneda = isSoles ? 'S/' : 'US$';
+    const importe = Number(isSoles ? (r.ECVMNDOC || 0) : (r.ECVMEDOC || 0));
+    const saldo = Number(isSoles ? (r.ECSMNDOC || 0) : (r.ECSMEDOC || 0));
 
     const base = {
-      tipo:        tipoDesc,
-      doc:         docStr,
-      emision:     clean(r.ECFEMDOC),
+      tipo: tipoDesc,
+      doc: docStr,
+      emision: clean(r.ECFEMDOC),
       vencimiento: clean(r.ECFVEDOC),
-      fpago:       clean(r.ECFPGDOC),
-      estado:      clean(r.ECESTDOC),
-      banco:       clean(r.ECNOMBCO),
-      nUnico:      clean(r.ECNUNDOC),
-      atraso:      r.ECDATDOC ?? 0,
-      _impSNum:    importe,
-      _saldoSNum:  saldo,
+      fpago: clean(r.ECFPGDOC),
+      estado: clean(r.ECESTDOC),
+      banco: clean(r.ECNOMBCO),
+      nUnico: clean(r.ECNUNDOC),
+      atraso: r.ECDATDOC ?? 0,
+      moneda,
+      _impSNum: importe,
+      _saldoSNum: saldo,
     };
 
     if (tipoRaw.startsWith('F')) facturas.push(base);
@@ -148,7 +140,16 @@ const transformData = (rawData) => {
     else otros.push(base);
   });
 
-  return { cli, facturas, letras, otros, currency };
+  return {
+    cli,
+    facturas,
+    letras,
+    otros,
+    currency: {
+      importLabel: 'Importe Origen',
+      balanceLabel: 'Saldo',
+    },
+  };
 };
 
 // ── Generador principal ────────────────────────────────────────────────────────
@@ -226,73 +227,171 @@ export const generateStatementPDF = async (ruc, rawData, opciones = {}) => {
 
   // ── Cálculos dinámicos: documentos y saldo vencido ───────────  ← AQUÍ
   const allDocs = [...facturas, ...letras, ...otros];
+
+  const totalsByCurrency = allDocs.reduce((acc, r) => {
+  const key = r.moneda || '—';
+
+  if (!acc[key]) {
+    acc[key] = { importe: 0, saldo: 0 };
+  }
+
+  acc[key].importe += Number(r._impSNum || 0);
+  acc[key].saldo += Number(r._saldoSNum || 0);
+
+  return acc;
+}, {});
+
+const currencyOrder = ['US$', 'S/'];
+const totalRows = currencyOrder
+  .filter(mon => totalsByCurrency[mon])
+  .map(mon => ([
+    { content: `TOTAL ${mon}`, styles: { halign: 'center', fontStyle: 'bold' } },
+    { content: fmt(totalsByCurrency[mon].importe), styles: { halign: 'right', fontStyle: 'bold' } },
+    { content: fmt(totalsByCurrency[mon].saldo), styles: { halign: 'right', fontStyle: 'bold' } },
+  ]));
+
+
   const docsVencidos  = allDocs.filter(r => Number(r.atraso) > 0).length;
   const saldoVencido  = allDocs
     .filter(r => Number(r.atraso) > 0)
     .reduce((acc, r) => acc + r._saldoSNum, 0);
 
   // ── Tabla Resumen (Alineada a la derecha) ─────────────────────
-  const resTableWidth = 60;
-  autoTable(doc, {
-    startY: clientY - 2,
-    margin: { left: PW - MR - resTableWidth },
-    tableWidth: resTableWidth,
-    styles: { fontSize: 7, cellPadding: 1.2 },
-    headStyles: { fillColor: [200, 215, 235], textColor: CORPORATE_BLUE, fontStyle: 'bold' },
-    body: [
-      ['Linea de Crédito',    fmt(cli.lineaCredito)],
-      ['Crédito Utilizado',   fmt(cli.lineaUtilizada)],
-      ['Crédito Disponible',  fmt(cli.lineaDisponible)],
-      ['Saldo Vencido',       { content: fmt(saldoVencido), styles: { fontStyle: 'bold' } }],
-      ['Documentos vencidos:', String(docsVencidos)]
+const docsSoles = allDocs.filter(r => r.moneda === 'S/');
+const docsDolares = allDocs.filter(r => r.moneda === 'US$');
+
+const creditoUtilizadoSoles = docsSoles.reduce(
+  (acc, r) => acc + Number(r._impSNum || 0),
+  0
+);
+
+const creditoDisponibleSoles = creditoUtilizadoSoles;
+
+const saldoVencidoSoles = docsSoles
+  .filter(r => Number(r.atraso) > 0)
+  .reduce((acc, r) => acc + Number(r._saldoSNum || 0), 0);
+
+const docsVencidosSoles = docsSoles.filter(r => Number(r.atraso) > 0).length;
+
+const saldoVencidoDolares = docsDolares
+  .filter(r => Number(r.atraso) > 0)
+  .reduce((acc, r) => acc + Number(r._saldoSNum || 0), 0);
+
+const docsVencidosDolares = docsDolares.filter(r => Number(r.atraso) > 0).length;
+
+const resTableWidth = 82;
+
+autoTable(doc, {
+  startY: clientY - 2,
+  margin: { left: PW - MR - resTableWidth },
+  tableWidth: resTableWidth,
+  styles: {
+    fontSize: 7,
+    cellPadding: 1.2,
+    lineWidth: 0.1,
+    lineColor: [160, 180, 205],
+  },
+  headStyles: {
+    fillColor: [200, 215, 235],
+    textColor: CORPORATE_BLUE,
+    fontStyle: 'bold',
+    halign: 'center',
+  },
+  bodyStyles: {
+    textColor: BLACK,
+  },
+  columnStyles: {
+    0: { halign: 'left', cellWidth: 38 },
+    1: { halign: 'right', cellWidth: 22 },
+    2: { halign: 'right', cellWidth: 22 },
+  },
+  head: [['RESUMEN:', 'S/', 'US$']],
+  body: [
+    ['Línea de Crédito', fmt(0), fmt(cli.lineaCredito || 0)],
+    ['Crédito Utilizado', fmt(creditoUtilizadoSoles), fmt(cli.lineaUtilizada || 0)],
+    ['Crédito Disponible', fmt(creditoDisponibleSoles), fmt(cli.lineaDisponible || 0)],
+    [
+      'Saldo Vencido',
+      { content: fmt(saldoVencidoSoles), styles: { fontStyle: 'bold' } },
+      { content: fmt(saldoVencidoDolares), styles: { fontStyle: 'bold' } }
     ],
-    head: [['RESUMEN:', currency.symbol]]
-  });
+    [
+      'Documentos vencidos:',
+      { content: String(docsVencidosSoles), styles: { fontStyle: 'bold' } },
+      { content: String(docsVencidosDolares), styles: { fontStyle: 'bold' } }
+    ]
+  ],
+});
 
   curY = Math.max(curY + 8, doc.lastAutoTable.finalY + 10);
 
   // ── 3. Tabla Principal de Documentos ──────────────────────────
-  autoTable(doc, {
-    startY: curY,
-    margin: { left: ML, right: MR },
-    styles: { fontSize: 6.5, cellPadding: 1, halign: 'center', lineWidth: 0.1, lineColor: [220, 220, 220] },
-    headStyles: { fillColor: [230, 240, 250], textColor: CORPORATE_BLUE, fontStyle: 'bold', valign: 'middle' },
-    columnStyles: {
-      0: { halign: 'left', cellWidth: 20 }, 
-      1: { halign: 'left', cellWidth: 23 },
-      4: { cellWidth: 10 }, 
-      5: { halign: 'left' },
-      9: { halign: 'right', cellWidth: 15 }, 
-      10: { halign: 'right' }
-    },
-   head: [[
-  'Tipo Documento',
-  'N° Documento',
-  'Fecha Emisión',
-  'Fecha Venc.',
-  'Plazo Pago',
-  'Situación',
-  'Banco',
-  'N° Único',
-  'Días Venc',
-  currency.importLabel,
-  currency.balanceLabel
-]],
- body: allDocs.map(r => [
-      r.tipo, r.doc, r.emision, r.vencimiento, r.fpago, r.estado, r.banco, r.nUnico, r.atraso, fmt(r._impSNum), fmt(r._saldoSNum)
-    ]),
-    foot: [[
-  { content: '', colSpan: 8, styles: { fillColor: [240, 240, 240] } },
-  { content: 'TOTALES', styles: { halign: 'center', fontStyle: 'bold' } },
-  { content: fmt(allDocs.reduce((a, b) => a + b._impSNum, 0)), styles: { halign: 'right', fontStyle: 'bold' } },
-  { content: fmt(allDocs.reduce((a, b) => a + b._saldoSNum, 0)), styles: { halign: 'right', fontStyle: 'bold' } }
-]],
-footStyles: {
-  fillColor: [240, 240, 240],
-  textColor: CORPORATE_BLUE,
-  fontStyle: 'bold'
-}
-  });
+autoTable(doc, {
+  startY: curY,
+  margin: { left: ML, right: MR },
+  styles: {
+    fontSize: 6.5,
+    cellPadding: 1,
+    halign: 'center',
+    lineWidth: 0.1,
+    lineColor: [220, 220, 220]
+  },
+  headStyles: {
+    fillColor: [230, 240, 250],
+    textColor: CORPORATE_BLUE,
+    fontStyle: 'bold',
+    valign: 'middle'
+  },
+  columnStyles: {
+    0: { halign: 'left', cellWidth: 20 },
+    1: { halign: 'left', cellWidth: 23 },
+    4: { cellWidth: 10 },
+    5: { halign: 'left', cellWidth: 18 },
+    6: { halign: 'left', cellWidth: 14 },
+    7: { halign: 'center', cellWidth: 16 },
+    8: { cellWidth: 12 },
+    9: { cellWidth: 12 },
+    10: { halign: 'right', cellWidth: 18 },
+    11: { halign: 'right', cellWidth: 18 },
+  },
+  head: [[
+    'Tipo Documento',
+    'N° Documento',
+    'Fecha Emisión',
+    'Fecha Venc.',
+    'Plazo Pago',
+    'Situación',
+    'Banco',
+    'N° Único',
+    'Días Venc',
+    'Moneda',
+    'Importe Origen',
+    'Saldo'
+  ]],
+  body: allDocs.map(r => [
+    r.tipo,
+    r.doc,
+    r.emision,
+    r.vencimiento,
+    r.fpago,
+    r.estado,
+    r.banco,
+    r.nUnico,
+    r.atraso,
+    r.moneda,
+    fmt(r._impSNum),
+    fmt(r._saldoSNum)
+  ]),
+  foot: totalRows.map(row => [
+    { content: '', colSpan: 9, styles: { fillColor: [240, 240, 240] } },
+    ...row
+  ]),
+  footStyles: {
+    fillColor: [240, 240, 240],
+    textColor: CORPORATE_BLUE,
+    fontStyle: 'bold'
+  }
+});
 
 // ── 4. Footer dinámico ─────────────────────────────────────────────────────
 const FOOTER_HEIGHT = 58;
