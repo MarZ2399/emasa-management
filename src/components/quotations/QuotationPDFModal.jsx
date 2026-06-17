@@ -149,15 +149,16 @@ const QuotationPDFModal = ({ quotation, isOpen, onClose }) => {
       >
         <div ref={pdfRef}>
           <PDFPreview
-            selectedClient={quotation.selectedClient}
-            quotationItems={quotation.productos}
-            subtotal={quotation.subtotal}
-            igv={quotation.igv}
-            total={quotation.total}
-            quotationNumber={quotation.numeroCotizacion}
-            currency={quotation.currency}
-            isVisible={true}
-          />
+  quotation={quotation}
+  selectedClient={quotation.selectedClient}
+  quotationItems={quotation.productos}
+  subtotal={quotation.subtotal}
+  igv={quotation.igv}
+  total={quotation.total}
+  quotationNumber={quotation.numeroCotizacion}
+  currency={quotation.currency}
+  isVisible={true}
+/>
         </div>
       </div>
     </div>,

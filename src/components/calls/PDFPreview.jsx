@@ -33,20 +33,125 @@ const calcPrecioVisual = (precioLista, discount1, discount5, quantity = 1) => {
 const PDFPreview = React.forwardRef(
   (
     {
-      selectedClient,
-      quotationItems,
-      subtotal,
-      igv,
-      total,
-      quotationNumber,
-      currency = 'USD',
-      isVisible = false
-    },
+  quotation,
+  selectedClient,
+  quotationItems,
+  subtotal,
+  igv,
+  total,
+  quotationNumber,
+  currency = 'USD',
+  isVisible = false
+},
     ref
   ) => {
     const currencySymbol = currency === 'USD' ? '$' : 'S/';
     const currencyName = currency === 'USD' ? 'Dólares (USD)' : 'Soles (S/)';
     const currencyLabel = currency === 'USD' ? 'Dólares' : 'Soles';
+
+const formatStoredDate = (value) => {
+  if (!value) return '';
+
+  const raw = String(value).trim();
+
+  // Entero AS400: 20260617 → 17/06/2026
+  if (/^\d{8}$/.test(raw)) {
+    const year = raw.slice(0, 4);
+    const month = raw.slice(4, 6);
+    const day = raw.slice(6, 8);
+    return `${day}/${month}/${year}`;  // ← cambia - por /
+  }
+
+  // ISO con T: "2026-06-17T05:00:00.000Z" → 17/06/2026
+  if (raw.includes('-') && raw.includes(':')) {
+    const datePart = raw.split(' ')[0].split('T')[0];
+    const [year, month, day] = datePart.split('-');
+    if (year && month && day) return `${day}/${month}/${year}`;  // ← cambia - por /
+  }
+
+  // ISO sin T: "2026-06-17" → 17/06/2026
+  if (raw.includes('-')) {
+    const [year, month, day] = raw.split('-');
+    if (year && month && day) return `${day}/${month}/${year}`;  // ← agrega este caso
+  }
+
+  return raw;
+};
+
+const FORMAS_PAGO = {
+  ADE: 'Adelantos pagos - Contado',
+  AD2: 'Adelanto por dscto. 0.02',
+  CEF: 'Contado - Marketplace',
+  CON: 'Contado',
+  F03: 'Factura 3 días',
+  F07: 'Factura 7 días',
+  F15: 'Factura 15 días',
+  F30: 'Factura 30 días',
+  F45: 'Factura 45 días',
+  F60: 'Factura 60 días',
+  F75: 'Factura 75 días',
+  F90: 'Factura 90 días',
+  F92: 'Factura 120 días',
+  PLA: 'Descuento planilla al personal',
+  TRA: 'Traslado entre almacenes',
+  TTG: 'Transf. a título gratuito',
+  210: 'Factura 210 días',
+};
+
+const resolveFormaPago = (value) => {
+  const fp = String(value || '').trim().toUpperCase();
+
+  if (!fp) return 'Adelantos pagos - Contado';
+
+  return FORMAS_PAGO[fp] || value || 'Adelantos pagos - Contado';
+};
+
+const quotationDate =
+  quotation?.fechac ||          // caso cotizaciones (viene del backend)
+  quotation?.fecha_registro ||
+  quotation?.fecha ||
+  quotation?.createdAt ||
+  '';
+
+const fechaFinal = formatStoredDate(quotationDate) || new Date().toLocaleDateString('es-PE');
+
+const vendedorTexto = (
+  // Caso cotizaciones: viene en el spread de cabecera
+  quotation?.usuario_registro_nombre?.trim() ||
+  quotation?.vendedor?.trim() ||
+  quotation?.vend?.trim() ||
+  // Caso ventas: viene en selectedClient
+  selectedClient?.vendedor?.trim() ||
+  'No Figura en la Base'
+);
+
+const formaPagoTexto = resolveFormaPago(
+  quotation?.forpag ||
+  quotation?.formaPago ||
+  selectedClient?.fpago ||       // ← caso ventas
+  selectedClient?.formaPago
+);
+
+const clientRuc =
+  selectedClient?.ruc ||
+  quotation?.ruc ||
+  quotation?.rucc ||
+  quotation?.clienteRuc ||
+  'No Figura en la Base';
+
+const clientName =
+  selectedClient?.nombreCliente ||
+  quotation?.nomc ||
+  quotation?.nombreCliente ||
+  quotation?.razonSocial ||
+  'No Figura en la Base';
+
+const clientAddress =
+  selectedClient?.direccion ||
+  quotation?.dirc ||
+  quotation?.direccion ||
+  quotation?.direccionFiscal ||
+  'No Figura en la Base';
 
     const normalizedData = useMemo(() => {
       const items = (Array.isArray(quotationItems) ? quotationItems : []).map((item) => {
@@ -176,19 +281,19 @@ const PDFPreview = React.forwardRef(
           <div className="space-y-1">
             <div>
               <span className="font-bold">Fecha:</span>{' '}
-              <span>{new Date().toLocaleDateString('es-PE')}</span>
+              <span>{fechaFinal}</span>
             </div>
             <div>
               <span className="font-bold">R.U.C. :</span>{' '}
-              <span>{selectedClient?.ruc || 'No Figura en la Base'}</span>
+              <span>{clientRuc}</span>
             </div>
             <div>
               <span className="font-bold">Razón Social:</span>{' '}
-              <span>{selectedClient?.nombreCliente || 'No Figura en la Base'}</span>
+              <span>{clientName}</span>
             </div>
             <div>
               <span className="font-bold">Dirección Fiscal:</span>{' '}
-              <span>{selectedClient?.direccion || 'No Figura en la Base'}</span>
+              <span>{clientAddress}</span>
             </div>
             <div>
               <span className="font-bold">Orden de Compra:</span> <span>No</span>
@@ -198,7 +303,7 @@ const PDFPreview = React.forwardRef(
           <div className="space-y-1">
             <div>
               <span className="font-bold">Vendedor:</span>{' '}
-              <span>{selectedClient?.vendedor || ''}</span>
+              <span>{vendedorTexto || 'No Figura en la Base'}</span>
             </div>
             <div>
               <span className="font-bold">Moneda:</span>{' '}
@@ -206,12 +311,12 @@ const PDFPreview = React.forwardRef(
             </div>
             <div>
               <span className="font-bold">Forma de Pago:</span>{' '}
-              <span>Contado - Pago x Adelantado</span>
+              <span>{formaPagoTexto}</span>
             </div>
-            <div>
+            {/* <div>
               <span className="font-bold">Categoría:</span>{' '}
               <span>{selectedClient?.categoria || ''}</span>
-            </div>
+            </div> */}
           </div>
         </div>
 

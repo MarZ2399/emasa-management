@@ -1,11 +1,12 @@
 // src/components/calls/QuotationTab.jsx
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useContext } from 'react';
 import { Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { previewQuotationPDF, generateQuotationPDF } from '../../utils/pdfGenerator';
 import PDFPreview from './PDFPreview';
 import quotationService from '../../services/quotationService';
 import { logActivity, EVENTOS } from '../../services/activityLogService';
+import { AuthContext } from '../../context/AuthContext';
 
 const IGV_RATE = 0.18;
 
@@ -80,6 +81,7 @@ const QuotationTab = ({
   almacenCotizacion,
   codigoVendedor
 }) => {
+  const { user } = useContext(AuthContext);
   const pdfRef = useRef(null);
 
   const [quotationNumber, setQuotationNumber] = useState('');
@@ -329,7 +331,10 @@ const QuotationTab = ({
         subtotal={subtotal}
         igv={igv}
         total={total}
-        selectedClient={selectedClient}
+        selectedClient={{
+    ...selectedClient,
+    vendedor: user?.nombreCompleto || ''   // ← agrega esto
+  }}
         quotationNumber={quotationNumber}
         currency={currency}
       />

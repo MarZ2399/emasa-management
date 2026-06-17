@@ -446,6 +446,7 @@ const QuotationsModule = () => {
         const total = subtotal + igv;
 
         setPdfQuotation({
+          ...cabecera, 
           id: quotation.id,
           numeroCotizacion: cabecera.correlativo_cotiza,
           fecha: formatDateFromInt(cabecera.fechac),
