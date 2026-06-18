@@ -82,6 +82,16 @@ const DashboardFilters = ({
 
   const showTeamFilters = nivel <= 1 && team.length > 0;
 
+  const currentMonth = new Date().getMonth() + 1;
+const previousMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+
+const mesesOptions =
+  nivel === 2
+    ? MESES
+        .filter(m => m.value === currentMonth || m.value === previousMonth)
+        .map(m => ({ ...m, value: String(m.value) }))
+    : MESES.map(m => ({ ...m, value: String(m.value) }));
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm ">
 
@@ -124,26 +134,18 @@ const DashboardFilters = ({
         <div className="hidden lg:block h-10 bg-gray-100 w-px justify-self-center" />
 
         {/* Año + Mes */}
-{nivel === 2 ? (
-  // VENDEDOR → solo lectura, no puede cambiar
-  <div className="flex gap-3">
-    <div className="w-40 flex-shrink-0">
-      <p className="text-xs font-medium text-gray-500 mb-1">Año</p>
-      <div className="h-9 px-3 flex items-center bg-gray-100 border border-gray-200 rounded-lg text-sm text-gray-500 cursor-not-allowed select-none">
-        {ano}
-      </div>
-    </div>
-    <div className="flex-1 min-w-[140px]">
-      <p className="text-xs font-medium text-gray-500 mb-1">Mes</p>
-      <div className="h-9 px-3 flex items-center bg-gray-100 border border-gray-200 rounded-lg text-sm text-gray-500 cursor-not-allowed select-none">
-        {mesLabel}
-      </div>
-    </div>
-  </div>
-) : (
-  // JEFE / GERENTE → pueden cambiar
-  <div className="flex gap-3">
-    <div className="w-40 flex-shrink-0">
+{/* Año + Mes */}
+<div className="flex gap-3">
+  {/* Año bloqueado solo para vendedor */}
+  <div className="w-40 flex-shrink-0">
+    {nivel === 2 ? (
+      <>
+        <p className="text-xs font-medium text-gray-500 mb-1">Año</p>
+        <div className="h-9 px-3 flex items-center bg-gray-100 border border-gray-200 rounded-lg text-sm text-gray-500 cursor-not-allowed select-none">
+          {ano}
+        </div>
+      </>
+    ) : (
       <SearchableSelect
         label="Año"
         value={String(ano)}
@@ -151,18 +153,20 @@ const DashboardFilters = ({
         options={YEARS}
         placeholder="Año..."
       />
-    </div>
-    <div className="flex-1 min-w-[140px]">
-      <SearchableSelect
-        label="Mes"
-        value={String(mes)}
-        onChange={(val) => onMesChange(Number(val))}
-        options={MESES.map(m => ({ ...m, value: String(m.value) }))}
-        placeholder="Mes..."
-      />
-    </div>
+    )}
   </div>
-)}
+
+  {/* Mes editable para todos, pero vendedor solo ve mes actual y anterior */}
+  <div className="flex-1 min-w-[140px]">
+    <SearchableSelect
+      label="Mes"
+      value={String(mes)}
+      onChange={(val) => onMesChange(Number(val))}
+      options={mesesOptions}
+      placeholder="Mes..."
+    />
+  </div>
+</div>
       </div>
 
       {/* ── FILA 2: Filtros equipo ──────────────────────────────── */}

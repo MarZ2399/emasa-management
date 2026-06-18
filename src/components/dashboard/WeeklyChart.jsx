@@ -88,9 +88,11 @@ const WeeklyChart = ({ goals }) => {
   }, [goals]);
 
   // % logro global para el badge
-  const totalMeta   = data.reduce((s, r) => s + r.meta,   0);
-  const totalMetnet = data.reduce((s, r) => s + r.metnet, 0);
-  const globalPct   = totalMeta > 0 ? ((totalMetnet / totalMeta) * 100).toFixed(1) : 0;
+  const totalMeta = goals.reduce((s, row) => s + (Number(row.META) || 0), 0);
+const totalMetnet = goals.reduce((s, row) => s + (Number(row.METNET) || 0), 0);
+const globalPct = totalMeta > 0
+  ? ((totalMetnet / totalMeta) * 100).toFixed(2)
+  : '0.00';
   const badgeBg     = globalPct >= 100 ? 'bg-green-100 text-green-700'
                     : globalPct >= 70  ? 'bg-yellow-100 text-yellow-700'
                     : 'bg-red-100 text-red-600';
@@ -120,8 +122,8 @@ const WeeklyChart = ({ goals }) => {
           </div>
         </div>
         <span className={`text-sm font-semibold px-3 py-1 rounded-full ${badgeBg}`}>
-          {globalPct}% logro
-        </span>
+  {globalPct}% logro
+</span>
       </div>
 
       {/* Chart */}

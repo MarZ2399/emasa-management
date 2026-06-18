@@ -30,6 +30,7 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
           meta:        0,
           venta:       0,
           devolucion:  0,
+          pend: 0,
           metnet:      0,
           metpor:      0,
           count:       0,
@@ -38,6 +39,7 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
       map[key].meta       += Number(row.META)       || 0;
       map[key].venta      += Number(row.VENTA)      || 0;
       map[key].devolucion += Number(row.DEVOLUCION) || 0;
+      map[key].pend += Number(row.PEND) || 0;
       map[key].metnet     += Number(row.METNET)     || 0;
       map[key].count      += 1;
     });
@@ -55,8 +57,9 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
       meta:       acc.meta       + r.meta,
       venta:      acc.venta      + r.venta,
       devolucion: acc.devolucion + r.devolucion,
+      pend: acc.pend + r.pend,
       metnet:     acc.metnet     + r.metnet,
-    }), { meta: 0, venta: 0, devolucion: 0, metnet: 0 }),
+    }), { meta: 0, venta: 0, devolucion: 0, pend: 0, metnet: 0 }),
   [rows]);
 
   const totalPct = totals.meta > 0
@@ -158,6 +161,7 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
     <ThBtn col="devolucion" label={`Devolución ${mesLabel} US$`} />
     <ThBtn col="metnet"     label={`Efectivo ${mesLabel} US$`} />
     <ThBtn col="metpor"     label="% Logro US$" />
+    <ThBtn col="pend"       label={`Pend. Fact ${mesLabel} US$`} />
   </tr>
 </thead>
 
@@ -189,6 +193,7 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
         <td className={`px-4 py-3 text-right ${pctColor(row.metpor)}`}>
           {fmt(row.metpor)}
         </td>
+        <td className="px-4 py-3 text-right text-gray-700">{fmt(row.pend)}</td>
       </tr>
     );
   })}
@@ -205,6 +210,7 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
               <td className={`px-4 py-3 text-right ${pctColor(totalPct)}`}>
                 {fmt(totalPct)}
               </td>
+              <td className="px-4 py-3 text-right text-gray-900">{fmt(totals.pend)}</td>
             </tr>
           </tfoot>
         </table>

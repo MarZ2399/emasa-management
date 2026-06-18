@@ -300,7 +300,8 @@ const PurchaseHistoryTab = ({ clienteRUC, onProductClick }) => {
                   <th className="px-3 py-3 text-center text-xs font-semibold uppercase">Tipo Doc.</th>
                   <th className="px-3 py-3 text-center text-xs font-semibold uppercase">N° SUNAT</th>
                   <th className="px-3 py-3 text-center text-xs font-semibold uppercase">Cantidad</th>
-                  <th className="px-3 py-3 text-right  text-xs font-semibold uppercase">Precio Venta</th>
+                  <th className="px-3 py-3 text-right  text-xs font-semibold uppercase">Precio Unit.</th>
+                  <th className="px-3 py-3 text-right  text-xs font-semibold uppercase">Neto USD (SIN IGV)</th>
                   <th className="px-3 py-3 text-center text-xs font-semibold uppercase">Condición</th>
 <th className="px-3 py-3 text-left   text-xs font-semibold uppercase">Core</th>
 <th className="px-3 py-3 text-left   text-xs font-semibold uppercase">Vendedor</th>
@@ -327,6 +328,11 @@ const PurchaseHistoryTab = ({ clienteRUC, onProductClick }) => {
                     </td>
                     <td className="px-3 py-3 text-xs text-center whitespace-nowrap">{p.nroSunat || '—'}</td>
                     <td className="px-3 py-3 text-xs text-center font-semibold">{p.cantidad}</td>
+                    <td className="px-3 py-3 text-xs text-right whitespace-nowrap font-bold text-green-700">
+                      
+  $ {p.cantidad > 0 ? (Number(p.precioVenta) / Number(p.cantidad)).toFixed(2) : '0.00'}
+
+                    </td>
                     <td className="px-3 py-3 text-xs text-right whitespace-nowrap font-bold text-green-700">
                       $ {Number(p.precioVenta).toFixed(2)}
                     </td>
@@ -398,10 +404,10 @@ const PurchaseHistoryTab = ({ clienteRUC, onProductClick }) => {
         <div className="bg-white rounded-lg shadow-md p-12 text-center">
           <ShoppingCart className="w-12 h-12 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500 text-lg">
-            {hasActiveFilters
-              ? 'No se encontraron compras con los filtros aplicados'
-              : 'Este cliente no tiene compras en los últimos 5 meses'}
-          </p>
+  {hasActiveFilters
+    ? 'No se encontraron compras para este cliente con el vendedor seleccionado en los últimos 15 meses.'
+    : 'Este cliente no tiene compras en los últimos 15 meses con el vendedor asignado.'}
+</p>
           {hasActiveFilters && (
             <button
               onClick={handleClearFilters}
