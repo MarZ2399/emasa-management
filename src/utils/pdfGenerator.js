@@ -1,38 +1,61 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
-export const generateQuotationPDF = async (element, filename = 'cotizacion.pdf') => {
-  try {
-    // Captura el elemento como canvas
-    const canvas = await html2canvas(element, { 
-      scale: 2,
-      useCORS: true,
-      allowTaint: true
-    });
+const CANVAS_OPTIONS = {
+  scale: 2,
+  useCORS: true,
+  allowTaint: true,
+  backgroundColor: '#ffffff',
+  logging: false,
+};
 
-    // Obtiene dimensiones
+const renderPagesToPdf = async (element) => {
+  if (!element) {
+    throw new Error('No se recibió el elemento para generar el PDF');
+  }
+
+  const pageNodes = element.querySelectorAll('.pdf-page');
+
+  if (!pageNodes.length) {
+    throw new Error('No se encontraron páginas .pdf-page para exportar');
+  }
+
+  // Medidas estándar de una hoja A4 en milímetros
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pdfWidth = 210;
+  const pdfHeight = 297;
+
+  for (let i = 0; i < pageNodes.length; i += 1) {
+    const pageNode = pageNodes[i];
+
+    const canvas = await html2canvas(pageNode, CANVAS_OPTIONS);
     const imgData = canvas.toDataURL('image/png');
-    const imgWidth = 210; // ancho A4 en mm
-    const pageHeight = 297; // alto A4 en mm
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-    // Crea PDF
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    let heightLeft = imgHeight;
-    let position = 0;
-
-    // Si la imagen es más larga que una página, divide en múltiples páginas
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
-
-    while (heightLeft >= 0) {
-      position = heightLeft - imgHeight;
+    if (i > 0) {
       pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
     }
 
-    // Descarga o retorna
+    // Ya no calculamos la altura dinámicamente. 
+    // Forzamos la imagen a ocupar exactamente el 100% de la hoja A4 (210x297)
+    // porque el contenedor HTML ya tiene esa proporción exacta.
+    pdf.addImage(
+      imgData,
+      'PNG',
+      0,
+      0,
+      pdfWidth,
+      pdfHeight,
+      undefined,
+      'FAST'
+    );
+  }
+
+  return pdf;
+};
+
+export const generateQuotationPDF = async (element, filename = 'cotizacion.pdf') => {
+  try {
+    const pdf = await renderPagesToPdf(element);
     pdf.save(filename);
     return pdf;
   } catch (error) {
@@ -41,28 +64,14 @@ export const generateQuotationPDF = async (element, filename = 'cotizacion.pdf')
   }
 };
 
-// Alternativa: Mostrar en nueva ventana en vez de descargar
 export const previewQuotationPDF = async (element) => {
   try {
-    console.log("NODE PARA PDF:", element);
-
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      useCORS: false,
-      allowTaint: false,
-      backgroundColor: '#fff'
-    });
-
-    const imgData = canvas.toDataURL('image/png');
-    const imgWidth = 210;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-
-    // Abre en nueva ventana
-    window.open(pdf.output('bloburl'));
+    const pdf = await renderPagesToPdf(element);
+    const blobUrl = pdf.output('bloburl');
+    window.open(blobUrl, '_blank', 'noopener,noreferrer');
+    return pdf;
   } catch (error) {
     console.error('Error previsualizando PDF:', error);
+    throw error;
   }
 };
