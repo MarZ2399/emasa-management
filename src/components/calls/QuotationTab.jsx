@@ -190,6 +190,106 @@ const QuotationTab = ({
   const igv = roundTo(subtotal * IGV_RATE, 2);
   const total = roundTo(subtotal + igv, 2);
 
+  // ── Registrar cotización antigua ────────────────────────────────────────────────
+  // const handleRegister = async () => {
+  //   if (quotationItems.length === 0) {
+  //     toast.error('No hay productos en la cotización', { position: 'top-right' });
+  //     return;
+  //   }
+
+  //   if (!selectedClient?.ruc) {
+  //     toast.error('Debe seleccionar un cliente válido', { position: 'top-right' });
+  //     return;
+  //   }
+
+  //   const itemsConStockExcedido = quotationItems.filter(item => {
+  //     const maxStock = item.stock || 0;
+  //     return maxStock > 0 && Number(item.quantity) > maxStock;
+  //   });
+
+  //   if (itemsConStockExcedido.length > 0) {
+  //     itemsConStockExcedido.forEach(item => {
+  //       toast.error(
+  //         `"${item.codigo}": cantidad (${item.quantity}) supera el stock disponible (${item.stock}).`,
+  //         { position: 'top-right', duration: 5000, icon: '🚫' }
+  //       );
+  //     });
+  //     return;
+  //   }
+
+  //   setIsRegistering(true);
+
+  //   try {
+  //     const itemsNormalized = quotationItems.map(normalizeItem);
+
+  //     const clienteConAlmacen = {
+  //       ...selectedClient,
+  //       cod_alm: almacenCotizacion?.cod || null,
+  //       codnum_alm: almacenCotizacion?.codnum ?? null,
+  //     };
+
+  //     const payload = quotationService.prepareQuotationPayload(
+  //       itemsNormalized,
+  //       clienteConAlmacen,
+  //       currency,
+  //       subtotal,
+  //       igv,
+  //       total,
+  //       quotationNumber,
+  //       codigoVendedor
+  //     );
+
+  //     console.log('📤 Enviando cotización:', payload);
+  //     console.log('🏭 Almacén:', almacenCotizacion);
+  //     console.log('🧮 Totales visuales previos:', {
+  //       subtotal,
+  //       igv,
+  //       total
+  //     });
+
+  //     const response = await quotationService.registerQuotation(
+  //       payload.cabecera,
+  //       payload.detalles
+  //     );
+
+  //     if (response.success) {
+  //       logActivity(EVENTOS.COTIZACION_REGISTRADA, response.data.id_cotizac);
+
+  //       toast.success(
+  //         `Cotización ${response.data.correlativo_cotiza} registrada exitosamente`,
+  //         { position: 'top-right', duration: 4000 }
+  //       );
+
+  //       if (pdfRef.current) {
+  //         await generateQuotationPDF(
+  //           pdfRef.current,
+  //           `cotizacion_${response.data.correlativo_cotiza}.pdf`
+  //         );
+  //       }
+
+  //       const nextResponse = await quotationService.getNextCorrelative();
+  //       if (nextResponse.success) setQuotationNumber(nextResponse.data.correlative);
+
+  //       setQuotationItems([]);
+  //       if (onRegistrationComplete) onRegistrationComplete();
+  //     }
+  //   } catch (error) {
+  //     console.error('❌ Error al registrar cotización:', error);
+  //     if (error.response?.data?.details) {
+  //       const errores = Array.isArray(error.response.data.details)
+  //         ? error.response.data.details
+  //         : [error.response.data.details];
+  //       errores.forEach(err => toast.error(err, { position: 'top-right', duration: 5000 }));
+  //     } else {
+  //       toast.error(
+  //         error.response?.data?.error || 'Error al registrar la cotización',
+  //         { position: 'top-right' }
+  //       );
+  //     }
+  //   } finally {
+  //     setIsRegistering(false);
+  //   }
+  // };
   // ── Registrar cotización ────────────────────────────────────────────────
   const handleRegister = async () => {
     if (quotationItems.length === 0) {
@@ -239,18 +339,15 @@ const QuotationTab = ({
         codigoVendedor
       );
 
-      console.log('📤 Enviando cotización:', payload);
-      console.log('🏭 Almacén:', almacenCotizacion);
-      console.log('🧮 Totales visuales previos:', {
-        subtotal,
-        igv,
-        total
-      });
+      console.log('=== INICIANDO REGISTRO DE COTIZACIÓN ===');
+      console.log('📤 Payload preparado:', payload);
 
       const response = await quotationService.registerQuotation(
         payload.cabecera,
         payload.detalles
       );
+
+      console.log('✅ Respuesta exitosa del servidor:', response);
 
       if (response.success) {
         logActivity(EVENTOS.COTIZACION_REGISTRADA, response.data.id_cotizac);
@@ -261,10 +358,15 @@ const QuotationTab = ({
         );
 
         if (pdfRef.current) {
-          await generateQuotationPDF(
-            pdfRef.current,
-            `cotizacion_${response.data.correlativo_cotiza}.pdf`
-          );
+          try {
+            await generateQuotationPDF(
+              pdfRef.current,
+              `cotizacion_${response.data.correlativo_cotiza}.pdf`
+            );
+          } catch (pdfError) {
+             console.error('⚠️ Error al generar el PDF localmente:', pdfError);
+             toast.error('La cotización se registró, pero hubo un error generando el PDF.');
+          }
         }
 
         const nextResponse = await quotationService.getNextCorrelative();
@@ -274,18 +376,47 @@ const QuotationTab = ({
         if (onRegistrationComplete) onRegistrationComplete();
       }
     } catch (error) {
-      console.error('❌ Error al registrar cotización:', error);
-      if (error.response?.data?.details) {
-        const errores = Array.isArray(error.response.data.details)
-          ? error.response.data.details
-          : [error.response.data.details];
-        errores.forEach(err => toast.error(err, { position: 'top-right', duration: 5000 }));
-      } else {
-        toast.error(
-          error.response?.data?.error || 'Error al registrar la cotización',
-          { position: 'top-right' }
-        );
+      // ==========================================
+      // ESTO SE VERÁ EN LA CONSOLA DEL NAVEGADOR
+      // ==========================================
+      console.error('❌ === ERROR AL REGISTRAR COTIZACIÓN ===');
+      
+      // Manejo de errores específicos de Axios/Fetch
+      if (error.response) {
+        console.error('El servidor respondió con código:', error.response.status);
+        console.error('Datos del error del servidor:', error.response.data);
+        console.error('Cabeceras de la respuesta:', error.response.headers);
+
+        if (error.response.data?.details) {
+          const errores = Array.isArray(error.response.data.details)
+            ? error.response.data.details
+            : [error.response.data.details];
+          
+          errores.forEach(err => {
+             console.error('Detalle de validación:', err);
+             toast.error(err, { position: 'top-right', duration: 5000 });
+          });
+        } else {
+          toast.error(
+            error.response.data?.error || `Error del servidor (${error.response.status})`,
+            { position: 'top-right' }
+          );
+        }
+      } 
+      // Error de red (el servidor no respondió)
+      else if (error.request) {
+        console.error('La petición fue hecha pero no se recibió respuesta:', error.request);
+        toast.error('Error de red: No se pudo conectar con el servidor', { position: 'top-right' });
+      } 
+      // Error en la configuración de la petición o error general de JS
+      else {
+        console.error('Error procesando la petición:', error.message);
+        toast.error(`Error inesperado: ${error.message}`, { position: 'top-right' });
       }
+
+      console.error('Objeto de error completo:', error);
+      console.error('=========================================');
+
     } finally {
       setIsRegistering(false);
     }
