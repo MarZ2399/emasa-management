@@ -490,12 +490,24 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
         newErrors[`producto_${i}_d5`] = `Ítem ${i + 1}: 5to descuento debe estar entre ${minD5}% y ${maxD5}%.`;
       }
 
-      const maxStock = p.stock || 0;
-      const qty = Number(p.quantity || p.cantidad) || 0;
-      if (maxStock > 0 && qty > maxStock) {
-        newErrors[`producto_${i}_stock`] = `Ítem ${i + 1} (${p.codigo}): cantidad (${qty}) supera el stock disponible (${maxStock}).`;
-      }
+      const maxStock = p.stock ?? 0;
+const qty = Number(p.quantity ?? p.cantidad ?? 0);
+
+if (maxStock > 0 && qty > maxStock) {
+  const mensaje = `Ítem ${i + 1} (${p.codigo}): cantidad ${qty} supera el stock disponible ${maxStock}.`;
+  newErrors[`producto${i}stock`] = mensaje;
+}
     });
+
+    const primerErrorStockKey = Object.keys(newErrors).find(key => key.includes('stock'));
+
+if (primerErrorStockKey) {
+  toast.error(newErrors[primerErrorStockKey], {
+    position: 'top-right',
+    duration: 5000,
+    icon: '⚠️',
+  });
+}
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;

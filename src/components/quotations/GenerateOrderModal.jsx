@@ -15,6 +15,26 @@ import { transmitOrder, getOrderPreview } from '../../services/orderRequestServi
 
 import toast from 'react-hot-toast';
 
+const FORMAS_PAGO = {
+  ADE: 'Adelantos pagos - Contado',
+  AD2: 'Adelanto por dscto. 0.02',
+  CEF: 'Contado - Marketplace',
+  CON: 'Contado',
+  F03: 'Factura 3 días',
+  F07: 'Factura 7 días',
+  F15: 'Factura 15 días',
+  F30: 'Factura 30 días',
+  F45: 'Factura 45 días',
+  F60: 'Factura 60 días',
+  F75: 'Factura 75 días',
+  F90: 'Factura 90 días',
+  F92: 'Factura 120 días',
+  PLA: 'Descuento planilla al personal',
+  TRA: 'Traslado entre almacenes',
+  TTG: 'Transf. a título gratuito',
+  210: 'Factura 210 días',
+};
+
 const IGV_RATE = 0.18;
 
 const roundTo = (value, decimals = 2) => {
@@ -45,14 +65,17 @@ const calcPrecioVisual = (precioLista, discount1, discount5, quantity = 1) => {
 };
 
 const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
-  const fpActual = String(quotation?.formaPago || quotation?.forpag || '').trim();
-  const forpagOpciones = fpActual && fpActual !== 'ADE' && fpActual !== 'AD2'
-    ? ['ADE', 'AD2', fpActual]
-    : ['ADE', 'AD2'];
+
+   const todasLasOpciones = Object.keys(FORMAS_PAGO);
+
+  const fpActual = String(quotation?.formaPago || quotation?.forpag || '').trim().toUpperCase();
+   const forpagOpciones = todasLasOpciones.includes(fpActual) || !fpActual
+    ? todasLasOpciones
+    : [...todasLasOpciones, fpActual];
 
   const [formData, setFormData] = useState({
     ordenCompra: '',
-    formaPago: forpagOpciones[0],
+    formaPago: 'ADE',
     pagoTransporte: '',
     transporteZona: 'lima_callao',
     tipoEntrega: 'despacho',
@@ -123,15 +146,15 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
 
   useEffect(() => {
     if (isOpen) {
-      const fpCotizacion = String(quotation?.formaPago || quotation?.forpag || '').trim();
-      const fpOpciones = fpCotizacion && fpCotizacion !== 'ADE' && fpCotizacion !== 'AD2'
-        ? ['ADE', 'AD2', fpCotizacion]
-        : ['ADE', 'AD2'];
+      const fpCotizacion = String(quotation?.formaPago || quotation?.forpag || '').trim().toUpperCase();
+const fpOpciones = todasLasOpciones.includes(fpCotizacion) || !fpCotizacion
+  ? todasLasOpciones
+  : [...todasLasOpciones, fpCotizacion];
 
       isSubmittingRef.current = false;
       setFormData({
         ordenCompra: '',
-        formaPago: fpOpciones[0],
+        formaPago: 'ADE',
         pagoTransporte: transportOptions.length > 0 ? transportOptions[0].value : '',
         transporteZona: 'lima_callao',
         tipoEntrega: 'despacho',
@@ -703,7 +726,9 @@ const handleAddressSelect = (addressId) => {
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white"
                 >
                   {forpagOpciones.map(op => (
-                    <option key={op} value={op}>{op}</option>
+                    <option key={op} value={op}>
+    {FORMAS_PAGO[op] ? `${op} - ${FORMAS_PAGO[op]}` : op}
+  </option>
                   ))}
                 </select>
               </div>
