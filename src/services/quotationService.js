@@ -396,9 +396,9 @@ export const prepareUpdatePayload = (formData, correlativo = null, codigoVendedo
       diigvs: !esUSD ? roundTo6(calc.igvTotalVisual) : 0,
 
       pdsc1d: Number(calc.discount1 || 0),
-      pdsc2d: Number(item.discount2 || 0),
-      pdsc3d: Number(item.discount3 || 0),
-      pdsc4d: Number(item.discount4 || 0),
+      pdsc2d: 0,
+      pdsc3d: 0,
+      pdsc4d: 0,
       pdsc5d: Number(calc.discount5 || 0),
       fechad: fechac,
       horad: horac
