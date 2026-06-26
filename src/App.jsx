@@ -25,6 +25,7 @@ import CallReminders from './components/calls/CallReminders';
 import CatalogoDebug from './components/common/CatalogoDebug';
 import FindStockProduct from './components/products/FindStockProduct';
 import BillingModule from './components/billing/BillingModule';
+import SalesHistoryModule from './components/sales-history/SalesHistoryModule';
 
 import { useAuth } from './hooks/useAuth';
 
@@ -164,6 +165,13 @@ const MainLayoutWrapper = () => {
           <Route path="/facturacion" element={
             <ProtectedRoute ruta="/facturacion">
               <BillingModule />
+            </ProtectedRoute>
+          } />
+
+          {/* ── Historial Vta x Cod ── */}
+          <Route path="/historial" element={
+            <ProtectedRoute ruta="/historial">
+              <SalesHistoryModule />
             </ProtectedRoute>
           } />
 

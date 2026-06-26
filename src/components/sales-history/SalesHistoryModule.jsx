@@ -26,20 +26,65 @@ const SalesHistoryModule = () => {
   const codigoValido = codigo.trim().length >= 3;
   const esFiltroFechaActivo = buscado && total !== totalRaw;
 
+  const anioActual = new Date().getFullYear();
+  const inicioAnio = Number(`${anio}0101`);
+  const finAnio = anio === anioActual ? hoy : Number(`${anio}1231`);
+
+  const inicioAnioInput = intToInput(inicioAnio);
+  const finAnioInput = intToInput(finAnio);
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && codigoValido) buscar();
   };
 
   const handleResetFecha = () => {
-    setFechaDesde(Number(`${anio}0101`));
-    setFechaHasta(hoy);
+    setFechaDesde(inicioAnio);
+    setFechaHasta(finAnio);
+  };
+
+  const handleChangeAnio = (e) => {
+    const nuevoAnio = Number(e.target.value);
+
+    setAnio(nuevoAnio);
+
+    if (!nuevoAnio || String(nuevoAnio).length !== 4) return;
+
+    const nuevoInicio = Number(`${nuevoAnio}0101`);
+    const nuevoFin = nuevoAnio === anioActual ? hoy : Number(`${nuevoAnio}1231`);
+
+    setFechaDesde(nuevoInicio);
+    setFechaHasta(nuevoFin);
+  };
+
+  const handleFechaDesdeChange = (e) => {
+    const nuevaFecha = inputToInt(e.target.value);
+    if (!nuevaFecha) return;
+
+    const fechaNormalizada = Math.max(nuevaFecha, inicioAnio);
+    setFechaDesde(fechaNormalizada);
+
+    if (fechaHasta < fechaNormalizada) {
+      setFechaHasta(fechaNormalizada);
+    }
+  };
+
+  const handleFechaHastaChange = (e) => {
+    const nuevaFecha = inputToInt(e.target.value);
+    if (!nuevaFecha) return;
+
+    const fechaNormalizada = Math.min(nuevaFecha, finAnio);
+    setFechaHasta(fechaNormalizada);
+
+    if (fechaDesde > fechaNormalizada) {
+      setFechaDesde(fechaNormalizada);
+    }
   };
 
   return (
     <div className="space-y-6">
       <SectionHeader
         icon={Package}
-        title="Histórico de Ventas"
+        title="Venta Anual x Cod. Producto"
         subtitle="Consulta de ventas realizadas por código de producto"
         showButton={false}
       />
@@ -55,7 +100,7 @@ const SalesHistoryModule = () => {
               min="2020"
               max="2099"
               value={anio}
-              onChange={(e) => setAnio(Number(e.target.value))}
+              onChange={handleChangeAnio}
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm
                 focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
             />
@@ -83,33 +128,40 @@ const SalesHistoryModule = () => {
             )}
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
-              <CalendarDays className="inline w-3.5 h-3.5 mr-1" />Desde
-            </label>
-            <input
-              type="date"
-              value={intToInput(fechaDesde)}
-              onChange={(e) => setFechaDesde(inputToInt(e.target.value))}
-              max={intToInput(fechaHasta) || undefined}
-              className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm
-                focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            />
-          </div>
+          {buscado && (
+            <>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+                  <CalendarDays className="inline w-3.5 h-3.5 mr-1" />
+                  Desde
+                </label>
+                <input
+                  type="date"
+                  value={intToInput(fechaDesde)}
+                  onChange={handleFechaDesdeChange}
+                  min={inicioAnioInput}
+                  max={intToInput(fechaHasta) || finAnioInput}
+                  className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm
+                    focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
-              Hasta
-            </label>
-            <input
-              type="date"
-              value={intToInput(fechaHasta)}
-              onChange={(e) => setFechaHasta(inputToInt(e.target.value))}
-              min={intToInput(fechaDesde) || undefined}
-              className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm
-                focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            />
-          </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+                  Hasta
+                </label>
+                <input
+                  type="date"
+                  value={intToInput(fechaHasta)}
+                  onChange={handleFechaHastaChange}
+                  min={intToInput(fechaDesde) || inicioAnioInput}
+                  max={finAnioInput}
+                  className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm
+                    focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+            </>
+          )}
 
           <button
             onClick={buscar}
@@ -136,7 +188,7 @@ const SalesHistoryModule = () => {
             </button>
           )}
 
-          {esFiltroFechaActivo && (
+          {buscado && esFiltroFechaActivo && (
             <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50
               border border-blue-200 rounded-lg text-xs text-blue-700 font-medium whitespace-nowrap">
               <CalendarDays className="w-3.5 h-3.5" />
@@ -151,6 +203,12 @@ const SalesHistoryModule = () => {
             </div>
           )}
         </div>
+
+        {buscado && (
+          <div className="mt-3 text-xs text-gray-500">
+            Después de la primera búsqueda puedes ajustar el rango de fechas dentro del año {anio} y volver a buscar.
+          </div>
+        )}
 
         {error && (
           <div className="mt-4 flex items-center gap-2 p-3 bg-red-50 border border-red-200
