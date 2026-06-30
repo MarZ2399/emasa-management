@@ -35,9 +35,11 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
     almacendes: (a.almacendes ?? '').trim(),
     stock:       a.stock   || 0,
     reserva:     a.reserva || 0,
+    disponible:   a.disponible || 0, 
   }));
 
-  const totalStock = almacenes.reduce((sum, a) => sum + a.stock, 0);
+  // const totalStock = almacenes.reduce((sum, a) => sum + a.stock, 0);
+  const totalStock = almacenes.reduce((sum, a) => sum + a.disponible, 0);
 
   // ── useEffect ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -330,7 +332,8 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
                   {almacenes.length > 0 ? (
                     <>
                       {almacenes.map((almacen, idx) => {
-                        const status        = getStockStyle(almacen.stock);
+                        // const status        = getStockStyle(almacen.stock);
+                        const status = getStockStyle(almacen.disponible);
                         const almacenNombre = almacen.almacendes || almacen.almacencod;
                         return (
                           <div
@@ -351,10 +354,13 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
                             </div>
                             <div className="text-right">
                               <p className={`text-2xl font-extrabold ${
-                                almacen.stock === 0 ? 'text-gray-400' :
-                                almacen.stock < 10  ? 'text-yellow-600' : 'text-green-600'
+                                // almacen.stock === 0 ? 'text-gray-400' :
+                                // almacen.stock < 10  ? 'text-yellow-600' : 'text-green-600'
+                                almacen.disponible === 0 ? 'text-gray-400' :
+                                almacen.disponible < 10  ? 'text-yellow-600' : 'text-green-600'
                               }`}>
-                                {almacen.stock}
+                                {/* {almacen.stock} */}
+                                {almacen.disponible}
                               </p>
                               <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full border mt-0.5 ${status.badge}`}>
                                 {status.icon} {status.label}

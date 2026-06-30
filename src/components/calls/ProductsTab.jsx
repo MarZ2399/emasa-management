@@ -22,7 +22,8 @@ const getStockBlockReason = (product) => {
     a => a.almacendes?.trim() || a.almacencod?.trim()
   );
   if (conNombre.length === 0) return 'Sin almacén identificado';
-  if (conNombre.every(a => (a.stock || 0) === 0)) return 'Sin stock disponible';
+  // if (conNombre.every(a => (a.stock || 0) === 0)) return 'Sin stock disponible';
+  if (conNombre.every(a => (a.disponible ?? 0) === 0)) return 'Sin stock disponible';
   return null;
 };
 
@@ -210,6 +211,7 @@ const ProductsTab = ({
                   almacendes: s.almacendes?.trim(),
                   stock: s.stock || 0,
                   reserva: s.reserva || 0,
+                  disponible: s.disponible ?? 0, 
                 }));
 
                 return {
@@ -222,7 +224,8 @@ const ProductsTab = ({
                   precioBolsa: item.producto.precioBoletin || 0,
                   unidad: 'UND',
                   disponibleVenta: item.producto.disponibleVenta === 'S',
-                  stock: almacenesFiltrados.reduce((sum, s) => sum + (s.stock || 0), 0),
+                  // stock: almacenesFiltrados.reduce((sum, s) => sum + (s.stock || 0), 0),
+                  stock: almacenesFiltrados.reduce((sum, s) => sum + (s.disponible ?? 0), 0),
                   almacenes: almacenesFiltrados,
                   almacenesAll,
                   equivalencia01: item.producto.equivalencia01?.trim(),
@@ -613,7 +616,10 @@ const ProductsTab = ({
                                         </span>
                                       </div>
                                       <div className="flex items-center gap-1">
-                                        <span className="text-sm font-bold text-blue-900">{almacen.stock}</span>
+                                        {/* <span className="text-sm font-bold text-blue-900">{almacen.stock}</span> */}
+                                        <span className="text-sm font-bold text-blue-900">
+                                          {almacen.disponible}
+                                        </span>
                                         <span className="text-xs">{status.icon}</span>
                                       </div>
                                     </div>
