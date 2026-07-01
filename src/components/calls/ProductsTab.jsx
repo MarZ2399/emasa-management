@@ -60,7 +60,15 @@ const ProductsTab = ({
   const [error, setError] = useState(null);
 
   const [aplicacionProducto, setAplicacionProducto] = useState('');
-  const [filtroActivo, setFiltroActivo] = useState(null);
+  // const [filtroActivo, setFiltroActivo] = useState(null);
+  const tieneCodigo = codigoProducto.trim().length > 0;
+const tieneNombre = nombreProducto.trim().length > 0;
+const tieneAplicacion = aplicacionProducto.trim().length > 0;
+
+const bloquearCodigoYNombre = loading || tieneAplicacion;
+const bloquearAplicacion = loading || tieneCodigo || tieneNombre;
+
+const puedeBuscar = tieneCodigo || tieneNombre || tieneAplicacion;
 
   const { user } = useContext(AuthContext);
   const codAlmacenes = user?.empresa?.cod_almacenes || [];
@@ -78,17 +86,17 @@ const ProductsTab = ({
     }
   }, [autoSearchTrigger]);
 
-  useEffect(() => {
-    if (codigoProducto?.trim()) {
-      setFiltroActivo('codigo');
-    } else if (nombreProducto?.trim()) {
-      setFiltroActivo('nombre');
-    } else if (aplicacionProducto?.trim()) {
-      setFiltroActivo('aplicacion');
-    } else {
-      setFiltroActivo(null);
-    }
-  }, [codigoProducto, nombreProducto, aplicacionProducto]);
+  // useEffect(() => {
+  //   if (codigoProducto?.trim()) {
+  //     setFiltroActivo('codigo');
+  //   } else if (nombreProducto?.trim()) {
+  //     setFiltroActivo('nombre');
+  //   } else if (aplicacionProducto?.trim()) {
+  //     setFiltroActivo('aplicacion');
+  //   } else {
+  //     setFiltroActivo(null);
+  //   }
+  // }, [codigoProducto, nombreProducto, aplicacionProducto]);
 
   const indexOfLastProduct = currentPage * productsPerPage;
   const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
@@ -277,7 +285,7 @@ const ProductsTab = ({
     setCodigoProducto('');
     setNombreProducto('');
     setAplicacionProducto('');
-    setFiltroActivo(null);
+    // setFiltroActivo(null);
     setHasSearched(false);
     setCurrentPage(1);
     setProductos([]);
@@ -390,6 +398,12 @@ const ProductsTab = ({
       warehouse: product.almacenes?.[0]?.almacencod || almacenSeleccionado || '',
       warehouseName: product.almacenes?.[0]?.almacendes?.trim() || almacenSeleccionado || '',
       codNumAlmacen,
+
+      // normaliza el stock con el disponible del almacén seleccionado
+  stock: product.almacenes?.find(a => a.almacencod?.trim() === almacenSeleccionado?.cod)?.disponible
+      ?? product.almacenes?.find(a => a.almacencod?.trim() === almacenSeleccionado?.cod)?.stock
+      ?? product.stock
+      ?? 0,
     });
 
     toast.success(`"${product.codigo}" agregado a la cotización`, { position: 'top-right' });
@@ -447,75 +461,75 @@ const ProductsTab = ({
               Código de Producto <span className="text-red-600">*</span>
             </label>
             <input
-              type="text"
-              placeholder="Ej: Q3 o Q3.VBETY.4E"
-              value={codigoProducto}
-              onChange={e => {
-                const val = e.target.value.toUpperCase();
-                setCodigoProducto(val);
-                setFiltroActivo(val.trim() ? 'codigo' : null);
-              }}
-              onKeyPress={handleKeyPress}
-              disabled={loading || (filtroActivo !== null && filtroActivo !== 'codigo')}
-              className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition
-                ${filtroActivo !== null && filtroActivo !== 'codigo'
-                  ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'border-gray-300 bg-white'}`}
-            />
+  type="text"
+  placeholder="Ej Q3 o Q3.VBETY.4E"
+  value={codigoProducto}
+  onChange={e => {
+    const val = e.target.value.toUpperCase();
+    setCodigoProducto(val);
+  }}
+  onKeyPress={handleKeyPress}
+  disabled={bloquearCodigoYNombre}
+  className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition ${
+    bloquearCodigoYNombre
+      ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+      : 'border-gray-300 bg-white'
+  }`}
+/>
+          </div>
+
+          <div className="flex-1 min-w-[160px]">
+           <label className={`block text-sm font-semibold mb-2 ${
+  bloquearCodigoYNombre ? 'text-gray-400' : 'text-gray-700'
+}`}>
+  Nombre de Producto
+</label>
+            <input
+  type="text"
+  placeholder="Ej VALVULA"
+  value={nombreProducto}
+  onChange={e => {
+    const val = e.target.value;
+    setNombreProducto(val);
+  }}
+  onKeyPress={handleKeyPress}
+  disabled={bloquearCodigoYNombre}
+  className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition ${
+    bloquearCodigoYNombre
+      ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+      : 'border-gray-300 bg-white'
+  }`}
+/>
           </div>
 
           <div className="flex-1 min-w-[160px]">
             <label className={`block text-sm font-semibold mb-2 ${
-              filtroActivo !== null && filtroActivo !== 'nombre' ? 'text-gray-400' : 'text-gray-700'
-            }`}>
-              Nombre de Producto
-            </label>
+  bloquearAplicacion ? 'text-gray-400' : 'text-gray-700'
+}`}>
+  Aplicaciones
+</label>
             <input
-              type="text"
-              placeholder="Ej: VALVULA"
-              value={nombreProducto}
-              onChange={e => {
-                const val = e.target.value;
-                setNombreProducto(val);
-                setFiltroActivo(val.trim() ? 'nombre' : null);
-              }}
-              onKeyPress={handleKeyPress}
-              disabled={loading || (filtroActivo !== null && filtroActivo !== 'nombre')}
-              className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition
-                ${filtroActivo !== null && filtroActivo !== 'nombre'
-                  ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'border-gray-300 bg-white'}`}
-            />
-          </div>
-
-          <div className="flex-1 min-w-[160px]">
-            <label className={`block text-sm font-semibold mb-2 ${
-              filtroActivo !== null && filtroActivo !== 'aplicacion' ? 'text-gray-400' : 'text-gray-700'
-            }`}>
-              Aplicaciones
-            </label>
-            <input
-              type="text"
-              placeholder="Ej: Toyota Corolla 2020"
-              value={aplicacionProducto}
-              onChange={e => {
-                const val = e.target.value;
-                setAplicacionProducto(val);
-                setFiltroActivo(val.trim() ? 'aplicacion' : null);
-              }}
-              onKeyPress={handleKeyPress}
-              disabled={loading || (filtroActivo !== null && filtroActivo !== 'aplicacion')}
-              className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition
-                ${filtroActivo !== null && filtroActivo !== 'aplicacion'
-                  ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'border-gray-300 bg-white'}`}
-            />
+  type="text"
+  placeholder="Ej Toyota Corolla 2020"
+  value={aplicacionProducto}
+  onChange={e => {
+    const val = e.target.value;
+    setAplicacionProducto(val);
+  }}
+  onKeyPress={handleKeyPress}
+  disabled={bloquearAplicacion}
+  className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition ${
+    bloquearAplicacion
+      ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+      : 'border-gray-300 bg-white'
+  }`}
+/>
           </div>
 
           <div className="flex items-end gap-2 flex-shrink-0">
             <button
               onClick={handleSearch}
-              disabled={!filtroActivo || loading}
+              disabled={!puedeBuscar || loading}
               className="flex items-center justify-center gap-2 bg-[#334a5e] text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed font-medium whitespace-nowrap"
             >
               {loading ? (
@@ -525,20 +539,20 @@ const ProductsTab = ({
               )}
             </button>
 
-            {(hasSearched || filtroActivo) && !loading && (
-              <button
-                onClick={handleClearSearch}
-                className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium whitespace-nowrap"
-              >
-                Limpiar
-              </button>
-            )}
+           {hasSearched && !loading && (
+  <button
+    onClick={handleClearSearch}
+    className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium whitespace-nowrap"
+  >
+    Limpiar
+  </button>
+)}
           </div>
         </div>
 
         <p className="text-xs text-gray-500 mt-3">
-          💡 Tip: Solo un filtro a la vez — al escribir en uno los demás se desactivan. Use Limpiar para cambiar.
-        </p>
+  Tip: Puede combinar Código y Nombre. Si escribe en Aplicaciones, los otros filtros se desactivan.
+</p>
 
         {error && (
           <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">

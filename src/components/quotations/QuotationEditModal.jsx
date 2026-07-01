@@ -213,7 +213,8 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                       );
                     });
 
-                    stockDisponible = Number(almacenStock?.stock ?? almacenStock?.cantidad ?? 0);
+                    // stockDisponible = Number(almacenStock?.stock ?? almacenStock?.cantidad ?? 0);
+                    stockDisponible = Number(almacenStock?.disponible ?? almacenStock?.stock ?? 0);
 
                     console.log('📦 Stock resuelto en edición desde cabecera:', {
                       producto: p.codigo,
@@ -427,7 +428,8 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
         descuento5to: discount5,
         flag: product.flag || '',
         preciosDetalle: product.preciosDetalle || null,
-        stock: product.stockDisponible ?? product.stock ?? 0,
+        // stock: product.stockDisponible ?? product.stock ?? 0,
+        stock: product.disponible ?? product.stockDisponible ?? product.stock ?? 0,
 
         // En edición, el almacén lo manda la cabecera
         cod_alm: prev.cod_alm ?? null,
@@ -490,11 +492,14 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
         newErrors[`producto_${i}_d5`] = `Ítem ${i + 1}: 5to descuento debe estar entre ${minD5}% y ${maxD5}%.`;
       }
 
-      const maxStock = p.stock ?? 0;
+      // const maxStock = p.stock ?? 0;
+      const maxStock = p.disponible ?? p.stock ?? 0;
 const qty = Number(p.quantity ?? p.cantidad ?? 0);
 
 if (maxStock > 0 && qty > maxStock) {
-  const mensaje = `Ítem ${i + 1} (${p.codigo}): cantidad ${qty} supera el stock disponible ${maxStock}.`;
+  // const mensaje = `Ítem ${i + 1} (${p.codigo}): cantidad ${qty} supera el stock disponible ${maxStock}.`;
+  // newErrors[`producto${i}stock`] = mensaje;
+  const mensaje = `Ítem ${i + 1} "${p.codigo}": la cantidad (${qty}) supera el stock disponible (${maxStock}). Ajusta la cantidad o consulta reposición.`;
   newErrors[`producto${i}stock`] = mensaje;
 }
     });
@@ -858,7 +863,8 @@ if (primerErrorStockKey) {
                                 value={qty === 0 || qty === null ? '' : String(qty)}
                                 onChange={e => {
                                   const raw = e.target.value.replace(/\D/g, '');
-                                  const maxStock = p.stock ?? 0;
+                                  // const maxStock = p.stock ?? 0;
+                                  const maxStock = p.disponible ?? p.stock ?? 0;
 
                                   if (raw === '') {
                                     handleProductChange(index, 'quantity', '');

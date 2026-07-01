@@ -12,8 +12,9 @@ const STOCK_COLS = [
   { key: 'codProd',         label: 'Código'     },
   { key: 'mercaderia',      label: 'Mercadería' },
   { key: 'precioLista',     label: 'P. Lista $' },
-  { key: 'stockDisponible', label: 'Disponible' },
-  { key: 'descAlmc',        label: 'Almacén'    },
+  // { key: 'stockDisponible', label: 'Disponible' },
+  // { key: 'descAlmc',        label: 'Almacén'    },
+   { key: 'almacenes',    label: 'Stock por Almacén'  },
   { key: 'core',            label: 'Core'       },
   { key: 'codReemplazo',    label: 'Reemplazo'  },
 ];
@@ -166,6 +167,10 @@ const FindStockProduct = () => {
 
   const [filtros, setFiltros] = useState({ core: '', almacen: '', codigo: '', descripcion: '' }); //  almacen agregado
   const [page, setPage] = useState(1);
+const [excelMode, setExcelMode] = useState('detalle');
+const [hasSearchedOnce, setHasSearchedOnce] = useState(false);
+
+const coreRequired = !filtros.core?.trim();
 
   // ── Al montar: cargar cores y almacenes ───────────────────────────────
   useEffect(() => {
@@ -193,114 +198,261 @@ const FindStockProduct = () => {
     });
   }, [allRows, filtros]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+
+  // const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  // const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Agrupa las filas por codProd
+const grouped = useMemo(() => {
+  const map = new Map();
+  filtered.forEach(row => {
+    const key = row.codProd;
+    if (!map.has(key)) {
+      map.set(key, {
+        codProd:      row.codProd,
+        mercaderia:   row.mercaderia,
+        precioLista:  row.precioLista,
+        core:         row.core,
+        codReemplazo: row.codReemplazo,
+        almacenes: [],
+      });
+    }
+    map.get(key).almacenes.push({
+      codAlmc:        row.codAlmc,
+      descAlmc:       row.descAlmc || row.codAlmc,
+      stockDisponible: row.stockDisponible,
+    });
+  });
+  return Array.from(map.values());
+}, [filtered]);
+
+const totalPages = Math.max(1, Math.ceil(grouped.length / PAGE_SIZE));
+const paginated  = grouped.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // ── Buscar ─────────────────────────────────────────────────────────────
   const handleBuscar = useCallback(async () => {
-    try {
-      setLoading(true);
-      setBuscado(false);
-      setPage(1);
-      const response = await productService.getStockGeneral(filtros);
-      if (response.success) {
-        setAllRows(response.data);
-        setBuscado(true);
-        if (response.data.length === 0)
-          toast('Sin resultados para los filtros ingresados', { icon: '🔍' });
-      } else {
-        toast.error(response.msgerror || 'Error al consultar stock');
+  if (!hasSearchedOnce && !filtros.core?.trim()) {
+    toast.error('Debe seleccionar el Core (Grupo de Venta) para la primera búsqueda.', {
+      position: 'top-right',
+      duration: 4000,
+      icon: '⚠️',
+    });
+    return;
+  }
+
+  try {
+    setLoading(true);
+    setBuscado(false);
+    setPage(1);
+
+    const response = await productService.getStockGeneral(filtros);
+
+    if (response.success) {
+      setAllRows(response.data);
+      setBuscado(true);
+      setHasSearchedOnce(true);
+
+      if (response.data.length === 0) {
+        toast('Sin resultados para los filtros ingresados', { icon: '🔍' });
       }
-    } catch {
-      toast.error('Error de conexión');
-    } finally {
-      setLoading(false);
+    } else {
+      toast.error(response.msgerror || 'Error al consultar stock');
     }
-  }, [filtros]);
+  } catch {
+    toast.error('Error de conexión');
+  } finally {
+    setLoading(false);
+  }
+}, [filtros, hasSearchedOnce]);
 
   const handleLimpiar = () => {
     setFiltros({ core: '', almacen: '', codigo: '', descripcion: '' }); //  almacen reseteado
     setAllRows([]);
     setBuscado(false);
     setPage(1);
+    setExcelMode('detalle');
   };
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') handleBuscar();
   };
 
-  // ── Exportar Excel ─────────────────────────────────────────────────────
-  const handleExportExcel = () => {
-    if (filtered.length === 0) return toast('No hay datos para exportar', { icon: '⚠️' });
+ const handleExportExcel = () => {
+  const sourceRows = excelMode === 'detalle' ? filtered : grouped;
+  if (sourceRows.length === 0) return toast('No hay datos para exportar', { icon: '⚠️' });
 
-    const wb = XLSX.utils.book_new();
-    const now = new Date().toLocaleString('es-PE', {
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', hour12: true
-    });
+  const wb = XLSX.utils.book_new();
+  const now = new Date().toLocaleString('es-PE', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
 
-    const wsData = [
+  let wsData = [];
+  let mergeEndCol = 0;
+  let colWidths = [];
+
+  if (excelMode === 'detalle') {
+    wsData = [
       ['Consulta de Stock'],
-      [`Generado: ${now}   |   Total registros: ${filtered.length}`],
+      [`Formato: Detallado | Generado: ${now} | Total registros: ${filtered.length}`],
       [],
       ['Código', 'Mercadería', 'P. Lista $', 'Disponible', 'Almacén', 'Core', 'Reemplazo'],
       ...filtered.map(row => [
         row.codProd,
         row.mercaderia,
-        row.precioLista,
-        row.stockDisponible,
+        Number(row.precioLista ?? 0),
+        Number(row.stockDisponible ?? 0),
         row.descAlmc || row.codAlmc || '',
         row.core || '',
         row.codReemplazo || '',
       ])
     ];
-
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-    ws['!cols'] = [
+    mergeEndCol = 6;
+    colWidths = [
       { wch: 18 }, { wch: 45 }, { wch: 12 },
-      { wch: 12 }, { wch: 15 }, { wch: 20 }, { wch: 15 },
+      { wch: 12 }, { wch: 20 }, { wch: 22 }, { wch: 15 },
     ];
-
-    const headerStyle = {
-      font: { bold: true, color: { rgb: 'FFFFFF' } },
-      fill: { fgColor: { rgb: '334a5e' } },
-      alignment: { horizontal: 'center', vertical: 'center' }
-    };
-    const titleStyle = {
-      font: { bold: true, sz: 14, color: { rgb: '334a5e' } },
-      alignment: { horizontal: 'left', vertical: 'center' }
-    };
-
-    if (ws['A1']) ws['A1'].s = titleStyle;
-    if (ws['A2']) ws['A2'].s = { font: { sz: 9, color: { rgb: '666666' } } };
-
-    ['A4','B4','C4','D4','E4','F4','G4'].forEach(cell => {
-      if (ws[cell]) ws[cell].s = headerStyle;
-    });
-
-    ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
+  } else {
+    wsData = [
+      ['Consulta de Stock'],
+      [`Formato: Agrupado | Generado: ${now} | Total productos: ${grouped.length}`],
+      [],
+      ['Código', 'Mercadería', 'P. Lista $', 'Stock por Almacén', 'Core', 'Reemplazo'],
+      ...grouped.map(row => [
+        row.codProd,
+        row.mercaderia,
+        Number(row.precioLista ?? 0),
+        row.almacenes
+          .map(alm => `${alm.descAlmc}: ${alm.stockDisponible}`)
+          .join('\n'),
+        row.core || '',
+        row.codReemplazo || '',
+      ])
     ];
+    mergeEndCol = 5;
+    colWidths = [
+      { wch: 18 }, { wch: 45 }, { wch: 12 },
+      { wch: 38 }, { wch: 22 }, { wch: 15 },
+    ];
+  }
 
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols'] = colWidths;
+
+  const headerStyle = {
+    font: { bold: true, color: { rgb: 'FFFFFF' } },
+    fill: { fgColor: { rgb: '334a5e' } },
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
+  };
+
+  const titleStyle = {
+    font: { bold: true, sz: 14, color: { rgb: '334a5e' } },
+    alignment: { horizontal: 'left', vertical: 'center' }
+  };
+
+  const subTitleStyle = {
+    font: { sz: 9, color: { rgb: '666666' } },
+    alignment: { horizontal: 'left', vertical: 'center' }
+  };
+
+  if (ws['A1']) ws['A1'].s = titleStyle;
+  if (ws['A2']) ws['A2'].s = subTitleStyle;
+
+  const headerCells = excelMode === 'detalle'
+    ? ['A4','B4','C4','D4','E4','F4','G4']
+    : ['A4','B4','C4','D4','E4','F4'];
+
+  headerCells.forEach(cell => {
+    if (ws[cell]) ws[cell].s = headerStyle;
+  });
+
+  ws['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: mergeEndCol } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: mergeEndCol } },
+  ];
+
+  if (excelMode === 'detalle') {
     filtered.forEach((row, i) => {
       const rowNum = i + 5;
-      const cell = `D${rowNum}`;
-      if (ws[cell]) {
-        const stock = row.stockDisponible;
-        if (stock <= 0)       ws[cell].s = { fill: { fgColor: { rgb: 'fee2e2' } }, font: { color: { rgb: 'b91c1c' }, bold: true } };
-        else if (stock < 10)  ws[cell].s = { fill: { fgColor: { rgb: 'fef3c7' } }, font: { color: { rgb: 'a16207' }, bold: true } };
-        else                  ws[cell].s = { fill: { fgColor: { rgb: 'dcfce7' } }, font: { color: { rgb: '15803d' }, bold: true } };
-      }
+
       const priceCell = `C${rowNum}`;
-      if (ws[priceCell]) ws[priceCell].s = { alignment: { horizontal: 'right' }, numFmt: '0.00' };
+      if (ws[priceCell]) {
+        ws[priceCell].s = {
+          alignment: { horizontal: 'right', vertical: 'center' },
+          numFmt: '0.00'
+        };
+      }
+
+      const stockCell = `D${rowNum}`;
+      if (ws[stockCell]) {
+        const stock = Number(row.stockDisponible ?? 0);
+        if (stock <= 0) {
+          ws[stockCell].s = {
+            fill: { fgColor: { rgb: 'FEE2E2' } },
+            font: { color: { rgb: 'B91C1C' }, bold: true },
+            alignment: { horizontal: 'center', vertical: 'center' }
+          };
+        } else if (stock < 10) {
+          ws[stockCell].s = {
+            fill: { fgColor: { rgb: 'FEF3C7' } },
+            font: { color: { rgb: 'A16207' }, bold: true },
+            alignment: { horizontal: 'center', vertical: 'center' }
+          };
+        } else {
+          ws[stockCell].s = {
+            fill: { fgColor: { rgb: 'DCFCE7' } },
+            font: { color: { rgb: '15803D' }, bold: true },
+            alignment: { horizontal: 'center', vertical: 'center' }
+          };
+        }
+      }
+    });
+  } else {
+    grouped.forEach((row, i) => {
+      const rowNum = i + 5;
+
+      const priceCell = `C${rowNum}`;
+      if (ws[priceCell]) {
+        ws[priceCell].s = {
+          alignment: { horizontal: 'right', vertical: 'top' },
+          numFmt: '0.00'
+        };
+      }
+
+      const almacenCell = `D${rowNum}`;
+      if (ws[almacenCell]) {
+        ws[almacenCell].s = {
+          alignment: { horizontal: 'left', vertical: 'top', wrapText: true }
+        };
+      }
     });
 
-    XLSX.utils.book_append_sheet(wb, ws, 'Stock');
-    XLSX.writeFile(wb, `Stock_${new Date().toISOString().slice(0, 10)}.xlsx`);
-    toast.success(`Excel exportado (${filtered.length} registros)`);
-  };
+    ws['!rows'] = [
+      {},
+      {},
+      {},
+      {},
+      ...grouped.map(row => {
+        const lines = Math.max(1, row.almacenes.length);
+        return { hpt: Math.max(22, lines * 18) };
+      })
+    ];
+  }
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Stock');
+  XLSX.writeFile(
+    wb,
+    `Stock_${excelMode}_${new Date().toISOString().slice(0, 10)}.xlsx`
+  );
+  toast.success(
+    `Excel ${excelMode === 'detalle' ? 'detallado' : 'agrupado'} exportado (${sourceRows.length} registros)`
+  );
+};
 
   // ── Exportar PDF ───────────────────────────────────────────────────────
   const handleExportPDF = () => {
@@ -349,6 +501,7 @@ const FindStockProduct = () => {
 
   const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
   const labelCls = 'block text-xs font-semibold text-gray-600 mb-1';
+  
 
   const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
     .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
@@ -375,7 +528,8 @@ const FindStockProduct = () => {
         {/* Fila 1: Core + Almacén */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label className={labelCls}>Core (Grupo de Venta)</label>
+            <label className={labelCls}>Core (Grupo de Venta)<span className="ml-1 text-red-500">* Obligatorio para la primera búsqueda.</span></label>
+            
             <CoreSelect
               value={filtros.core}
               onChange={val => set('core', val)}
@@ -449,14 +603,26 @@ const FindStockProduct = () => {
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-blue-200">
-                {filtered.length} registros
-                {filtered.length !== allRows.length && ` (filtrados de ${allRows.length})`}
-              </span>
-              <button onClick={handleExportExcel}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition">
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                Excel
-              </button>
+  {grouped.length} productos
+  {filtered.length !== allRows.length && ` (filtrados de ${allRows.length} registros)`}
+</span>
+              <div className="flex items-center gap-2">
+    <span className="text-xs text-blue-200 font-medium">Formato Excel:</span>
+    <select
+      value={excelMode}
+      onChange={(e) => setExcelMode(e.target.value)}
+      className="px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-white/20 bg-white/10 text-white outline-none focus:ring-2 focus:ring-white/30"
+    >
+      <option value="detalle" className="text-gray-900">Detallado</option>
+      <option value="agrupado" className="text-gray-900">Agrupado</option>
+    </select>
+  </div>
+
+  <button onClick={handleExportExcel}
+    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition">
+    <FileSpreadsheet className="w-3.5 h-3.5" />
+    Excel
+  </button>
               <button onClick={handleExportPDF}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-semibold transition">
                 <FileText className="w-3.5 h-3.5" />
@@ -468,47 +634,77 @@ const FindStockProduct = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  {STOCK_COLS.map(col => (
-                    <th key={col.key}
-                      className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">
-                      {col.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
+  <tr>
+    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Código</th>
+    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Mercadería</th>
+    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">P. Lista $</th>
+    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Stock por Almacén</th>
+    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Core</th>
+    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Reemplazo</th>
+  </tr>
+</thead>
               <tbody className="divide-y divide-gray-100">
-                {paginated.length > 0 ? paginated.map((row, i) => (
-                  <tr key={i} className={`hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
-                    <td className="px-4 py-2.5 text-xs font-semibold text-gray-800 whitespace-nowrap">{row.codProd}</td>
-                    <td className="px-4 py-2.5 text-xs text-gray-700 max-w-[220px]">
-                      <span className="line-clamp-2">{row.mercaderia}</span>
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-right font-medium text-gray-800 whitespace-nowrap">
-                      {row.precioLista.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-center">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${getStockBadge(row.stockDisponible)}`}>
-                        {row.stockDisponible}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-gray-600 whitespace-nowrap">{row.descAlmc || row.codAlmc}</td>
-                    <td className="px-4 py-2.5 text-xs">
-                      {row.core
-                        ? <span className="px-2 py-0.5 bg-purple-100 text-purple-800 border border-purple-300 rounded-full text-xs font-semibold whitespace-nowrap">{row.core}</span>
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">{row.codReemplazo || '—'}</td>
-                  </tr>
-                )) : (
-                  <tr>
-                    <td colSpan={STOCK_COLS.length} className="text-center py-10 text-gray-400">
-                      <Package className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-                      <p className="text-sm font-medium">Sin resultados para los filtros aplicados</p>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
+  {paginated.length > 0 ? paginated.map((row, i) => (
+    <tr key={row.codProd} className={`hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+      
+      {/* Código */}
+      <td className="px-4 py-3 text-xs font-semibold text-gray-800 whitespace-nowrap align-top">
+        {row.codProd}
+      </td>
+
+      {/* Mercadería */}
+      <td className="px-4 py-3 text-xs text-gray-700 max-w-[220px] align-top">
+        <span className="line-clamp-2">{row.mercaderia}</span>
+      </td>
+
+      {/* Precio */}
+      <td className="px-4 py-3 text-xs text-right font-medium text-gray-800 whitespace-nowrap align-top">
+        {row.precioLista.toFixed(2)}
+      </td>
+
+      {/* Stock por Almacén — panel agrupado */}
+      <td className="px-4 py-3 align-top">
+        <div className="flex flex-col gap-1.5">
+          {row.almacenes.map((alm, j) => (
+            <div key={j} className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 min-w-[200px]">
+              <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                {/* ícono almacén */}
+                <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 10l9-7 9 7v10a1 1 0 01-1 1H4a1 1 0 01-1-1V10z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 21V12h6v9" />
+                </svg>
+                <span className="font-semibold text-gray-700">{alm.descAlmc}</span>
+              </div>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${getStockBadge(alm.stockDisponible)}`}>
+                {alm.stockDisponible}
+              </span>
+            </div>
+          ))}
+        </div>
+      </td>
+
+      {/* Core */}
+      <td className="px-4 py-3 text-xs align-top">
+        {row.core
+          ? <span className="px-2 py-0.5 bg-purple-100 text-purple-800 border border-purple-300 rounded-full text-xs font-semibold whitespace-nowrap">{row.core}</span>
+          : '—'}
+      </td>
+
+      {/* Reemplazo */}
+      <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap align-top">
+        {row.codReemplazo || '—'}
+      </td>
+
+    </tr>
+  )) : (
+    <tr>
+      <td colSpan={6} className="text-center py-10 text-gray-400">
+        <Package className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+        <p className="text-sm font-medium">Sin resultados para los filtros aplicados</p>
+      </td>
+    </tr>
+  )}
+</tbody>
             </table>
           </div>
 

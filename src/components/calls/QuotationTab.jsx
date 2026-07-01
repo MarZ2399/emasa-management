@@ -303,15 +303,15 @@ const QuotationTab = ({
     }
 
     const itemsConStockExcedido = quotationItems.filter(item => {
-      // const maxStock = item.stock || 0;
-      const maxStock = item.disponible || 0;
+       const maxStock = item.stock || 0;
+      
       return maxStock > 0 && Number(item.quantity) > maxStock;
     });
 
     if (itemsConStockExcedido.length > 0) {
       itemsConStockExcedido.forEach(item => {
         toast.error(
-          `"${item.codigo}": cantidad (${item.quantity}) supera el stock disponible (${item.disponible}).`,
+          `"${item.codigo}": cantidad (${item.quantity}) supera el stock disponible (${item.stock}).`,
           { position: 'top-right', duration: 5000, icon: '🚫' }
         );
       });
@@ -454,6 +454,15 @@ const QuotationTab = ({
       </div>
     );
   }
+
+  // ✅ AGREGA AQUÍ — antes del return principal
+console.log('🔍 item stock fields:', quotationItems.map(i => ({
+  codigo: i.codigo,
+  stock: i.stock,
+  disponible: i.disponible,
+  stockDisponible: i.stockDisponible,
+})));
+
 
   return (
     <div className="space-y-8">
@@ -642,8 +651,8 @@ const QuotationTab = ({
                         value={item.quantity ?? ''}
                         onChange={e => {
                           const raw = e.target.value.replace(/\D/g, '');
-                          // const maxStock = item.stock || 0;
-                          const maxStock = item.disponible || 0;
+                          const maxStock = item.stock || 0;
+                          
 
                           if (raw === '') {
                             setItemField(idx, 'quantity', '');
