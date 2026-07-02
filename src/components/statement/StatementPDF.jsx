@@ -281,6 +281,11 @@ const docsVencidosDolares = docsDolares.filter(r => Number(r.atraso) > 0).length
 
 const resTableWidth = 82;
 
+// ── Detectar si el estado de cuenta está vacío 
+const esDocumentoVacio =
+  allDocs.length === 0 ||
+  (allDocs.length === 1 && allDocs[0].doc.trim().replace(/\s/g, '') === '00000000');
+
 autoTable(doc, {
   startY: clientY - 2,
   margin: { left: PW - MR - resTableWidth },
@@ -368,24 +373,55 @@ autoTable(doc, {
     'Importe Origen',
     'Saldo'
   ]],
-  body: allDocs.map(r => [
-    r.tipo,
-    r.doc,
-    r.emision,
-    r.vencimiento,
-    r.fpago,
-    r.estado,
-    r.banco,
-    r.nUnico,
-    r.atraso,
-    r.moneda,
-    fmt(r._impSNum),
-    fmt(r._saldoSNum)
-  ]),
-  foot: totalRows.map(row => [
-    { content: '', colSpan: 9, styles: { fillColor: [240, 240, 240] } },
-    ...row
-  ]),
+  // body: allDocs.map(r => [
+  //   r.tipo,
+  //   r.doc,
+  //   r.emision,
+  //   r.vencimiento,
+  //   r.fpago,
+  //   r.estado,
+  //   r.banco,
+  //   r.nUnico,
+  //   r.atraso,
+  //   r.moneda,
+  //   fmt(r._impSNum),
+  //   fmt(r._saldoSNum)
+  // ]),
+  // foot: totalRows.map(row => [
+  //   { content: '', colSpan: 9, styles: { fillColor: [240, 240, 240] } },
+  //   ...row
+  // ]),
+  body: esDocumentoVacio
+  ? [[{
+      content: 'No tiene documentos registrados',
+      colSpan: 12,
+      styles: {
+        halign: 'center',
+        fontStyle: 'italic',
+        textColor: [120, 120, 120],
+        cellPadding: 5,
+      }
+    }]]
+  : allDocs.map(r => [
+      r.tipo,
+      r.doc,
+      r.emision,
+      r.vencimiento,
+      r.fpago,
+      r.estado,
+      r.banco,
+      r.nUnico,
+      r.atraso,
+      r.moneda,
+      fmt(r._impSNum),
+      fmt(r._saldoSNum)
+    ]),
+    foot: esDocumentoVacio
+  ? []
+  : totalRows.map(row => [
+      { content: '', colSpan: 9, styles: { fillColor: [240, 240, 240] } },
+      ...row
+    ]),
   footStyles: {
     fillColor: [240, 240, 240],
     textColor: CORPORATE_BLUE,
