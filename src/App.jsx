@@ -27,6 +27,9 @@ import FindStockProduct from './components/products/FindStockProduct';
 import BillingModule from './components/billing/BillingModule';
 import SalesHistoryModule from './components/sales-history/SalesHistoryModule';
 
+import ReportsModule from './components/reports/ReportsModule';
+import CallReport from './components/reports/CallReport';
+
 import { useAuth } from './hooks/useAuth';
 
 
@@ -174,6 +177,19 @@ const MainLayoutWrapper = () => {
               <SalesHistoryModule />
             </ProtectedRoute>
           } />
+
+          {/* ── Reports ── */}
+<Route path="/reports" element={
+  <ProtectedRoute ruta="/reports">
+    <ReportsModule />
+  </ProtectedRoute>
+} />
+
+<Route path="/reports/calls" element={
+  <ProtectedRoute ruta="/reports">
+    <CallReport />
+  </ProtectedRoute>
+} />
 
           {/* ── Stock (sin restricción de módulo) ── */}
           <Route path="/stock" element={<FindStockProduct />} />
