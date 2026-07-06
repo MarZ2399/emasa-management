@@ -3,8 +3,6 @@ import { companyData } from '../../data/companyData';
 
 const IGV_RATE = 0.18;
 
-
-
 const roundTo = (value, decimals = 2) => {
   const factor = 10 ** decimals;
   return Math.round((Number(value) + Number.EPSILON) * factor) / factor;
@@ -84,43 +82,76 @@ const resolveFormaPago = (value) => {
   return FORMAS_PAGO[fp] || value || 'Adelantos pagos - Contado';
 };
 
+const PAGE_HEIGHT = 1555;
+const PAGE_PADDING_TOP = 28;
+const PAGE_PADDING_BOTTOM = 60;
+
+const HEADER_HEIGHT_FIRST_PAGE = 330;
+const HEADER_HEIGHT_OTHER_PAGES = 330;
+const TABLE_HEADER_HEIGHT = 42;
+const TOTALS_HEIGHT = 110;
+const FOOTER_HEIGHT = 40;
+
+const BODY_AVAILABLE_FIRST =
+  PAGE_HEIGHT -
+  PAGE_PADDING_TOP -
+  PAGE_PADDING_BOTTOM -
+  HEADER_HEIGHT_FIRST_PAGE -
+  TABLE_HEADER_HEIGHT;
+
+const BODY_AVAILABLE_OTHER =
+  PAGE_HEIGHT -
+  PAGE_PADDING_TOP -
+  PAGE_PADDING_BOTTOM -
+  HEADER_HEIGHT_OTHER_PAGES -
+  TABLE_HEADER_HEIGHT;
+
+const LAST_PAGE_EXTRA_SPACE = TOTALS_HEIGHT + FOOTER_HEIGHT + 20;
+
+const DESCRIPTION_CHARS_PER_LINE = 34;
+const CODE_CHARS_PER_LINE = 14;
+const ROW_BASE_HEIGHT = 34;
+const ROW_LINE_HEIGHT = 15;
+
+const estimateRowHeight = (item) => {
+  const desc = String(item.descripcion || '');
+  const code = String(item.codigo || '');
+
+  const descLines = Math.max(1, Math.ceil(desc.length / DESCRIPTION_CHARS_PER_LINE));
+  const codeLines = Math.max(1, Math.ceil(code.length / CODE_CHARS_PER_LINE));
+
+  const visualLines = Math.max(descLines, codeLines);
+
+  return ROW_BASE_HEIGHT + (visualLines - 1) * ROW_LINE_HEIGHT;
+};
+
 const buildPages = (items) => {
   if (!items.length) return [[]];
 
-  // CONFIGURACIÓN DINÁMICA
-  // Ajusta estos números según vayas viendo el PDF generado
-  const MAX_LINES_FIRST_PAGE = 24; // Líneas que caben en la hoja 1 (tiene el encabezado grande)
-  const MAX_LINES_OTHER_PAGES = 34; // Líneas que caben en las hojas 2 en adelante
-  const CHARS_PER_LINE = 45; // Aprox de letras que entran en la columna "Descripción" antes de saltar de línea
-  const TOTALS_BLOCK_LINES = 5; // Espacio (en líneas) que ocupa el bloque de "Subtotal, IGV, Total"
-
   const pages = [];
   let currentPage = [];
-  let currentLinesUsed = 0;
-  let isFirstPage = true;
+  let currentHeight = 0;
 
   items.forEach((item, index) => {
+    const isFirstPage = pages.length === 0;
     const isLastItem = index === items.length - 1;
-    
-    // Calculamos cuántas líneas visuales tomará esta fila basada en la longitud de su descripción
-    const descLength = String(item.descripcion || '').length;
-    const estimatedLines = Math.max(1, Math.ceil(descLength / CHARS_PER_LINE));
-    
-    // Si es el último ítem de toda la cotización, debemos asegurarnos de que también 
-    // quede espacio para el bloque de totales al final.
-    const spaceNeeded = estimatedLines + (isLastItem ? TOTALS_BLOCK_LINES : 0);
-    const currentLimit = isFirstPage ? MAX_LINES_FIRST_PAGE : MAX_LINES_OTHER_PAGES;
 
-    // Si el ítem (más los totales si es el final) supera el límite, saltamos de hoja
-    if (currentLinesUsed + spaceNeeded > currentLimit && currentPage.length > 0) {
+    const pageLimit = isFirstPage ? BODY_AVAILABLE_FIRST : BODY_AVAILABLE_OTHER;
+    const reserved = isLastItem ? LAST_PAGE_EXTRA_SPACE : 0;
+
+    const rowHeight = estimateRowHeight(item);
+
+    if (
+      currentPage.length > 0 &&
+      currentHeight + rowHeight + reserved > pageLimit
+    ) {
       pages.push(currentPage);
       currentPage = [];
-      currentLinesUsed = 0;
-      isFirstPage = false;
+      currentHeight = 0;
     }
 
     currentPage.push(item);
-    currentLinesUsed += estimatedLines;
+    currentHeight += rowHeight;
   });
 
   if (currentPage.length > 0) {
@@ -345,7 +376,7 @@ const PDFPreview = React.forwardRef(
         .reduce((acc, page) => acc + page.length, 0);
 
       return (
-        <table className="w-full border border-gray-300 text-[13px] mb-4 table-fixed">
+        <table className="w-full border border-gray-300 text-[12px] mb-4 table-fixed leading-[1.25]">
           <colgroup>
             <col style={{ width: '5%' }} />
             <col style={{ width: '13%' }} />
@@ -361,48 +392,48 @@ const PDFPreview = React.forwardRef(
           </colgroup>
           <thead>
             <tr className="bg-gray-200">
-              <th className="border border-gray-300 p-2">Item</th>
-              <th className="border border-gray-300 p-2">Código</th>
-              <th className="border border-gray-300 p-2">Descripción</th>
-              <th className="border border-gray-300 p-2">Precio Lista ({currencySymbol})</th>
-              <th className="border border-gray-300 p-2">1er Dscto (%)</th>
-              <th className="border border-gray-300 p-2">5to Dscto (%)</th>
-              <th className="border border-gray-300 p-2">Precio Neto ({currencySymbol})</th>
-              <th className="border border-gray-300 p-2">Cant.</th>
-              <th className="border border-gray-300 p-2">Neto Total ({currencySymbol})</th>
-              <th className="border border-gray-300 p-2">IGV ({currencySymbol})</th>
-              <th className="border border-gray-300 p-2">Importe ({currencySymbol})</th>
+              <th className="border border-gray-300 px-2 py-2">Item</th>
+              <th className="border border-gray-300 px-2 py-2">Código</th>
+              <th className="border border-gray-300 px-2 py-2">Descripción</th>
+              <th className="border border-gray-300 px-2 py-2">Precio Lista ({currencySymbol})</th>
+              <th className="border border-gray-300 px-2 py-2">1er Dscto (%)</th>
+              <th className="border border-gray-300 px-2 py-2">5to Dscto (%)</th>
+              <th className="border border-gray-300 px-2 py-2">Precio Neto ({currencySymbol})</th>
+              <th className="border border-gray-300 px-2 py-2">Cant.</th>
+              <th className="border border-gray-300 px-2 py-2">Neto Total ({currencySymbol})</th>
+              <th className="border border-gray-300 px-2 py-2">IGV ({currencySymbol})</th>
+              <th className="border border-gray-300 px-2 py-2">Importe ({currencySymbol})</th>
             </tr>
           </thead>
 
           <tbody>
             {pageItems.map((item, idx) => (
               <tr key={`${item.codigo}-${startIndex + idx}`} className="border-b border-gray-300 align-top">
-                <td className="border border-gray-300 p-2 text-center">
+                <td className="border border-gray-300 px-2 py-2 align-top break-words">
                   {String(startIndex + idx + 1).padStart(3, '0')}
                 </td>
-                <td className="border border-gray-300 p-2 break-words">{item.codigo}</td>
-                <td className="border border-gray-300 p-2 break-words">{item.descripcion}</td>
-                <td className="border border-gray-300 p-2 text-right">
+                <td className="border border-gray-300 px-2 py-2 align-top break-words">{item.codigo}</td>
+                <td className="border border-gray-300 px-2 py-2 align-top break-words">{item.descripcion}</td>
+                <td className="border border-gray-300 px-2 py-2 align-top break-words">
                   {item.precioLista.toFixed(3)}
                 </td>
-                <td className="border border-gray-300 p-2 text-center">
+                <td className="border border-gray-300 px-2 py-2 align-top break-words">
                   {item.discount1.toFixed(2)}%
                 </td>
-                <td className="border border-gray-300 p-2 text-center">
+                <td className="border border-gray-300 px-2 py-2 align-top break-words">
                   {item.discount5.toFixed(3)}%
                 </td>
-                <td className="border border-gray-300 p-2 text-right">
+                <td className="border border-gray-300 px-2 py-2 align-top break-words">
                   {item.precioNeto.toFixed(4)}
                 </td>
-                <td className="border border-gray-300 p-2 text-center">{item.quantity}</td>
-                <td className="border border-gray-300 p-2 text-right">
+                <td className="border border-gray-300 px-2 py-2 align-top break-words">{item.quantity}</td>
+                <td className="border border-gray-300 px-2 py-2 align-top break-words">
                   {item.netoTotal.toFixed(2)}
                 </td>
-                <td className="border border-gray-300 p-2 text-right">
+                <td className="border border-gray-300 px-2 py-2 align-top break-words">
                   {item.igvItem.toFixed(2)}
                 </td>
-                <td className="border border-gray-300 p-2 text-right font-bold">
+                <td className="border border-gray-300 px-2 py-2 align-top break-words">
                   {item.totalItem.toFixed(2)}
                 </td>
               </tr>
@@ -411,6 +442,31 @@ const PDFPreview = React.forwardRef(
         </table>
       );
     };
+
+    const renderFixedFooter = (pageIndex, totalPages) => (
+      <div className="pdf-fixed-footer">
+        <div className="pdf-fixed-footer__text">
+          <div>La validez de la presente cotización es de 05 días calendario y está sujeta a disponibilidad de stock.</div>
+          <div>Precio incluye entrega técnica en Lima Metropolitana y Callao. Para provincia, el cliente asumirá los viáticos correspondientes.</div>
+          <div>Garantía por 01 año contra defectos de fabricación, previo cumplimiento del plan de mantenimiento preventivo y/o correctivo.</div>
+          <div>En caso de Garantía fuera de Lima, el cliente asumirá los viáticos por diagnóstico y reparación del equipo, esto último si la Garantía se declara procedente.</div>
+          <div>En caso de Importación, el cliente deberá abonar el 100% del valor de venta y enviar la orden de compra vía correo electrónico.</div>
+          <div>
+  Política de Garantía:{' '}
+  <a
+    href="https://www.emasa.pe/pdf/Politica_de_GarantiaEquiposEMASA.pdf"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    https://www.emasa.pe/pdf/Politica_de_GarantiaEquiposEMASA.pdf
+  </a>
+</div>
+        </div>
+        <div className="pdf-fixed-footer__page">
+          Página {pageIndex + 1} de {totalPages}
+        </div>
+      </div>
+    );
 
     return (
       <div
@@ -424,17 +480,13 @@ const PDFPreview = React.forwardRef(
           {`
             #pdf-preview .pdf-page {
               width: 1100px;
-              height: 1555px; /* Proporción A4 exacta */
+              height: 1555px;
               background: #ffffff;
-              padding: 28px 32px 60px 32px;
+              padding: 28px 32px 160px 32px;
               box-sizing: border-box;
               color: #000000;
               position: relative;
-              overflow: hidden; /* CRÍTICO: Corta cualquier desbordamiento para que html2canvas no lo capture */
-            }
-
-            #pdf-preview .pdf-page + .pdf-page {
-              margin-top: 0;
+              overflow: hidden;
             }
 
             #pdf-preview table {
@@ -443,16 +495,17 @@ const PDFPreview = React.forwardRef(
               table-layout: fixed;
             }
 
-            #pdf-preview thead {
-              display: table-header-group;
+            #pdf-preview th,
+            #pdf-preview td {
+              vertical-align: top;
+              line-height: 1.2;
+              word-break: break-word;
+              overflow-wrap: anywhere;
             }
 
-            #pdf-preview tr,
-            #pdf-preview td,
-            #pdf-preview th {
-              page-break-inside: avoid;
+            #pdf-preview tbody tr {
               break-inside: avoid;
-              vertical-align: top;
+              page-break-inside: avoid;
             }
 
             #pdf-preview .totals-block {
@@ -464,14 +517,46 @@ const PDFPreview = React.forwardRef(
               font-size: 11px;
               color: #6b7280;
               border-top: 1px solid #d1d5db;
-              padding-top: 16px;
-              margin-top: 20px;
+              padding-top: 12px;
+              margin-top: 14px;
+            }
+
+            #pdf-preview .pdf-fixed-footer {
+              position: absolute;
+              left: 32px;
+              right: 32px;
+              bottom: 24px;
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-end;
+              gap: 16px;
+              border-top: 1px solid #d1d5db;
+              padding-top: 10px;
+              background: #ffffff;
+            }
+
+            #pdf-preview .pdf-fixed-footer__text {
+              flex: 1;
+              font-size: 12px;
+              line-height: 1.35;
+              color: #111827;
+            }
+
+            #pdf-preview .pdf-fixed-footer__page {
+              min-width: 100px;
+              text-align: right;
+              font-size: 13px;
+              line-height: 1.2;
+              font-weight: 700;
+              color: #111827;
+              white-space: nowrap;
             }
           `}
         </style>
 
         {normalizedData.pages.map((pageItems, pageIndex) => {
           const isLastPage = pageIndex === normalizedData.pages.length - 1;
+          const totalPages = normalizedData.pages.length;
 
           return (
             <div key={`page-${pageIndex + 1}`} className="pdf-page">
@@ -504,6 +589,8 @@ const PDFPreview = React.forwardRef(
                   </div>
                 </>
               )}
+
+              {renderFixedFooter(pageIndex, totalPages)}
             </div>
           );
         })}

@@ -1,15 +1,16 @@
 // src/components/quotations/QuotationPDFModal.jsx
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { X, Download, FileText, Loader } from 'lucide-react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
-import PDFPreview from '../calls/PDFPreview';
 import toast from 'react-hot-toast';
 
+// IMPORTANTE: Asegúrate de importar la nueva función que creamos.
+// Ajusta esta ruta según la carpeta donde hayas guardado tu archivo de jsPDF.
+import { previewQuotationPDF } from '../../utils/pdfGenerator'; 
+
 const QuotationPDFModal = ({ quotation, isOpen, onClose }) => {
-  const pdfRef       = useRef(null);
-  const [pdfUrl, setPdfUrl]         = useState(null);
+  // Ya no necesitamos pdfRef
+  const [pdfUrl, setPdfUrl] = useState(null);
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
@@ -25,56 +26,33 @@ const QuotationPDFModal = ({ quotation, isOpen, onClose }) => {
   }, [isOpen, quotation]);
 
   const generatePdfBlob = async () => {
-    setTimeout(async () => {
-      if (!pdfRef.current) return;
+    try {
+      setGenerating(true);
 
-      try {
-        setGenerating(true);
+      // 1. Mapeamos los datos tal cual los enviabas antes a PDFPreview, 
+      // pero ahora se los pasamos a nuestra nueva función jsPDF.
+      const pdfData = {
+        quotation: quotation,
+        selectedClient: quotation.selectedClient,
+        quotationItems: quotation.productos,
+        quotationNumber: quotation.numeroCotizacion,
+        currency: quotation.currency,
+      };
 
-        const element = pdfRef.current;
+      // 2. Generamos el PDF directamente con código (mucho más rápido)
+      const pdf = await previewQuotationPDF(null, pdfData);
 
-        const canvas = await html2canvas(element, {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-          width: 1100,           //  mismo ancho que w-[1100px]
-          windowWidth: 1100,
-          scrollX: 0,
-          scrollY: 0
-        });
+      // 3. Obtenemos el Blob y creamos la URL para el iframe
+      const blob = pdf.output('blob');
+      const url = URL.createObjectURL(blob);
+      setPdfUrl(url);
 
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-        const pageWidth  = pdf.internal.pageSize.getWidth();
-        const pageHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth   = pageWidth;
-        const imgHeight  = (canvas.height * pageWidth) / canvas.width;
-
-        let heightLeft = imgHeight;
-        let position   = 0;
-
-        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-
-        while (heightLeft > 0) {
-          position -= pageHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-          heightLeft -= pageHeight;
-        }
-
-        const blob = pdf.output('blob');
-        const url  = URL.createObjectURL(blob);
-        setPdfUrl(url);
-      } catch (error) {
-        console.error('Error al generar preview PDF:', error);
-        toast.error('Error al generar la vista previa');
-      } finally {
-        setGenerating(false);
-      }
-    }, 300);
+    } catch (error) {
+      console.error('Error al generar preview PDF:', error);
+      toast.error('Error al generar la vista previa');
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const handleDownloadPDF = () => {
@@ -129,38 +107,16 @@ const QuotationPDFModal = ({ quotation, isOpen, onClose }) => {
               src={pdfUrl}
               className="w-full h-full border-0"
               title="Vista previa cotización"
+              // Importante: No ponemos 'sandbox' aquí para evitar el bloqueo de Chrome
             />
           )}
         </div>
       </div>
-
-      {/* PDFPreview oculto a 1100px para captura exacta */}
-      <div
-        style={{
-          position: 'fixed',
-          left: '-9999px',
-          top: 0,
-          width: '1100px',
-          overflow: 'visible',
-          zIndex: -1,
-          pointerEvents: 'none'
-        }}
-        aria-hidden="true"
-      >
-        <div ref={pdfRef}>
-          <PDFPreview
-  quotation={quotation}
-  selectedClient={quotation.selectedClient}
-  quotationItems={quotation.productos}
-  subtotal={quotation.subtotal}
-  igv={quotation.igv}
-  total={quotation.total}
-  quotationNumber={quotation.numeroCotizacion}
-  currency={quotation.currency}
-  isVisible={true}
-/>
-        </div>
-      </div>
+      
+      {/* ¡Adiós al div oculto! 
+        Ya no necesitamos renderizar el HTML invisible a -9999px.
+        Esto hará que tu modal cargue casi al instante.
+      */}
     </div>,
     document.body
   );

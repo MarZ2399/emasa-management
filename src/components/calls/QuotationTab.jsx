@@ -3,7 +3,7 @@ import React, { useRef, useState, useEffect, useContext } from 'react';
 import { Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { previewQuotationPDF, generateQuotationPDF } from '../../utils/pdfGenerator';
-import PDFPreview from './PDFPreview';
+
 import quotationService from '../../services/quotationService';
 import { logActivity, EVENTOS } from '../../services/activityLogService';
 import { AuthContext } from '../../context/AuthContext';
@@ -82,7 +82,7 @@ const QuotationTab = ({
   codigoVendedor
 }) => {
   const { user } = useContext(AuthContext);
-  const pdfRef = useRef(null);
+
 
   const [quotationNumber, setQuotationNumber] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
@@ -358,17 +358,16 @@ const QuotationTab = ({
           { position: 'top-right', duration: 4000 }
         );
 
-        if (pdfRef.current) {
-          try {
-            await generateQuotationPDF(
-              pdfRef.current,
-              `cotizacion_${response.data.correlativo_cotiza}.pdf`
-            );
-          } catch (pdfError) {
-             console.error('⚠️ Error al generar el PDF localmente:', pdfError);
-             toast.error('La cotización se registró, pero hubo un error generando el PDF.');
-          }
-        }
+        try {
+      await generateQuotationPDF(
+        null, 
+        `cotizacion_${response.data.correlativo_cotiza}.pdf`, 
+        getPdfData(response.data.correlativo_cotiza)
+      );
+    } catch (pdfError) {
+       console.error('⚠️ Error al generar el PDF localmente:', pdfError);
+       toast.error('La cotización se registró, pero hubo un error generando el PDF.');
+    }
 
         const nextResponse = await quotationService.getNextCorrelative();
         if (nextResponse.success) setQuotationNumber(nextResponse.data.correlative);
@@ -423,16 +422,44 @@ const QuotationTab = ({
     }
   };
 
+
+  // ── Helper para construir la estructura de datos que espera el nuevo jsPDF ──
+  const getPdfData = (numeroCotizacion = quotationNumber) => ({
+    quotation: {
+      fechac: new Date().toISOString(),
+      vendedor: user?.nombreCompleto || '',
+    },
+    selectedClient: {
+      ...selectedClient,
+      vendedor: user?.nombreCompleto || ''
+    },
+    quotationItems: quotationItems,
+    quotationNumber: numeroCotizacion,
+    currency: currency,
+  });
+
+
   const handlePreviewPDF = async () => {
-    if (!pdfRef.current) return;
-    await previewQuotationPDF(pdfRef.current);
-    toast.success('Vista previa PDF generada', { position: 'top-right' });
+    try {
+      const doc = await previewQuotationPDF(null, getPdfData());
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank'); // Abre directamente en una nueva pestaña sin frames
+      toast.success('Vista previa PDF generada', { position: 'top-right' });
+    } catch (error) {
+      console.error('Error generando vista previa:', error);
+      toast.error('Error al generar la vista previa');
+    }
   };
 
-  const handleDownloadPDF = async () => {
-    if (!pdfRef.current) return;
-    await generateQuotationPDF(pdfRef.current, `cotizacion_${quotationNumber}.pdf`);
-    toast.success('PDF descargado', { position: 'top-right' });
+ const handleDownloadPDF = async () => {
+    try {
+      await generateQuotationPDF(null, `cotizacion_${quotationNumber}.pdf`, getPdfData());
+      toast.success('PDF descargado', { position: 'top-right' });
+    } catch (error) {
+      console.error('Error descargando PDF:', error);
+      toast.error('Error al descargar el PDF');
+    }
   };
 
   // ── Guard: sin cliente ──────────────────────────────────────────────────
@@ -466,19 +493,7 @@ console.log('🔍 item stock fields:', quotationItems.map(i => ({
 
   return (
     <div className="space-y-8">
-      <PDFPreview
-        ref={pdfRef}
-        quotationItems={quotationItems}
-        subtotal={subtotal}
-        igv={igv}
-        total={total}
-        selectedClient={{
-    ...selectedClient,
-    vendedor: user?.nombreCompleto || ''   // ← agrega esto
-  }}
-        quotationNumber={quotationNumber}
-        currency={currency}
-      />
+      
 
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <h2 className="text-3xl font-extrabold tracking-tight text-gray-800">
