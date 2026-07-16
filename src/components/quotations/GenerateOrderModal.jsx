@@ -709,6 +709,7 @@ const handleAddressSelect = (addressId) => {
                 </label>
                 <input
                   type="text"
+                  maxLength={10}
                   value={formData.ordenCompra}
                   onChange={(e) => handleChange('ordenCompra', e.target.value)}
                   placeholder="OC-2025-0001"
