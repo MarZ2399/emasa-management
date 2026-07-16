@@ -3,7 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { companyData } from '../data/companyData.js';
 
 const IGV_RATE = 0.18;
-const WARRANTY_URL = 'https://www.emasa.pe/pdf/Politica_de_GarantiaEquiposEMASA.pdf';
+const WARRANTY_URL = 'https://www.emasa.pe/pdf/Politica_de_GarantiadeEquiposEMASA.pdf';
 
 const roundTo = (value, decimals = 2) => {
   const factor = 10 ** decimals;
@@ -286,7 +286,7 @@ const buildPdfDocument = async ({ quotation, selectedClient, quotationItems, quo
     });
 
     doc.setTextColor(0, 102, 204);
-    doc.textWithLink('Política de Garantía: https://www.emasa.pe/pdf/Politica_de_GarantiaEquiposEMASA.pdf', 5, y + 0, { url: WARRANTY_URL });
+    doc.textWithLink('Política de Garantía: https://www.emasa.pe/pdf/Politica_de_GarantiadeEquiposEMASA.pdf', 5, y + 0, { url: WARRANTY_URL });
 
     doc.setTextColor(17, 24, 39);
     doc.setFont('helvetica', 'bold');

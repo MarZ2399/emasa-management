@@ -14,6 +14,7 @@ const BillingModule = () => {
     hoy,
     data, total, loading, error, buscado,
     sinAcceso,
+    enCartera,
     buscar, limpiar,
     nombreInput,
     sugerencias,
@@ -201,29 +202,31 @@ const BillingModule = () => {
         )}
 
         {/* ── Sin acceso / Sin documentos ── */}
-        {buscado && !error && total === 0 && (
-          <div className="mt-4 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <ShieldAlert className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-red-800 text-sm">
-                {sinAcceso ? 'Cliente no encontrado en tu cartera' : 'Sin documentos en este período'}
-              </p>
-              <p className="text-red-600 text-xs mt-0.5">
-                {sinAcceso
-                  ? 'Este RUC no pertenece a tu cartera de clientes.'
-                  : 'No se encontraron documentos en el rango de fechas seleccionado.'}
-              </p>
-              {!sinAcceso && esFiltroFechaActivo && (
-                <button
-                  onClick={handleResetFecha}
-                  className="mt-2 text-xs text-blue-600 underline hover:text-blue-800"
-                >
-                  Volver a hoy
-                </button>
-              )}
-            </div>
-          </div>
-        )}
+{buscado && !error && total === 0 && (
+  <div className="mt-4 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+    <ShieldAlert className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+    <div>
+      <p className="font-semibold text-red-800 text-sm">
+        {enCartera === false
+          ? 'Cliente no encontrado en tu cartera'
+          : 'Sin documentos en este período'}
+      </p>
+      <p className="text-red-600 text-xs mt-0.5">
+        {enCartera === false
+          ? 'Este RUC no pertenece a tu cartera de clientes.'
+          : 'No se encontraron documentos en el rango de fechas seleccionado.'}
+      </p>
+      {enCartera !== false && esFiltroFechaActivo && (
+        <button
+          onClick={handleResetFecha}
+          className="mt-2 text-xs text-blue-600 underline hover:text-blue-800"
+        >
+          Volver a hoy
+        </button>
+      )}
+    </div>
+  </div>
+)}
       </div>
 
 {/* ── Estado de cuenta ── */}
@@ -232,7 +235,7 @@ const BillingModule = () => {
 )}
 
 {/* ── Lista de resultados ── */}
-{buscado && !loading && !sinAcceso && total > 0 && (
+{buscado && !loading && enCartera !== false && total > 0 && (
   <BillingList
     data={data}
     total={total}

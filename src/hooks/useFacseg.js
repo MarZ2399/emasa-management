@@ -36,6 +36,7 @@ export const useFacseg = () => {
   const [error, setError] = useState(null);
   const [buscado, setBuscado] = useState(false);
   const [sinAcceso, setSinAcceso] = useState(false);
+  const [enCartera, setEnCartera] = useState(null);
 
   // ── Buscador sensitivo por nombre ──────────────────────────────────────────
   const [nombreInput, setNombreInput] = useState('');
@@ -104,7 +105,7 @@ export const useFacseg = () => {
     setLoading(true);
 
     try {
-      const { total, data, sinAcceso } = await facsegService.getFacseg(
+      const { total, data, sinAcceso, enCartera } = await facsegService.getFacseg(
         rucTrim,
         fechaDesde,
         fechaHasta
@@ -114,6 +115,7 @@ export const useFacseg = () => {
       setTotal(total);
       setBuscado(true);
       setSinAcceso(sinAcceso ?? false);
+      setEnCartera(enCartera ?? null);
       setRucBuscado(rucTrim);
       setNombreBuscado(nombreInput);
     } catch (err) {
@@ -159,6 +161,7 @@ export const useFacseg = () => {
     error,
     buscado,
     sinAcceso,
+    enCartera,
 
     // acciones
     buscar,

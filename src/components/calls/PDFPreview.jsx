@@ -454,11 +454,11 @@ const PDFPreview = React.forwardRef(
           <div>
   Política de Garantía:{' '}
   <a
-    href="https://www.emasa.pe/pdf/Politica_de_GarantiaEquiposEMASA.pdf"
+    href="https://www.emasa.pe/pdf/Politica_de_GarantiadeEquiposEMASA.pdf"
     target="_blank"
     rel="noopener noreferrer"
   >
-    https://www.emasa.pe/pdf/Politica_de_GarantiaEquiposEMASA.pdf
+    https://www.emasa.pe/pdf/Politica_de_GarantiadeEquiposEMASA.pdf
   </a>
 </div>
         </div>
