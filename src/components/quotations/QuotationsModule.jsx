@@ -1,9 +1,10 @@
 // src/components/quotations/QuotationsModule.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useContext } from 'react';
 import {
   FileText, Search, Calendar, DollarSign, Package,
   Eye, Pencil, Loader, RefreshCw, Copy, Ban
 } from 'lucide-react';
+import { AuthContext } from '../../context/AuthContext';
 import QuotationEditModal from './QuotationEditModal';
 import QuotationStatusBadge from './QuotationStatusBadge';
 import QuotationPDFModal from './QuotationPDFModal';
@@ -62,10 +63,14 @@ const KPI_CARDS = [
 ];
 
 const QuotationsModule = () => {
+    const { user } = useContext(AuthContext);
+  const puedeFiltrarPorAsesor = user?.nivel_acceso === 0 || user?.nivel_acceso === 1;
+
   const [quotations, setQuotations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [asesorFilter, setAsesorFilter] = useState('all');
 
   // ── Filtros de fecha ──────────────────────────────────────────
   const today = new Date().toISOString().split('T')[0];
@@ -516,19 +521,25 @@ const QuotationsModule = () => {
 
   // ── Filtrado por búsqueda + estado + fecha ────────────────────
   const filteredQuotations = quotations.filter(q => {
-    const matchesSearch =
-      q.numeroCotizacion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      q.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(q.ruc).includes(searchTerm);
+  const term = searchTerm.trim().toLowerCase();
 
-    const matchesStatus = statusFilter === 'all' || q.estado === statusFilter;
+  const matchesSearch =
+    !term ||
+    q.numeroCotizacion.toLowerCase().includes(term) ||
+    q.cliente.toLowerCase().includes(term) ||
+    String(q.ruc).includes(term) ||
+    (q.numeroRegistro != null && String(q.numeroRegistro).includes(term)) ||
+    (q.numeroFolio != null && String(q.numeroFolio).includes(term));
 
-    const qDate = q.fecha;
-    const matchesDateFrom = !dateFrom || qDate >= dateFrom;
-    const matchesDateTo = !dateTo || qDate <= dateTo;
+  const matchesStatus = statusFilter === 'all' || q.estado === statusFilter;
+  const matchesAsesor = !puedeFiltrarPorAsesor || asesorFilter === 'all' || q.asesor === asesorFilter;
 
-    return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo;
-  });
+  const qDate = q.fecha;
+  const matchesDateFrom = !dateFrom || qDate >= dateFrom;
+  const matchesDateTo = !dateTo || qDate <= dateTo;
+
+  return matchesSearch && matchesStatus && matchesAsesor && matchesDateFrom && matchesDateTo;
+});
 
   // ── Paginación ────────────────────────────────────────────────
   const totalPages = Math.max(1, Math.ceil(filteredQuotations.length / PAGE_SIZE));
@@ -539,9 +550,19 @@ const QuotationsModule = () => {
 
   // Resetear a página 1 cuando cambian filtros
   const handleSearchChange = (v) => { setSearchTerm(v); setCurrentPage(1); };
-  const handleStatusChange = (v) => { setStatusFilter(v); setCurrentPage(1); };
-  const handleDateFromChange = (v) => { setDateFrom(v); setCurrentPage(1); };
-  const handleDateToChange = (v) => { setDateTo(v); setCurrentPage(1); };
+const handleStatusChange = (v) => { setStatusFilter(v); setCurrentPage(1); };
+const handleAsesorChange = (v) => { setAsesorFilter(v); setCurrentPage(1); };
+const handleDateFromChange = (v) => { setDateFrom(v); setCurrentPage(1); };
+const handleDateToChange = (v) => { setDateTo(v); setCurrentPage(1); };
+
+const asesoresDisponibles = useMemo(() => {
+  const unicos = new Set(
+    quotations
+      .map(q => q.asesor)
+      .filter(a => a && a !== 'N/A')
+  );
+  return Array.from(unicos).sort((a, b) => a.localeCompare(b));
+}, [quotations]);
 
   // ── Página de carga inicial ───────────────────────────────────
   if (loading && quotations.length === 0) {
@@ -573,36 +594,51 @@ const QuotationsModule = () => {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
-                type="text"
-                placeholder="Buscar por N° cotización, cliente o RUC..."
-                value={searchTerm}
-                onChange={e => handleSearchChange(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
-              />
+  type="text"
+  placeholder="Buscar por N° cotización, pedido, folio, cliente o RUC..."
+  value={searchTerm}
+  onChange={e => handleSearchChange(e.target.value)}
+  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+/>
             </div>
 
             <div className="md:w-56">
-              <select
-                value={statusFilter}
-                onChange={e => handleStatusChange(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
-              >
-                <option value="all">Todos los estados</option>
-                <option value="pendiente">Pendiente</option>
-                <option value="enviado">Enviado al AS400</option>
-                <option value="anulado">Cotización Anulada</option>
-              </select>
-            </div>
+  <select
+    value={statusFilter}
+    onChange={e => handleStatusChange(e.target.value)}
+    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+  >
+    <option value="all">Todos los estados</option>
+    <option value="pendiente">Pendiente</option>
+    <option value="enviado">Enviado al AS400</option>
+    <option value="anulado">Cotización Anulada</option>
+  </select>
+</div>
 
-            <button
-              onClick={handleRefresh}
-              disabled={loading}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold text-sm disabled:opacity-50 whitespace-nowrap"
-              title="Actualizar lista"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Actualizar
-            </button>
+{puedeFiltrarPorAsesor && (
+  <div className="md:w-56">
+    <select
+      value={asesorFilter}
+      onChange={e => handleAsesorChange(e.target.value)}
+      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+    >
+      <option value="all">Todos los asesores</option>
+      {asesoresDisponibles.map(asesor => (
+        <option key={asesor} value={asesor}>{asesor}</option>
+      ))}
+    </select>
+  </div>
+)}
+
+<button
+  onClick={handleRefresh}
+  disabled={loading}
+  className="inline-flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold text-sm disabled:opacity-50 whitespace-nowrap"
+  title="Actualizar lista"
+>
+  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+  Actualizar
+</button>
           </div>
 
           {/* Fila 2: rango de fechas */}
