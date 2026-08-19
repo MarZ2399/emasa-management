@@ -1188,14 +1188,18 @@ const handleAddressSelect = (addressId) => {
             </h3>
 
             <div>
-              <textarea
-                value={formData.observaciones}
-                onChange={(e) => handleChange('observaciones', e.target.value)}
-                placeholder="Indicaciones especiales, horarios de entrega, etc..."
-                rows={3}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent resize-none text-sm"
-              />
-            </div>
+  <textarea
+    value={formData.observaciones}
+    onChange={(e) => handleChange('observaciones', e.target.value.slice(0, 110))}
+    maxLength={110}
+    placeholder="Indicaciones especiales, horarios de entrega, etc..."
+    rows={3}
+    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent resize-none text-sm"
+  />
+  <p className="text-xs text-gray-400 mt-1 text-right">
+    {formData.observaciones.length}/110
+  </p>
+</div>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t">
