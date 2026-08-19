@@ -25,6 +25,7 @@ const CallsModule = () => {
   const [nombreProducto,     setNombreProducto]     = useState('');
   const [hasSearched,        setHasSearched]        = useState(false);
   const [autoSearchTrigger,  setAutoSearchTrigger]  = useState(0);
+  const [productosBusqueda,  setProductosBusqueda]  = useState([]);
 
   //  Estado elevado — sobrevive al cambio de tabs
   const codAlmacenes = user?.empresa?.cod_almacenes || [];
@@ -40,6 +41,7 @@ const CallsModule = () => {
       setCodigoProducto('');
       setNombreProducto('');
       setHasSearched(false);
+      setProductosBusqueda([]);
     }
 
     setSelectedClient(clientData);
@@ -60,6 +62,7 @@ const CallsModule = () => {
     setCodigoProducto('');
     setNombreProducto('');
     setHasSearched(false);
+    setProductosBusqueda([]);
     setResetClientSearch(prev => prev + 1);
     //  Resetear almacén al completar cotización
     setAlmacenSeleccionado(
@@ -198,6 +201,8 @@ const CallsModule = () => {
                     //  Props elevados — persisten entre cambios de tab
                     almacenSeleccionado={almacenSeleccionado}
                     setAlmacenSeleccionado={setAlmacenSeleccionado}
+                    productos={productosBusqueda}
+  setProductos={setProductosBusqueda}
                   />
                 </>
               )}

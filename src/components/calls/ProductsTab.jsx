@@ -50,12 +50,14 @@ const ProductsTab = ({
   autoSearchTrigger,
   almacenSeleccionado,
   setAlmacenSeleccionado,
+   productos, 
+   setProductos,
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [productsPerPage] = useState(10);
-  const [productos, setProductos] = useState([]);
+  // const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -408,7 +410,7 @@ const puedeBuscar = tieneCodigo || tieneNombre || tieneAplicacion;
 
     toast.success(`"${product.codigo}" agregado a la cotización`, { position: 'top-right' });
 
-    handleClearSearch();
+    // handleClearSearch();
   };
 
 
