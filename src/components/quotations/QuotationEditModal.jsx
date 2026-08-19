@@ -197,35 +197,67 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                     quot.codnum_alm ?? ''
                   ).trim();
 
+                  // const stockRes = await productService.searchByCodigo(p.codigo?.trim());
+
+                  // if (stockRes.success && stockRes.data?.length > 0) {
+                  //   const prod = stockRes.data[0];
+                  //   const stockArr = Array.isArray(prod.stock) ? prod.stock : [];
+
+                  //   const almacenStock = stockArr.find(s => {
+                  //     const txt = String(s.almacencod ?? '').trim().toUpperCase();
+                  //     const num = String(s.almacencod2 ?? '').trim();
+
+                  //     return (
+                  //       (codAlmacenTxt && txt === codAlmacenTxt) ||
+                  //       (codAlmacenNum && num === codAlmacenNum)
+                  //     );
+                  //   });
+
+                  //   // stockDisponible = Number(almacenStock?.stock ?? almacenStock?.cantidad ?? 0);
+                  //   stockDisponible = Number(almacenStock?.disponible ?? almacenStock?.stock ?? 0);
+
+                  //   console.log('📦 Stock resuelto en edición desde cabecera:', {
+                  //     producto: p.codigo,
+                  //     codAlmacenTxt,
+                  //     codAlmacenNum,
+                  //     almacenEncontrado: almacenStock,
+                  //     stockDisponible,
+                  //   });
+                  // } else {
+                  //   stockDisponible = 0;
+                  // }
                   const stockRes = await productService.searchByCodigo(p.codigo?.trim());
+if (stockRes.success && stockRes.data?.length > 0) {
+  const codigoBuscado = String(p.codigo ?? '').trim().toUpperCase();
 
-                  if (stockRes.success && stockRes.data?.length > 0) {
-                    const prod = stockRes.data[0];
-                    const stockArr = Array.isArray(prod.stock) ? prod.stock : [];
+  const prod =
+    stockRes.data.find(
+      (item) => String(item.producto?.codigo ?? '').trim().toUpperCase() === codigoBuscado
+    ) ?? stockRes.data[0];
 
-                    const almacenStock = stockArr.find(s => {
-                      const txt = String(s.almacencod ?? '').trim().toUpperCase();
-                      const num = String(s.almacencod2 ?? '').trim();
+  const stockArr = Array.isArray(prod.stock) ? prod.stock : [];
+  const almacenStock = stockArr.find(s => {
+    const txt = String(s.almacencod ?? '').trim().toUpperCase();
+    const num = String(s.almacencod2 ?? '').trim();
+    return (
+      (codAlmacenTxt && txt === codAlmacenTxt) ||
+      (codAlmacenNum && num === codAlmacenNum)
+    );
+  });
 
-                      return (
-                        (codAlmacenTxt && txt === codAlmacenTxt) ||
-                        (codAlmacenNum && num === codAlmacenNum)
-                      );
-                    });
+  stockDisponible = Number(almacenStock?.disponible ?? almacenStock?.stock ?? 0);
 
-                    // stockDisponible = Number(almacenStock?.stock ?? almacenStock?.cantidad ?? 0);
-                    stockDisponible = Number(almacenStock?.disponible ?? almacenStock?.stock ?? 0);
-
-                    console.log('📦 Stock resuelto en edición desde cabecera:', {
-                      producto: p.codigo,
-                      codAlmacenTxt,
-                      codAlmacenNum,
-                      almacenEncontrado: almacenStock,
-                      stockDisponible,
-                    });
-                  } else {
-                    stockDisponible = 0;
-                  }
+  console.log('📦 Stock resuelto en edición desde cabecera:', {
+    producto: p.codigo,
+    productoEncontrado: prod.producto?.codigo,
+    codAlmacenTxt,
+    codAlmacenNum,
+    almacenEncontrado: almacenStock,
+    stockDisponible,
+  });
+} else {
+  stockDisponible = 0;
+}
                 } catch (stockErr) {
                   console.error(`❌ Error obteniendo stock de ${p.codigo}:`, stockErr);
                   stockDisponible = 0;
