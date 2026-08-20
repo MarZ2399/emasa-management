@@ -196,18 +196,24 @@ const ProductSelectorModal = ({
     });
 
     try {
-      const productsWithPriceData = await Promise.all(
-        productList.map(async (product) => {
-          try {
-            if (!product.Codigo || product.Codigo.trim() === '') return fallback(product);
+      const codAlmacen =
+  selectedWarehouse?.cod_alm ??
+  selectedWarehouse?.codigo ??
+  null;
 
-            const precioResponse = await precioService.obtenerPrecio(
-              selectedClient.ruc,
-              product.Codigo.trim(),
-              1
-            );
+const productsWithPriceData = await Promise.all(
+  productList.map(async (product) => {
+    try {
+      if (!product.Codigo || product.Codigo.trim() === '') return fallback(product);
 
-            if (precioResponse.success && precioResponse.data) {
+      const precioResponse = await precioService.obtenerPrecio(
+        selectedClient.ruc,
+        product.Codigo.trim(),
+        1,
+        codAlmacen
+      );
+
+      if (precioResponse.success && precioResponse.data) {
               const data = precioResponse.data;
               const descuentos = data.descuentos || {};
               const importes = data.importes || {};

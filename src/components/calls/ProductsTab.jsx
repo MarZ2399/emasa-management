@@ -157,7 +157,7 @@ const puedeBuscar = tieneCodigo || tieneNombre || tieneAplicacion;
 
   const fetchPreciosRow = async (producto) => {
     try {
-      const response = await precioService.obtenerPrecio(clienteRuc, producto.codigo.trim(), 1);
+      const response = await precioService.obtenerPrecio(clienteRuc, producto.codigo.trim(), 1,almacenSeleccionado?.cod ?? null);
       if (response.success && response.data) {
         updateProductQuick(producto.codigo, {
           loading: false,
@@ -309,8 +309,22 @@ const puedeBuscar = tieneCodigo || tieneNombre || tieneAplicacion;
     const flag = qa?.preciosData?.flag?.trim();
     const flagT = flag === 'T';
     const flagX = flag === 'X';
-    const minD5 = flagT ? (qa?.preciosData?.descuentos?.de04 ?? 0) : 0;
-    const maxD5 = flagT ? (qa?.preciosData?.descuentos?.de05 ?? 100) : 100;
+    const minD5 = flagT
+  ? Number(qa?.preciosData?.descuentos?.de04 ?? 0)
+  : 0;
+
+// Solo para mostrar en pantalla el rango original DE04–DE05.
+const maxD5Visual = flagT
+  ? Number(qa?.preciosData?.descuentos?.de05 ?? 100)
+  : 100;
+
+// DE03 es el máximo interno adicional.
+// Si viene vacío, null, undefined o 0, no se considera.
+const de03 = Number(qa?.preciosData?.descuentos?.de03 ?? 0);
+
+const maxD5Validacion = flagT && de03 > 0
+  ? de03
+  : maxD5Visual;
 
     const stockReason = getStockBlockReason(product);
     if (stockReason) {
@@ -342,11 +356,17 @@ const puedeBuscar = tieneCodigo || tieneNombre || tieneAplicacion;
       const isEmpty = raw === '' || raw == null;
       if (!isEmpty) {
         const d5 = Number(raw);
-        if (d5 < minD5 || d5 > maxD5) {
-          toast.error(`El 5to descuento debe estar entre ${minD5}% y ${maxD5}%.`,
-            { position: 'top-right', duration: 4000, icon: '⚠️' });
-          return;
-        }
+        if (d5 < minD5 || d5 > maxD5Validacion) {
+  toast.error(
+    `El 5to descuento debe estar entre ${minD5}% y ${maxD5Validacion}%.`,
+    {
+      position: 'top-right',
+      duration: 4000,
+      icon: '⚠️',
+    }
+  );
+  return;
+}
       }
     }
 
@@ -600,8 +620,21 @@ const puedeBuscar = tieneCodigo || tieneNombre || tieneAplicacion;
                       const flag = qa?.preciosData?.flag?.trim();
                       const flagT = flag === 'T';
                       const flagX = flag === 'X';
-                      const minD5 = flagT ? (qa?.preciosData?.descuentos?.de04 ?? 0) : 0;
-                      const maxD5 = flagT ? (qa?.preciosData?.descuentos?.de05 ?? 100) : 100;
+                      const minD5 = flagT
+  ? Number(qa?.preciosData?.descuentos?.de04 ?? 0)
+  : 0;
+
+// Rango visible junto al input.
+const maxD5Visual = flagT
+  ? Number(qa?.preciosData?.descuentos?.de05 ?? 100)
+  : 100;
+
+// Máximo efectivo para onChange, onBlur y confirmación.
+const de03 = Number(qa?.preciosData?.descuentos?.de03 ?? 0);
+
+const maxD5Validacion = flagT && de03 > 0
+  ? de03
+  : maxD5Visual;
 
                       return (
                         <tr
@@ -682,9 +715,10 @@ const puedeBuscar = tieneCodigo || tieneNombre || tieneAplicacion;
                                       }
                                       const num = Number(raw);
                                       const capped = flagT
-                                        ? (num > maxD5 ? String(maxD5) : raw)
-                                        : (num > 100 ? '100' : raw);
-                                      updateProductQuick(product.codigo, { discount5: capped });
+  ? (num > maxD5Validacion ? String(maxD5Validacion) : raw)
+  : (num > 100 ? '100' : raw);
+
+updateProductQuick(product.codigo, { discount5: capped });
                                     }}
                                     onBlur={() => {
                                       if (flagX) return;
@@ -692,9 +726,10 @@ const puedeBuscar = tieneCodigo || tieneNombre || tieneAplicacion;
                                       if (current === '' || current == null) return;
                                       const num = Number(current) || 0;
                                       const val = flagT
-                                        ? Math.min(maxD5, Math.max(minD5, num))
-                                        : Math.min(100, Math.max(0, num));
-                                      updateProductQuick(product.codigo, { discount5: val });
+  ? Math.min(maxD5Validacion, Math.max(minD5, num))
+  : Math.min(100, Math.max(0, num));
+
+updateProductQuick(product.codigo, { discount5: val });
                                     }}
                                     className={`w-12 text-center text-sm font-bold border rounded px-1 py-0.5 focus:ring-1 outline-none ${
                                       flagX
@@ -712,10 +747,10 @@ const puedeBuscar = tieneCodigo || tieneNombre || tieneAplicacion;
                                   </span>
                                 )}
                                 {flagT && (
-                                  <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">
-                                    {minD5}% – {maxD5}%
-                                  </span>
-                                )}
+  <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">
+    {minD5}% – {maxD5Visual}%
+  </span>
+)}
                               </div>
                             </PriceCell>
                           </td>

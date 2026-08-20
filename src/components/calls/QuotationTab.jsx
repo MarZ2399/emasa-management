@@ -548,12 +548,25 @@ console.log('🔍 item stock fields:', quotationItems.map(i => ({
               </tr>
             ) : (
               (quotationItems ?? []).map((item, idx) => {
-                const flag = item.preciosDetalle?.flag?.trim();
-                const flagT = flag === 'T';
-                const flagX = flag === 'X';
-                const minD5 = flagT ? (item.preciosDetalle?.descuentos?.de04 ?? 0) : 0;
-                const maxD5 = flagT ? (item.preciosDetalle?.descuentos?.de05 ?? 100) : 100;
+                const flag = item.preciosDetalle?.flag?.trim() ?? '';
+const flagT = flag === 'T';
+const flagX = flag === 'X';
 
+const minD5 = flagT
+  ? Number(item.preciosDetalle?.descuentos?.de04 ?? 0)
+  : 0;
+
+// Rango que se muestra al usuario: DE04–DE05.
+const maxD5Visual = flagT
+  ? Number(item.preciosDetalle?.descuentos?.de05 ?? 100)
+  : 100;
+
+// DE03 solo se toma para validación si tiene un valor mayor a cero.
+const de03 = Number(item.preciosDetalle?.descuentos?.de03 ?? 0);
+
+const maxD5Validacion = flagT && de03 > 0
+  ? de03
+  : maxD5Visual;
                 const precioLista = getPrecioListaByFlag(item);
 
                 const discount1 = Number(item.discount1) || 0;
@@ -617,9 +630,10 @@ console.log('🔍 item stock fields:', quotationItems.map(i => ({
                               }
                               const num = Number(raw);
                               const capped = flagT
-                                ? (num > maxD5 ? String(maxD5) : raw)
-                                : (num > 100 ? '100' : raw);
-                              setItemField(idx, 'discount5', capped);
+  ? (num > maxD5Validacion ? String(maxD5Validacion) : raw)
+  : (num > 100 ? '100' : raw);
+
+setItemField(idx, 'discount5', capped);
                             }}
                             onBlur={() => {
                               if (flagX) return;
@@ -627,10 +641,11 @@ console.log('🔍 item stock fields:', quotationItems.map(i => ({
                               if (current === '' || current == null) return;
                               const num = Number(current) || 0;
                               const val = flagT
-                                ? Math.min(maxD5, Math.max(minD5, num))
-                                : Math.min(100, Math.max(0, num));
-                              setItemField(idx, 'discount5', val);
-                              normalizeItemAtIndex(idx);
+  ? Math.min(maxD5Validacion, Math.max(minD5, num))
+  : Math.min(100, Math.max(0, num));
+
+setItemField(idx, 'discount5', val);
+normalizeItemAtIndex(idx);
                             }}
                             className={`w-16 rounded px-2 py-1 text-center font-semibold focus:ring-1 outline-none border ${
                               flagX
@@ -648,10 +663,10 @@ console.log('🔍 item stock fields:', quotationItems.map(i => ({
                           </span>
                         )}
                         {flagT && (
-                          <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">
-                            {minD5}% – {maxD5}%
-                          </span>
-                        )}
+  <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">
+    {minD5}% – {maxD5Visual}%
+  </span>
+)}
                       </div>
                     </td>
 

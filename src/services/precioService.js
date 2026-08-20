@@ -7,11 +7,12 @@ export const precioService = {
    * @param {string} ruc - RUC del cliente (puede tener 10 u 11 dígitos)
    * @param {string} codigo - Código del producto
    * @param {number} cantidad - Cantidad solicitada
+   * * @param {string} codAlmacen  - Cantidad solicitada
    */
-  async obtenerPrecio(ruc, codigo, cantidad) {
+ async obtenerPrecio(ruc, codigo, cantidad, codAlmacen = null) {
     try {
       console.log('🔍 === DEBUG PRECIO SERVICE ===');
-      console.log('📦 Parámetros originales:', { ruc, codigo, cantidad });
+      console.log('📦 Parámetros originales:', { ruc, codigo, cantidad, codAlmacen });
 
       // Validaciones básicas
       if (!ruc || !codigo || !cantidad) {
@@ -23,37 +24,39 @@ export const precioService = {
         };
       }
 
-      //  Normalizar RUC a 10 dígitos (quitar dígito verificador si existe)
+      // Normalizar RUC a 10 dígitos (quitar dígito verificador si existe)
       let rucNormalizado = ruc.toString().replace(/[-\s]/g, '');
       
       if (rucNormalizado.length === 11) {
         rucNormalizado = rucNormalizado.substring(0, 10);
         console.log('📦 RUC normalizado: 11 → 10 dígitos:', rucNormalizado);
       } else if (rucNormalizado.length === 10) {
-        console.log(' RUC ya tiene 10 dígitos:', rucNormalizado);
+        console.log('RUC ya tiene 10 dígitos:', rucNormalizado);
       } else {
         console.warn('⚠️ RUC con longitud inusual:', rucNormalizado.length);
       }
 
-      //  Limpiar código del producto
+      // Limpiar código del producto
       const codigoLimpio = codigo.trim();
+
+      // Limpiar código de almacén (opcional)
+      const codAlmacenLimpio = codAlmacen ? String(codAlmacen).trim().toUpperCase() : null;
 
       const datos = {
         ruc: rucNormalizado,
         codigo: codigoLimpio,
-        cantidad: cantidad
+        cantidad: cantidad,
+        codAlmacen: codAlmacenLimpio
       };
 
       console.log('📡 Endpoint:', '/precios/precio');
       console.log('📦 Datos finales a enviar:', datos);
 
-      // Hacer la petición
       const response = await api.post('/precios/precio', datos);
 
-      console.log(' Respuesta del servidor:', response.data);
+      console.log('Respuesta del servidor:', response.data);
       console.log('=== FIN DEBUG ===\n');
 
-      // Validar respuesta
       if (response.data && response.data.success) {
         return response.data;
       } else {
@@ -84,9 +87,6 @@ export const precioService = {
   }
 };
 
-//  Export adicional para compatibilidad con ProductSelectorModal
-export const getPrecio = async ({ Clie, Prod, Cant = 1 }) => {
-  return await precioService.obtenerPrecio(Clie, Prod, Cant);
+export const getPrecio = async ({ Clie, Prod, Cant = 1, Almacen = null }) => {
+  return await precioService.obtenerPrecio(Clie, Prod, Cant, Almacen);
 };
-
-export default precioService;

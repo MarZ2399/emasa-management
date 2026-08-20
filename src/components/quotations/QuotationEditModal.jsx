@@ -175,7 +175,8 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
       const enriched = await Promise.all(
         (quot.productos || []).map(async (p) => {
           try {
-            const res = await precioService.obtenerPrecio(quot.ruc, p.codigo?.trim(), 1);
+            console.log('📦 Almacén usado en edición:', quot.cod_alm, '| RUC:', quot.ruc, '| Código:', p.codigo);
+            const res = await precioService.obtenerPrecio(quot.ruc, p.codigo?.trim(), 1,quot.cod_alm ?? null);
 
             if (res.success && res.data) {
               const data = res.data;
