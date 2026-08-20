@@ -387,9 +387,19 @@ if (stockRes.success && stockRes.data?.length > 0) {
       const flag = product.preciosDetalle?.flag?.trim() ?? product.flag?.trim() ?? '';
       const flagT = flag === 'T';
       const flagX = flag === 'X';
-      const minD5 = flagT ? (product.preciosDetalle?.descuentos?.de04 ?? product.discount4 ?? 0) : 0;
-      const maxD5 = flagT ? (product.preciosDetalle?.descuentos?.de05 ?? product.discount4Max ?? 100) : 100;
+      const minD5 = flagT
+  ? Number(product.preciosDetalle?.descuentos?.de04 ?? product.discount4 ?? 0)
+  : 0;
 
+const maxD5Visual = flagT
+  ? Number(product.preciosDetalle?.descuentos?.de05 ?? product.discount4Max ?? 100)
+  : 100;
+
+const de03 = Number(product.preciosDetalle?.descuentos?.de03 ?? 0);
+
+const maxD5Validacion = flagT && de03 > 0
+  ? de03
+  : maxD5Visual;
       if (flagX) {
         product.discount5 = 0;
       } else {
@@ -399,8 +409,8 @@ if (stockRes.success && stockRes.data?.length > 0) {
         } else {
           const num = Number(current) || 0;
           product.discount5 = flagT
-            ? Math.min(maxD5, Math.max(minD5, num))
-            : Math.min(100, Math.max(0, num));
+  ? Math.min(maxD5Validacion, Math.max(minD5, num))
+  : Math.min(100, Math.max(0, num));
         }
       }
 
@@ -513,17 +523,30 @@ if (stockRes.success && stockRes.data?.length > 0) {
       const flag = p.preciosDetalle?.flag?.trim() ?? p.flag?.trim() ?? '';
       const flagT = flag === 'T';
       const flagX = flag === 'X';
-      const minD5 = flagT ? (p.preciosDetalle?.descuentos?.de04 ?? p.discount4 ?? 0) : 0;
-      const maxD5 = flagT ? (p.preciosDetalle?.descuentos?.de05 ?? 100) : 100;
-      const d5 = Number(p.discount5) || 0;
+      const minD5 = flagT
+  ? Number(p.preciosDetalle?.descuentos?.de04 ?? p.discount4 ?? 0)
+  : 0;
+
+const maxD5Visual = flagT
+  ? Number(p.preciosDetalle?.descuentos?.de05 ?? 100)
+  : 100;
+
+const de03 = Number(p.preciosDetalle?.descuentos?.de03 ?? 0);
+
+const maxD5Validacion = flagT && de03 > 0
+  ? de03
+  : maxD5Visual;
+
+const d5 = Number(p.discount5) || 0;
 
       if (flagX && d5 !== 0) {
         newErrors[`producto_${i}_d5`] = `Ítem ${i + 1}: no permite descuento adicional.`;
       }
 
-      if (flagT && (d5 < minD5 || d5 > maxD5)) {
-        newErrors[`producto_${i}_d5`] = `Ítem ${i + 1}: 5to descuento debe estar entre ${minD5}% y ${maxD5}%.`;
-      }
+      if (flagT && (d5 < minD5 || d5 > maxD5Validacion)) {
+  newErrors[`producto_${i}_d5`] =
+    `Ítem ${i + 1}: 5to descuento debe estar entre ${minD5}% y ${maxD5Validacion}%.`;
+}
 
       // const maxStock = p.stock ?? 0;
       const maxStock = p.disponible ?? p.stock ?? 0;
@@ -754,9 +777,19 @@ if (primerErrorStockKey) {
                       const flag = p.preciosDetalle?.flag?.trim() ?? p.flag?.trim() ?? '';
                       const flagT = flag === 'T';
                       const flagX = flag === 'X';
-                      const minD5 = flagT ? (p.preciosDetalle?.descuentos?.de04 ?? p.discount4 ?? 0) : 0;
-                      const maxD5 = flagT ? (p.preciosDetalle?.descuentos?.de05 ?? 100) : 100;
+                      const minD5 = flagT
+  ? Number(p.preciosDetalle?.descuentos?.de04 ?? p.discount4 ?? 0)
+  : 0;
 
+const maxD5Visual = flagT
+  ? Number(p.preciosDetalle?.descuentos?.de05 ?? 100)
+  : 100;
+
+const de03 = Number(p.preciosDetalle?.descuentos?.de03 ?? 0);
+
+const maxD5Validacion = flagT && de03 > 0
+  ? de03
+  : maxD5Visual;
                       return (
                         <tr key={p.id || index} className="hover:bg-gray-50 transition">
                           <td className="px-3 py-2 text-center text-gray-500 font-semibold">
@@ -840,8 +873,8 @@ if (primerErrorStockKey) {
 
         const num = Number(current) || 0;
         const val = flagT
-          ? Math.min(maxD5, Math.max(minD5, num))
-          : Math.min(100, Math.max(0, num));
+  ? Math.min(maxD5Validacion, Math.max(minD5, num))
+  : Math.min(100, Math.max(0, num));
 
         handleProductChange(index, 'discount5', val);
 
@@ -867,10 +900,10 @@ if (primerErrorStockKey) {
                                 </span>
                               )}
                               {flagT && (
-                                <span className="text-[10px] font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1">
-                                  {minD5}%–{maxD5}%
-                                </span>
-                              )}
+  <span className="text-[10px] font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1">
+    {minD5}%–{maxD5Visual}%
+  </span>
+)}
                               {errors[`producto_${index}_d5`] && (
                                 <span className="text-[10px] text-red-600">
                                   {errors[`producto_${index}_d5`]}
