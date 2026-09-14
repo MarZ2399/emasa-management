@@ -3,7 +3,7 @@ import React, { useRef, useState, useEffect, useContext } from 'react';
 import { Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { previewQuotationPDF, generateQuotationPDF } from '../../utils/pdfGenerator';
-
+import { precioService } from '../../services/precioService';
 import quotationService from '../../services/quotationService';
 import { logActivity, EVENTOS } from '../../services/activityLogService';
 import { AuthContext } from '../../context/AuthContext';
@@ -103,6 +103,47 @@ const QuotationTab = ({
     };
     fetchNextCorrelative();
   }, []);
+
+  // Ref para marcar qué códigos ya están en curso o resueltos,
+  // SIN depender del array quotationItems (evita reentradas del efecto).
+  const preciosEnCursoRef = useRef(new Set());
+
+  useEffect(() => {
+    const pendientes = (quotationItems ?? []).filter(
+      item => item.codigo && !item.preciosDetalle && !preciosEnCursoRef.current.has(item.codigo)
+    );
+    if (pendientes.length === 0) return;
+
+    pendientes.forEach((item) => {
+      preciosEnCursoRef.current.add(item.codigo);
+
+      (async () => {
+        try {
+          const response = await precioService.obtenerPrecio(
+            selectedClient?.ruc,
+            item.codigo?.trim(),
+            item.quantity || 1,
+            almacenCotizacion?.cod ?? null
+          );
+          if (response.success && response.data) {
+            setQuotationItems(items =>
+              items.map(i => {
+                if (i.codigo !== item.codigo) return i;
+                const updated = {
+                  ...i,
+                  preciosDetalle: response.data,
+                  discount1: response.data?.descuentos?.de01 || 0,
+                };
+                return normalizeItem(updated);
+              })
+            );
+          }
+        } catch (err) {
+          console.error('❌ Error al obtener descuentos AS400 para', item.codigo, err);
+        }
+      })();
+    });
+  }, [quotationItems, selectedClient?.ruc, almacenCotizacion?.cod]);
 
   // ── Normalizar item con cálculo exacto / visual ─────────────────────────
   const normalizeItem = (item) => {
@@ -598,15 +639,21 @@ const maxD5Validacion = flagT && de03 > 0
                       {currencySymbol} {precioLista.toFixed(2)}
                     </td>
 
-                    <td style={{ width: 130 }} className="p-4 text-center">
+                                        <td style={{ width: 130 }} className="p-4 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <input
-                          type="text"
-                          value={discount1}
-                          readOnly
-                          className="w-16 bg-indigo-50 border border-indigo-200 rounded px-2 py-1 text-center font-semibold text-indigo-700"
-                        />
-                        <span className="text-sm text-gray-500">%</span>
+                          {!item.preciosDetalle ? (
+                          <span className="text-xs text-gray-400">Cargando...</span>
+                        ) : (
+                          <>
+                            <input
+                              type="text"
+                              value={discount1}
+                              readOnly
+                              className="w-16 bg-indigo-50 border border-indigo-200 rounded px-2 py-1 text-center font-semibold text-indigo-700"
+                            />
+                            <span className="text-sm text-gray-500">%</span>
+                          </>
+                        )}
                       </div>
                     </td>
 

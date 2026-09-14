@@ -259,7 +259,8 @@ const puedeBuscar = tieneCodigo || tieneNombre || tieneAplicacion;
 
           return {
             ...base,
-            quick: { loading: true, error: null, preciosData: null, quantity: 1, discount5: 0 }
+            // quick: { loading: true, error: null, preciosData: null, quantity: 1, discount5: 0 }
+            quick: { loading: false, error: null, preciosData: null, quantity: 1, discount5: 0 }
           };
         });
 
@@ -267,9 +268,10 @@ const puedeBuscar = tieneCodigo || tieneNombre || tieneAplicacion;
 
         if (productosFormateados.length === 0) {
           setError('No se encontraron productos con esos criterios');
-        } else {
-          productosFormateados.forEach(p => fetchPreciosRow(p));
-        }
+        } 
+        // else {
+        //   productosFormateados.forEach(p => fetchPreciosRow(p));
+        // }
       } else {
         setError(response.msgerror || 'Error al buscar productos');
         setProductos([]);
@@ -306,35 +308,74 @@ const puedeBuscar = tieneCodigo || tieneNombre || tieneAplicacion;
   const handleConfirm = (product) => {
     const qa = product.quick;
 
-    const flag = qa?.preciosData?.flag?.trim();
-    const flagT = flag === 'T';
-    const flagX = flag === 'X';
-    const minD5 = flagT
-  ? Number(qa?.preciosData?.descuentos?.de04 ?? 0)
-  : 0;
+//     const flag = qa?.preciosData?.flag?.trim();
+//     const flagT = flag === 'T';
+//     const flagX = flag === 'X';
+//     const minD5 = flagT
+//   ? Number(qa?.preciosData?.descuentos?.de04 ?? 0)
+//   : 0;
 
-// Solo para mostrar en pantalla el rango original DE04–DE05.
-const maxD5Visual = flagT
-  ? Number(qa?.preciosData?.descuentos?.de05 ?? 100)
-  : 100;
+// // Solo para mostrar en pantalla el rango original DE04–DE05.
+// const maxD5Visual = flagT
+//   ? Number(qa?.preciosData?.descuentos?.de05 ?? 100)
+//   : 100;
 
-// DE03 es el máximo interno adicional.
-// Si viene vacío, null, undefined o 0, no se considera.
-const de03 = Number(qa?.preciosData?.descuentos?.de03 ?? 0);
+// // DE03 es el máximo interno adicional.
+// // Si viene vacío, null, undefined o 0, no se considera.
+// const de03 = Number(qa?.preciosData?.descuentos?.de03 ?? 0);
 
-const maxD5Validacion = flagT && de03 > 0
-  ? de03
-  : maxD5Visual;
+// const maxD5Validacion = flagT && de03 > 0
+//   ? de03
+//   : maxD5Visual;
+
+//     const stockReason = getStockBlockReason(product);
+//     if (stockReason) {
+//       toast.error(`No se puede agregar "${product.codigo}": ${stockReason}.`,
+//         { position: 'top-right', duration: 4000, icon: '🚫' });
+//       return;
+//     }
+
+//     if (!qa?.preciosData) {
+//       toast.error('Los precios aún están cargando, por favor espere.', { position: 'top-right' });
+//       return;
+//     }
+
+//     const yaExiste = quotationItems?.some(item => item.codigo?.trim() === product.codigo?.trim());
+//     if (yaExiste) {
+//       toast.error(`"${product.codigo}" ya está en la cotización. Modifica los datos directamente en dicha sección.`,
+//         { position: 'top-right', duration: 4000, icon: '⚠️' });
+//       return;
+//     }
+
+//     if (flagX && Number(qa.discount5) !== 0) {
+//       toast.error('Este producto no permite descuento adicional.',
+//         { position: 'top-right', duration: 4000, icon: '🚫' });
+//       return;
+//     }
+
+//     if (flagT) {
+//       const raw = qa.discount5;
+//       const isEmpty = raw === '' || raw == null;
+//       if (!isEmpty) {
+//         const d5 = Number(raw);
+//         if (d5 < minD5 || d5 > maxD5Validacion) {
+//   toast.error(
+//     `El 5to descuento debe estar entre ${minD5}% y ${maxD5Validacion}%.`,
+//     {
+//       position: 'top-right',
+//       duration: 4000,
+//       icon: '⚠️',
+//     }
+//   );
+//   return;
+// }
+//       }
+//     }
 
     const stockReason = getStockBlockReason(product);
     if (stockReason) {
       toast.error(`No se puede agregar "${product.codigo}": ${stockReason}.`,
         { position: 'top-right', duration: 4000, icon: '🚫' });
-      return;
-    }
-
-    if (!qa?.preciosData) {
-      toast.error('Los precios aún están cargando, por favor espere.', { position: 'top-right' });
       return;
     }
 
@@ -345,78 +386,32 @@ const maxD5Validacion = flagT && de03 > 0
       return;
     }
 
-    if (flagX && Number(qa.discount5) !== 0) {
-      toast.error('Este producto no permite descuento adicional.',
-        { position: 'top-right', duration: 4000, icon: '🚫' });
-      return;
-    }
+    const qty = Math.max(1, Number(qa?.quantity) || 1);
+    const discount5 = Math.min(100, Math.max(0, Number(qa?.discount5) || 0));
+    const precioLista = Number(product.precioNetoDolar) || 0;
 
-    if (flagT) {
-      const raw = qa.discount5;
-      const isEmpty = raw === '' || raw == null;
-      if (!isEmpty) {
-        const d5 = Number(raw);
-        if (d5 < minD5 || d5 > maxD5Validacion) {
-  toast.error(
-    `El 5to descuento debe estar entre ${minD5}% y ${maxD5Validacion}%.`,
-    {
-      position: 'top-right',
-      duration: 4000,
-      icon: '⚠️',
-    }
-  );
-  return;
-}
-      }
-    }
-
-    const qty = Math.max(1, Number(qa.quantity) || 1);
-    const discount5 = flagX ? 0 : flagT
-      ? (qa.discount5 === '' || qa.discount5 == null) ? 0 : Number(qa.discount5)
-      : Math.min(100, Number(qa.discount5) || 0);
-
-    const { precioUnit, precioUnitExacto, precioTotal, precioTotalExacto } =
-      calcPrecios(qa.preciosData, discount5, qty);
+    // SIMPLIFICADO: precio neto = precio de lista sin descuentos AS400.
+    const { precioUnit, precioUnitExacto, precioTotal, precioTotalExacto } = calcPrecios(
+      { flag: '', importes: { dola: precioLista, ldol: precioLista }, descuentos: { de01: 0 } },
+      discount5,
+      qty
+    );
 
     const almacenData = codAlmacenes.find(a => a.cod === almacenSeleccionado);
     const codNumAlmacen = almacenSeleccionado?.codnum ?? null;
-
-    console.log('🏭 Almacén seleccionado:', {
-      cod: almacenSeleccionado,
-      codnum: codNumAlmacen,
-      almacenData,
-    });
-
-    console.log('💲 Cálculo exacto producto:', {
-      codigo: product.codigo,
-      precioLista:
-  qa?.preciosData?.flag?.trim() === 'X'
-    ? qa?.preciosData?.importes?.dola
-    : (qa?.preciosData?.importes?.ldol ?? qa?.preciosData?.importes?.dola),
-      discount1: qa.preciosData.descuentos?.de01 || 0,
-      discount5,
-      quantity: qty,
-      precioUnitMostrado: precioUnit,
-      precioUnitExacto,
-      precioTotalMostrado: precioTotal,
-      precioTotalExacto,
-    });
 
     onAddToQuotation({
       ...product,
       quantity: qty,
       cantidadOriginal: qty,
-      discount1: qa.preciosData.descuentos?.de01 || 0,
+      discount1: 0,
       discount5,
-      precioLista:
-  qa?.preciosData?.flag?.trim() === 'X'
-    ? (qa?.preciosData?.importes?.dola ?? product.precioNetoDolar)
-    : (qa?.preciosData?.importes?.ldol ?? qa?.preciosData?.importes?.dola ?? product.precioNetoDolar),
+      precioLista,
       precioNeto: precioUnit,
       precioNetoExacto: precioUnitExacto,
       precioCotizar: precioTotal,
       precioCotizarExacto: precioTotalExacto,
-      preciosDetalle: qa.preciosData,
+      preciosDetalle: null,
       warehouse: product.almacenes?.[0]?.almacencod || almacenSeleccionado || '',
       warehouseName: product.almacenes?.[0]?.almacendes?.trim() || almacenSeleccionado || '',
       codNumAlmacen,
@@ -599,42 +594,36 @@ const maxD5Validacion = flagT && de03 > 0
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Marca</th>
                       <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider whitespace-normal leading-tight">Stock por<br/>Almacén</th>
                       <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider whitespace-normal leading-tight">P. Lista<br/>(Sin IGV)</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider bg-green-700">1er Dsco.</th>
+                      {/* <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider bg-green-700">1er Dsco.</th>
                       <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider bg-green-700">5to Dsco.</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider bg-green-700 whitespace-normal leading-tight">P. Neto<br/>Unit.</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider bg-green-700 whitespace-normal leading-tight">P. Neto<br/>Unit.</th> */}
                       <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider bg-green-700">Cant.</th>
                       <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider bg-green-700 whitespace-normal leading-tight">P. Neto<br/>Total</th>
                       <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 bg-white">
-                    {currentProducts.map((product) => {
+                                        {currentProducts.map((product) => {
                       const qa = product.quick;
-                      const { precioUnit, precioTotal } = qa?.preciosData
-                        ? calcPrecios(qa.preciosData, qa.discount5, qa.quantity)
-                        : { precioUnit: 0, precioTotal: 0 };
+                      // SIMPLIFICADO: sin preciosData, el total de fila es precio de lista x cantidad.
+                      const cantidadFila = Number(qa?.quantity) || 1;
+                      const precioTotal = roundTo(product.precioNetoDolar * cantidadFila, 2);
 
                       const stockReason = getStockBlockReason(product);
                       const stockBlocked = !!stockReason;
 
+                      // SIMPLIFICADO: flagT/flagX/minD5/maxD5Visual/maxD5Validacion ya no aplican
+                      // porque no hay preciosData. Bloque original comentado:
+                      /*
                       const flag = qa?.preciosData?.flag?.trim();
                       const flagT = flag === 'T';
                       const flagX = flag === 'X';
-                      const minD5 = flagT
-  ? Number(qa?.preciosData?.descuentos?.de04 ?? 0)
-  : 0;
-
-// Rango visible junto al input.
-const maxD5Visual = flagT
-  ? Number(qa?.preciosData?.descuentos?.de05 ?? 100)
-  : 100;
-
-// Máximo efectivo para onChange, onBlur y confirmación.
-const de03 = Number(qa?.preciosData?.descuentos?.de03 ?? 0);
-
-const maxD5Validacion = flagT && de03 > 0
-  ? de03
-  : maxD5Visual;
+                      const minD5 = flagT ? Number(qa?.preciosData?.descuentos?.de04 ?? 0) : 0;
+                      const maxD5Visual = flagT ? Number(qa?.preciosData?.descuentos?.de05 ?? 100) : 100;
+                      const de03 = Number(qa?.preciosData?.descuentos?.de03 ?? 0);
+                      const maxD5Validacion = flagT && de03 > 0 ? de03 : maxD5Visual;
+                      */
+                      const flagX = false;
 
                       return (
                         <tr
@@ -682,10 +671,14 @@ const maxD5Validacion = flagT && de03 > 0
                             )}
                           </td>
 
-                          <td className="px-4 py-4 whitespace-nowrap text-center text-sm font-semibold text-gray-800">
+                                                    <td className="px-4 py-4 whitespace-nowrap text-center text-sm font-semibold text-gray-800">
                             ${product.precioNetoDolar.toFixed(2)}
                           </td>
 
+                          {/* SIMPLIFICADO: celdas "1er Dsco.", "5to Dsco." y "P. Neto Unit." ocultas
+                              junto con sus <th>. El precio agregado a la cotización es
+                              product.precioNetoDolar (P. Lista Sin IGV), sin descuentos AS400.
+                              Bloque original comentado:
                           <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
                             <PriceCell qa={qa}>
                               <span className="text-sm font-bold text-indigo-700">
@@ -693,7 +686,6 @@ const maxD5Validacion = flagT && de03 > 0
                               </span>
                             </PriceCell>
                           </td>
-
                           <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
                             <PriceCell qa={qa}>
                               <div className="flex flex-col items-center gap-1">
@@ -703,116 +695,70 @@ const maxD5Validacion = flagT && de03 > 0
                                     inputMode="decimal"
                                     value={qa?.discount5 ?? ''}
                                     disabled={flagX}
-                                    onChange={e => {
-                                      if (flagX) return;
-                                      const raw = e.target.value
-  .replace(',', '.')
-  .replace(/[^0-9.]/g, '')
-  .replace(/(\..*)\./g, '$1');
-                                      if (raw === '') {
-                                        updateProductQuick(product.codigo, { discount5: '' });
-                                        return;
-                                      }
-                                      const num = Number(raw);
-                                      const capped = flagT
-  ? (num > maxD5Validacion ? String(maxD5Validacion) : raw)
-  : (num > 100 ? '100' : raw);
-
-updateProductQuick(product.codigo, { discount5: capped });
-                                    }}
-                                    onBlur={() => {
-                                      if (flagX) return;
-                                      const current = product.quick?.discount5;
-                                      if (current === '' || current == null) return;
-                                      const num = Number(current) || 0;
-                                      const val = flagT
-  ? Math.min(maxD5Validacion, Math.max(minD5, num))
-  : Math.min(100, Math.max(0, num));
-
-updateProductQuick(product.codigo, { discount5: val });
-                                    }}
-                                    className={`w-12 text-center text-sm font-bold border rounded px-1 py-0.5 focus:ring-1 outline-none ${
-                                      flagX
-                                        ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
-                                        : flagT
-                                          ? 'bg-white border-orange-400 focus:ring-orange-400'
-                                          : 'bg-white border-purple-300 focus:ring-purple-400'
-                                    }`}
+                                    onChange={e => { ... }}
+                                    onBlur={() => { ... }}
+                                    className={...}
                                   />
                                   <span className="text-xs text-gray-400">%</span>
                                 </div>
-                                {flagX && (
-                                  <span className="text-xs font-semibold text-gray-500 bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5">
-                                    Sin dscto.
-                                  </span>
-                                )}
-                                {flagT && (
-  <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">
-    {minD5}% – {maxD5Visual}%
-  </span>
-)}
+                                {flagX && (<span className="text-xs font-semibold text-gray-500 bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5">Sin dscto.</span>)}
+                                {flagT && (<span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">{minD5}% – {maxD5Visual}%</span>)}
                               </div>
                             </PriceCell>
                           </td>
-
                           <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
                             <PriceCell qa={qa}>
-                              <span className="text-sm font-bold text-green-700">
-                                ${precioUnit.toFixed(4)}
-                              </span>
+                              <span className="text-sm font-bold text-green-700">${precioUnit.toFixed(4)}</span>
                             </PriceCell>
+                          </td>
+                          */}
+
+                          <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={qa?.quantity === 0 ? '' : (qa?.quantity ?? '')}
+                              onChange={e => {
+                                const raw = e.target.value.replace(/\D/g, '');
+                                const maxStock = product.stock || 0;
+
+                                if (raw === '') {
+                                  updateProductQuick(product.codigo, { quantity: '' });
+                                  return;
+                                }
+
+                                const clean = String(Number(raw));
+                                const num = Number(clean);
+
+                                if (maxStock > 0 && num > maxStock) {
+                                  toast.error(
+                                    <span>
+                                      Stock insuficiente para <strong>"{product.codigo}"</strong>.<br/>
+                                      Solo hay <strong>{maxStock} unid.</strong> disponibles.<br/>
+                                      Se restauró la cantidad a <strong>0</strong>.
+                                    </span>,
+                                    { position: 'top-right', duration: 5000, icon: '📦' }
+                                  );
+                                  updateProductQuick(product.codigo, { quantity: 0 });
+                                  return;
+                                }
+
+                                updateProductQuick(product.codigo, { quantity: raw });
+                              }}
+                              onBlur={() => {
+                                const current = product.quick?.quantity;
+                                if (current === '' || current == null || Number(current) === 0) {
+                                  updateProductQuick(product.codigo, { quantity: '' });
+                                }
+                              }}
+                              className="w-14 text-center text-sm font-bold border border-green-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-green-400 outline-none bg-white"
+                            />
                           </td>
 
                           <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
-                            <PriceCell qa={qa}>
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                value={qa?.quantity === 0 ? '' : (qa?.quantity ?? '')}
-                                onChange={e => {
-                                  const raw = e.target.value.replace(/\D/g, '');
-                                  const maxStock = product.stock || 0;
-
-                                  if (raw === '') {
-                                    updateProductQuick(product.codigo, { quantity: '' });
-                                    return;
-                                  }
-
-                                  const clean = String(Number(raw));
-                                  const num = Number(clean);
-
-                                  if (maxStock > 0 && num > maxStock) {
-                                    toast.error(
-                                      <span>
-                                        Stock insuficiente para <strong>"{product.codigo}"</strong>.<br/>
-                                        Solo hay <strong>{maxStock} unid.</strong> disponibles.<br/>
-                                        Se restauró la cantidad a <strong>0</strong>.
-                                      </span>,
-                                      { position: 'top-right', duration: 5000, icon: '📦' }
-                                    );
-                                    updateProductQuick(product.codigo, { quantity: 0 });
-                                    return;
-                                  }
-
-                                  updateProductQuick(product.codigo, { quantity: raw });
-                                }}
-                                onBlur={() => {
-                                  const current = product.quick?.quantity;
-                                  if (current === '' || current == null || Number(current) === 0) {
-                                    updateProductQuick(product.codigo, { quantity: '' });
-                                  }
-                                }}
-                                className="w-14 text-center text-sm font-bold border border-green-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-green-400 outline-none bg-white"
-                              />
-                            </PriceCell>
-                          </td>
-
-                          <td className="px-4 py-4 whitespace-nowrap text-center bg-green-50">
-                            <PriceCell qa={qa}>
-                              <span className="text-sm font-bold text-blue-700">
-                                ${precioTotal.toFixed(2)}
-                              </span>
-                            </PriceCell>
+                            <span className="text-sm font-bold text-blue-700">
+                              ${precioTotal.toFixed(2)}
+                            </span>
                           </td>
 
                           <td className="px-4 py-4 text-center">
