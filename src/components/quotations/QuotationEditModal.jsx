@@ -161,12 +161,20 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
 
     setErrors({});
 
-    if (quotation.ruc && quotation.productos?.length > 0) {
-      enrichProductsWithPrices({
-        ...quotation,
-        productos: productosBase,
-      });
-    }
+     // SIMPLIFICADO: ya no se revalida todo al abrir el modal.
+    // Antes, enrichProductsWithPrices hacía 2 llamadas por producto
+    // (precioService.obtenerPrecio + productService.searchByCodigo),
+    // lo que bloqueaba el modal con "Cargando ítems..." cuando había
+    // muchos productos. Ahora se usan los datos tal cual vienen de BD,
+    // y la validación real (flags, DE03/DE04/DE05, stock) ocurre al
+    // presionar "Guardar cambios" (ver validateAndEnrichBeforeSave).
+
+    // if (quotation.ruc && quotation.productos?.length > 0) {
+    //   enrichProductsWithPrices({
+    //     ...quotation,
+    //     productos: productosBase,
+    //   });
+    // }
   }, [quotation, isOpen]);
 
   const enrichProductsWithPrices = async (quot) => {
@@ -305,7 +313,7 @@ if (stockRes.success && stockRes.data?.length > 0) {
         })
       );
 
-      const { productos, subtotal, igv, total } = buildVisualTotals(enriched, quot);
+           const { productos, subtotal, igv, total } = buildVisualTotals(enriched, quot);
 
       setFormData(prev => {
         if (!prev) return prev;
@@ -317,8 +325,13 @@ if (stockRes.success && stockRes.data?.length > 0) {
           total,
         };
       });
+
+      // Se devuelve el resultado fresco para poder validar de inmediato,
+      // sin depender del closure viejo de formData tras el setFormData async.
+      return { productos, subtotal, igv, total };
     } catch (err) {
       console.error('❌ Error al enriquecer productos con flags:', err);
+      return null;
     } finally {
       setLoadingPrices(false);
     }
@@ -509,6 +522,65 @@ const maxD5Validacion = flagT && de03 > 0
     });
   };
 
+  // Validación pura de la tabla de productos (flags, DE03-DE05, stock).
+  // Reutilizable tanto en la validación local inicial como en la
+  // revalidación tras consultar AS400 al guardar.
+  const validateProductos = (productos = []) => {
+    const newErrors = {};
+
+    productos.forEach((p, i) => {
+      const flag = p.preciosDetalle?.flag?.trim() ?? p.flag?.trim() ?? '';
+      const flagT = flag === 'T';
+      const flagX = flag === 'X';
+      const minD5 = flagT
+        ? Number(p.preciosDetalle?.descuentos?.de04 ?? p.discount4 ?? 0)
+        : 0;
+
+      const maxD5Visual = flagT
+        ? Number(p.preciosDetalle?.descuentos?.de05 ?? 100)
+        : 100;
+
+      const de03 = Number(p.preciosDetalle?.descuentos?.de03 ?? 0);
+
+      const maxD5Validacion = flagT && de03 > 0
+        ? de03
+        : maxD5Visual;
+
+      const d5 = Number(p.discount5) || 0;
+
+      if (flagX && d5 !== 0) {
+        newErrors[`producto_${i}_d5`] = `Ítem ${i + 1}: no permite descuento adicional.`;
+      }
+
+            if (flagT && (d5 < minD5 || d5 > maxD5Validacion)) {
+        // Si DE03 > 0, el tope real es más alto que el rango visual (DE04-DE05).
+        // En ese caso el mensaje solo informa el máximo permitido, no el rango completo.
+        newErrors[`producto_${i}_d5`] = de03 > 0
+          ? `Ítem ${i + 1}: 5to descuento tiene como máx ${maxD5Validacion}%.`
+          : `Ítem ${i + 1}: 5to descuento debe estar entre ${minD5}% y ${maxD5Validacion}%.`;
+      }
+
+      const maxStock = p.disponible ?? p.stock ?? 0;
+      const qty = Number(p.quantity ?? p.cantidad ?? 0);
+
+      if (maxStock > 0 && qty > maxStock) {
+        const mensaje = `Ítem ${i + 1} "${p.codigo}": la cantidad (${qty}) supera el stock disponible (${maxStock}). Ajusta la cantidad o consulta reposición.`;
+        newErrors[`producto${i}stock`] = mensaje;
+      }
+    });
+
+    const primerErrorStockKey = Object.keys(newErrors).find(key => key.includes('stock'));
+    if (primerErrorStockKey) {
+      toast.error(newErrors[primerErrorStockKey], {
+        position: 'top-right',
+        duration: 5000,
+        icon: '⚠️',
+      });
+    }
+
+    return { ok: Object.keys(newErrors).length === 0, errors: newErrors };
+  };
+
   const validate = () => {
     const newErrors = {};
     if (!formData.cliente?.trim()) newErrors.cliente = 'Cliente es requerido';
@@ -519,73 +591,42 @@ const maxD5Validacion = flagT && de03 > 0
       newErrors.productos = 'Debe existir al menos un producto';
     }
 
-    formData.productos.forEach((p, i) => {
-      const flag = p.preciosDetalle?.flag?.trim() ?? p.flag?.trim() ?? '';
-      const flagT = flag === 'T';
-      const flagX = flag === 'X';
-      const minD5 = flagT
-  ? Number(p.preciosDetalle?.descuentos?.de04 ?? p.discount4 ?? 0)
-  : 0;
+    const { errors: productErrors } = validateProductos(formData.productos || []);
 
-const maxD5Visual = flagT
-  ? Number(p.preciosDetalle?.descuentos?.de05 ?? 100)
-  : 100;
-
-const de03 = Number(p.preciosDetalle?.descuentos?.de03 ?? 0);
-
-const maxD5Validacion = flagT && de03 > 0
-  ? de03
-  : maxD5Visual;
-
-const d5 = Number(p.discount5) || 0;
-
-      if (flagX && d5 !== 0) {
-        newErrors[`producto_${i}_d5`] = `Ítem ${i + 1}: no permite descuento adicional.`;
-      }
-
-      if (flagT && (d5 < minD5 || d5 > maxD5Validacion)) {
-  newErrors[`producto_${i}_d5`] =
-    `Ítem ${i + 1}: 5to descuento debe estar entre ${minD5}% y ${maxD5Validacion}%.`;
-}
-
-      // const maxStock = p.stock ?? 0;
-      const maxStock = p.disponible ?? p.stock ?? 0;
-const qty = Number(p.quantity ?? p.cantidad ?? 0);
-
-if (maxStock > 0 && qty > maxStock) {
-  // const mensaje = `Ítem ${i + 1} (${p.codigo}): cantidad ${qty} supera el stock disponible ${maxStock}.`;
-  // newErrors[`producto${i}stock`] = mensaje;
-  const mensaje = `Ítem ${i + 1} "${p.codigo}": la cantidad (${qty}) supera el stock disponible (${maxStock}). Ajusta la cantidad o consulta reposición.`;
-  newErrors[`producto${i}stock`] = mensaje;
-}
-    });
-
-    const primerErrorStockKey = Object.keys(newErrors).find(key => key.includes('stock'));
-
-if (primerErrorStockKey) {
-  toast.error(newErrors[primerErrorStockKey], {
-    position: 'top-right',
-    duration: 5000,
-    icon: '⚠️',
-  });
-}
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    const finalErrors = { ...newErrors, ...productErrors };
+    setErrors(finalErrors);
+    return Object.keys(finalErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+      const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!validate()) return;
 
-    const { productos, subtotal, igv, total } = buildVisualTotals(formData.productos, formData);
+    const fresh = await enrichProductsWithPrices(formData);
+    if (!fresh) {
+      toast.error('No se pudo validar los precios y descuentos. Intenta nuevamente.', {
+        position: 'top-right', duration: 5000, icon: '🚫',
+      });
+      return;
+    }
+
+    // Revalidar con los datos frescos de AS400, sin depender del estado async.
+    const validacionFresca = validateProductos(fresh.productos);
+    if (!validacionFresca.ok) {
+      setErrors(validacionFresca.errors);
+      toast.error('Se detectaron cambios en precios o descuentos. Revisa los ítems marcados antes de guardar.', {
+        position: 'top-right', duration: 5000, icon: '⚠️',
+      });
+      return;
+    }
 
     onSave({
       ...formData,
-      productos,
-      subtotal,
-      igv,
-      total,
+      productos: fresh.productos,
+      subtotal: fresh.subtotal,
+      igv: fresh.igv,
+      total: fresh.total,
     });
   };
 
