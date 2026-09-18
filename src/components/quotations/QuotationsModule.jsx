@@ -91,6 +91,9 @@ const QuotationsModule = () => {
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const [isSavingEditedQuotation, setIsSavingEditedQuotation] = useState(false);
+  
   const [pdfQuotation, setPdfQuotation] = useState(null);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
@@ -287,6 +290,10 @@ const QuotationsModule = () => {
 
   // ── Guardar edición ───────────────────────────────────────────
   const handleSaveEditedQuotation = async (updatedQuotation) => {
+    if (isSavingEditedQuotation) return;
+
+    setIsSavingEditedQuotation(true);
+
     try {
       setLoading(true);
 
@@ -333,7 +340,11 @@ const QuotationsModule = () => {
         detalles
       );
 
-      if (response.success) {
+            if (response.success) {
+        localStorage.removeItem(
+          `cotizacion_edicion_draft_${editingQuotation.numeroCotizacion}`
+        );
+
         logActivity(EVENTOS.COTIZACION_EDITADA, editingQuotation.id);
 
         toast.success('Cotización actualizada exitosamente');
@@ -346,8 +357,9 @@ const QuotationsModule = () => {
     } catch (error) {
       const msg = error.response?.data?.error || error.message || 'Error al actualizar';
       toast.error(`❌ ${msg}`);
-    } finally {
+        } finally {
       setLoading(false);
+      setIsSavingEditedQuotation(false);
     }
   };
 
@@ -881,7 +893,11 @@ const asesoresDisponibles = useMemo(() => {
       <QuotationEditModal
         isOpen={isEditModalOpen}
         quotation={editingQuotation}
-        onClose={() => { setIsEditModalOpen(false); setEditingQuotation(null); }}
+        onClose={() => {
+    if (isSavingEditedQuotation) return;
+    setIsEditModalOpen(false);
+    setEditingQuotation(null);
+  }}
         onSave={handleSaveEditedQuotation}
       />
 

@@ -1,5 +1,5 @@
 // src/components/quotations/QuotationEditModal.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import {
   X,
@@ -110,13 +110,72 @@ const buildVisualTotals = (products = [], cabecera = {}) => {
 
   return { productos, subtotal, igv, total };
 };
+const EDIT_DRAFT_PREFIX = 'cotizacion_edicion_draft_';
+const EDIT_DRAFT_EXPIRATION_MS = 24 * 60 * 60 * 1000;
+
+const getEditDraftKey = (numeroCotizacion) =>
+  `${EDIT_DRAFT_PREFIX}${numeroCotizacion}`;
+
+const saveEditDraft = (numeroCotizacion, formData) => {
+  if (!numeroCotizacion || !formData) return;
+
+  try {
+    localStorage.setItem(
+      getEditDraftKey(numeroCotizacion),
+      JSON.stringify({
+        formData,
+        guardadoEn: new Date().toISOString(),
+      })
+    );
+  } catch (error) {
+    console.error('❌ Error al guardar borrador de edición:', error);
+  }
+};
+
+const readEditDraft = (numeroCotizacion) => {
+  if (!numeroCotizacion) return null;
+
+  try {
+    const raw = localStorage.getItem(getEditDraftKey(numeroCotizacion));
+    if (!raw) return null;
+
+    const draft = JSON.parse(raw);
+    const guardadoEn = new Date(draft.guardadoEn).getTime();
+
+    if (
+      Number.isNaN(guardadoEn) ||
+      Date.now() - guardadoEn > EDIT_DRAFT_EXPIRATION_MS
+    ) {
+      localStorage.removeItem(getEditDraftKey(numeroCotizacion));
+      return null;
+    }
+
+    return draft;
+  } catch (error) {
+    console.error('❌ Error al leer borrador de edición:', error);
+    return null;
+  }
+};
+
+const deleteEditDraft = (numeroCotizacion) => {
+  if (!numeroCotizacion) return;
+
+  localStorage.removeItem(getEditDraftKey(numeroCotizacion));
+};
 
 const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
   const [formData, setFormData] = useState(null);
   const [errors, setErrors] = useState({});
   const [isProductSelectorOpen, setIsProductSelectorOpen] = useState(false);
   const [loadingPrices, setLoadingPrices] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
   const [editingDiscount5, setEditingDiscount5] = useState({});
+
+  const isBusy = loadingPrices || isSaving;
+
+    const editDraftTimeoutRef = useRef(null);
+  const editInitializedRef = useRef(false);
+  const userMadeChangeRef = useRef(false);
 
   useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden';
@@ -126,10 +185,18 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
   useEffect(() => {
     if (!quotation || !isOpen) return;
 
+    editInitializedRef.current = false;
+    userMadeChangeRef.current = false; 
+
     const productosBase = (quotation.productos || []).map(p => {
       const quantity = Number(p.quantity ?? p.cantidad ?? 1) || 1;
+
       return {
         ...p,
+
+         _esNuevo: false,
+        _modificado: false,
+
         cantidadOriginal: quantity,
         quantity,
         cantidad: quantity,
@@ -142,49 +209,112 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
       };
     });
 
-    const { productos, subtotal, igv, total } = buildVisualTotals(productosBase, quotation);
+    const { productos, subtotal, igv, total } =
+      buildVisualTotals(productosBase, quotation);
 
-    setFormData({
-  ...quotation,
-  cod_alm: quotation.cod_alm ?? quotation.warehouse ?? quotation.cabecera?.cod_alm ?? null,
-  codnum_alm: quotation.codnum_alm ?? quotation.codNumAlmacen ?? quotation.cabecera?.codnum_alm ?? null,
-  codNumAlmacen: quotation.codnum_alm ?? quotation.codNumAlmacen ?? quotation.cabecera?.codnum_alm ?? null,
-  warehouse: quotation.cod_alm ?? quotation.warehouse ?? quotation.cabecera?.cod_alm ?? null,
-  productos,
-  subtotal,
-  igv,
-  total,
-  observaciones: quotation.observaciones || '',
-  observacionesCreditos: quotation.observacionesCreditos || '',
-  observacionesLogistica: quotation.observacionesLogistica || '',
-});
+    const formDataBase = {
+      ...quotation,
+      cod_alm: quotation.cod_alm ??
+        quotation.warehouse ??
+        quotation.cabecera?.cod_alm ??
+        null,
+      codnum_alm: quotation.codnum_alm ??
+        quotation.codNumAlmacen ??
+        quotation.cabecera?.codnum_alm ??
+        null,
+      codNumAlmacen: quotation.codnum_alm ??
+        quotation.codNumAlmacen ??
+        quotation.cabecera?.codnum_alm ??
+        null,
+      warehouse: quotation.cod_alm ??
+        quotation.warehouse ??
+        quotation.cabecera?.cod_alm ??
+        null,
+      productos,
+      subtotal,
+      igv,
+      total,
+      observaciones: quotation.observaciones || '',
+      observacionesCreditos: quotation.observacionesCreditos || '',
+      observacionesLogistica: quotation.observacionesLogistica || '',
+    };
+
+    const draft = readEditDraft(quotation.numeroCotizacion);
+
+    if (draft?.formData) {
+      setFormData(draft.formData);
+      userMadeChangeRef.current = true;
+
+      toast.success('Se recuperaron cambios pendientes de esta edición', {
+        position: 'top-right',
+        duration: 3500,
+        icon: '📝',
+      });
+    } else {
+      setFormData(formDataBase);
+    }
 
     setErrors({});
-
-     // SIMPLIFICADO: ya no se revalida todo al abrir el modal.
-    // Antes, enrichProductsWithPrices hacía 2 llamadas por producto
-    // (precioService.obtenerPrecio + productService.searchByCodigo),
-    // lo que bloqueaba el modal con "Cargando ítems..." cuando había
-    // muchos productos. Ahora se usan los datos tal cual vienen de BD,
-    // y la validación real (flags, DE03/DE04/DE05, stock) ocurre al
-    // presionar "Guardar cambios" (ver validateAndEnrichBeforeSave).
-
-    // if (quotation.ruc && quotation.productos?.length > 0) {
-    //   enrichProductsWithPrices({
-    //     ...quotation,
-    //     productos: productosBase,
-    //   });
-    // }
+    setEditingDiscount5({});
+    editInitializedRef.current = true;
   }, [quotation, isOpen]);
 
-  const enrichProductsWithPrices = async (quot) => {
+    useEffect(() => {
+    if (!isOpen || !formData?.numeroCotizacion) return;
+    if (!editInitializedRef.current) return;
+    if (!userMadeChangeRef.current) return;
+
+    if (editDraftTimeoutRef.current) {
+      clearTimeout(editDraftTimeoutRef.current);
+    }
+
+    editDraftTimeoutRef.current = setTimeout(() => {
+      saveEditDraft(formData.numeroCotizacion, formData);
+    }, 400);
+
+    return () => {
+      if (editDraftTimeoutRef.current) {
+        clearTimeout(editDraftTimeoutRef.current);
+      }
+    };
+  }, [formData, isOpen]);
+
+   const enrichProductsWithPrices = async (quot) => {
+    const productosOriginales = quot.productos || [];
+
+    const productosParaValidar = productosOriginales.filter(
+      p => p._esNuevo || p._modificado
+    );
+
+    // No hay productos nuevos ni modificados.
+    // Se conservan los datos cargados desde la base de datos.
+    if (productosParaValidar.length === 0) {
+      const resultado = buildVisualTotals(productosOriginales, quot);
+
+      return resultado;
+    }
+
     setLoadingPrices(true);
+
     try {
       const enriched = await Promise.all(
-        (quot.productos || []).map(async (p) => {
+        productosParaValidar.map(async (p) => {
           try {
-            console.log('📦 Almacén usado en edición:', quot.cod_alm, '| RUC:', quot.ruc, '| Código:', p.codigo);
-            const res = await precioService.obtenerPrecio(quot.ruc, p.codigo?.trim(), 1,quot.cod_alm ?? null);
+            console.log(
+              '📦 Validando producto nuevo/modificado:',
+              quot.cod_alm,
+              '| RUC:',
+              quot.ruc,
+              '| Código:',
+              p.codigo
+            );
+
+            const res = await precioService.obtenerPrecio(
+              quot.ruc,
+              p.codigo?.trim(),
+              1,
+              quot.cod_alm ?? null
+            );
 
             if (res.success && res.data) {
               const data = res.data;
@@ -193,11 +323,13 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
               const costos = data.costos || {};
               const flag = data.flag?.trim() ?? '';
 
-              let stockDisponible = (p.stock !== undefined && p.stock !== null) ? p.stock : null;
+              let stockDisponible =
+                p.stock !== undefined && p.stock !== null
+                  ? p.stock
+                  : null;
 
               if (stockDisponible === null) {
                 try {
-                  // Siempre usar primero cabecera
                   const codAlmacenTxt = String(
                     quot.cod_alm ?? ''
                   ).trim().toUpperCase();
@@ -206,131 +338,231 @@ const QuotationEditModal = ({ isOpen, quotation, onClose, onSave }) => {
                     quot.codnum_alm ?? ''
                   ).trim();
 
-                  // const stockRes = await productService.searchByCodigo(p.codigo?.trim());
+                  const stockRes = await productService.searchByCodigo(
+                    p.codigo?.trim()
+                  );
 
-                  // if (stockRes.success && stockRes.data?.length > 0) {
-                  //   const prod = stockRes.data[0];
-                  //   const stockArr = Array.isArray(prod.stock) ? prod.stock : [];
+                  if (stockRes.success && stockRes.data?.length > 0) {
+                    const codigoBuscado = String(
+                      p.codigo ?? ''
+                    ).trim().toUpperCase();
 
-                  //   const almacenStock = stockArr.find(s => {
-                  //     const txt = String(s.almacencod ?? '').trim().toUpperCase();
-                  //     const num = String(s.almacencod2 ?? '').trim();
+                    const prod =
+                      stockRes.data.find(
+                        item =>
+                          String(
+                            item.producto?.codigo ?? ''
+                          ).trim().toUpperCase() === codigoBuscado
+                      ) ?? stockRes.data[0];
 
-                  //     return (
-                  //       (codAlmacenTxt && txt === codAlmacenTxt) ||
-                  //       (codAlmacenNum && num === codAlmacenNum)
-                  //     );
-                  //   });
+                    const stockArr = Array.isArray(prod.stock)
+                      ? prod.stock
+                      : [];
 
-                  //   // stockDisponible = Number(almacenStock?.stock ?? almacenStock?.cantidad ?? 0);
-                  //   stockDisponible = Number(almacenStock?.disponible ?? almacenStock?.stock ?? 0);
+                    const almacenStock = stockArr.find(s => {
+                      const txt = String(
+                        s.almacencod ?? ''
+                      ).trim().toUpperCase();
 
-                  //   console.log('📦 Stock resuelto en edición desde cabecera:', {
-                  //     producto: p.codigo,
-                  //     codAlmacenTxt,
-                  //     codAlmacenNum,
-                  //     almacenEncontrado: almacenStock,
-                  //     stockDisponible,
-                  //   });
-                  // } else {
-                  //   stockDisponible = 0;
-                  // }
-                  const stockRes = await productService.searchByCodigo(p.codigo?.trim());
-if (stockRes.success && stockRes.data?.length > 0) {
-  const codigoBuscado = String(p.codigo ?? '').trim().toUpperCase();
+                      const num = String(
+                        s.almacencod2 ?? ''
+                      ).trim();
 
-  const prod =
-    stockRes.data.find(
-      (item) => String(item.producto?.codigo ?? '').trim().toUpperCase() === codigoBuscado
-    ) ?? stockRes.data[0];
+                      return (
+                        (codAlmacenTxt && txt === codAlmacenTxt) ||
+                        (codAlmacenNum && num === codAlmacenNum)
+                      );
+                    });
 
-  const stockArr = Array.isArray(prod.stock) ? prod.stock : [];
-  const almacenStock = stockArr.find(s => {
-    const txt = String(s.almacencod ?? '').trim().toUpperCase();
-    const num = String(s.almacencod2 ?? '').trim();
-    return (
-      (codAlmacenTxt && txt === codAlmacenTxt) ||
-      (codAlmacenNum && num === codAlmacenNum)
-    );
-  });
+                    stockDisponible = Number(
+                      almacenStock?.disponible ??
+                      almacenStock?.stock ??
+                      0
+                    );
 
-  stockDisponible = Number(almacenStock?.disponible ?? almacenStock?.stock ?? 0);
-
-  console.log('📦 Stock resuelto en edición desde cabecera:', {
-    producto: p.codigo,
-    productoEncontrado: prod.producto?.codigo,
-    codAlmacenTxt,
-    codAlmacenNum,
-    almacenEncontrado: almacenStock,
-    stockDisponible,
-  });
-} else {
-  stockDisponible = 0;
-}
+                    console.log(
+                      '📦 Stock actualizado:',
+                      {
+                        producto: p.codigo,
+                        productoEncontrado: prod.producto?.codigo,
+                        codAlmacenTxt,
+                        codAlmacenNum,
+                        almacenEncontrado: almacenStock,
+                        stockDisponible,
+                      }
+                    );
+                  } else {
+                    stockDisponible = 0;
+                  }
                 } catch (stockErr) {
-                  console.error(`❌ Error obteniendo stock de ${p.codigo}:`, stockErr);
+                  console.error(
+                    `❌ Error obteniendo stock de ${p.codigo}:`,
+                    stockErr
+                  );
                   stockDisponible = 0;
                 }
               }
 
+              const preciosDetalle = {
+                flag,
+                descuentos,
+                importes,
+                costos,
+              };
+
               const precioListaActualizado = getPrecioListaByFlag({
                 ...p,
-                preciosDetalle: { flag, descuentos, importes, costos },
+                preciosDetalle,
               });
 
-              return normalizeProductForVisualCalc({
-                ...p,
-                precioLista: precioListaActualizado,
-                dola: precioListaActualizado,
-                stock: stockDisponible,
-                cantidadOriginal: p.cantidadOriginal ?? p.quantity ?? p.cantidad ?? 1,
-                preciosDetalle: { flag, descuentos, importes, costos },
+              return normalizeProductForVisualCalc(
+                {
+                  ...p,
+                  precioLista: precioListaActualizado,
+                  dola: precioListaActualizado,
+                  stock: stockDisponible,
+                  cantidadOriginal:
+                    p.cantidadOriginal ??
+                    p.quantity ??
+                    p.cantidad ??
+                    1,
+                  preciosDetalle,
 
-                // Reforzar almacén de cabecera
-                cod_alm: quot.cod_alm ?? p.cod_alm ?? p.warehouse ?? null,
-                codnum_alm: quot.codnum_alm ?? p.codnum_alm ?? p.codNumAlmacen ?? null,
-                codNumAlmacen: quot.codnum_alm ?? p.codNumAlmacen ?? p.codnum_alm ?? null,
-                warehouse: quot.cod_alm ?? p.warehouse ?? p.cod_alm ?? null,
-              }, quot);
+                  // Ya fue validado en esta operación.
+                  _esNuevo: false,
+                  _modificado: false,
+
+                  // Reforzar almacén de cabecera
+                  cod_alm:
+                    quot.cod_alm ??
+                    p.cod_alm ??
+                    p.warehouse ??
+                    null,
+                  codnum_alm:
+                    quot.codnum_alm ??
+                    p.codnum_alm ??
+                    p.codNumAlmacen ??
+                    null,
+                  codNumAlmacen:
+                    quot.codnum_alm ??
+                    p.codNumAlmacen ??
+                    p.codnum_alm ??
+                    null,
+                  warehouse:
+                    quot.cod_alm ??
+                    p.warehouse ??
+                    p.cod_alm ??
+                    null,
+                },
+                quot
+              );
             }
 
-            return normalizeProductForVisualCalc({
-              ...p,
-              cod_alm: quot.cod_alm ?? p.cod_alm ?? p.warehouse ?? null,
-              codnum_alm: quot.codnum_alm ?? p.codnum_alm ?? p.codNumAlmacen ?? null,
-              codNumAlmacen: quot.codnum_alm ?? p.codNumAlmacen ?? p.codnum_alm ?? null,
-              warehouse: quot.cod_alm ?? p.warehouse ?? p.cod_alm ?? null,
-            }, quot);
-          } catch {
-            return normalizeProductForVisualCalc({
-              ...p,
-              cod_alm: quot.cod_alm ?? p.cod_alm ?? p.warehouse ?? null,
-              codnum_alm: quot.codnum_alm ?? p.codnum_alm ?? p.codNumAlmacen ?? null,
-              codNumAlmacen: quot.codnum_alm ?? p.codNumAlmacen ?? p.codnum_alm ?? null,
-              warehouse: quot.cod_alm ?? p.warehouse ?? p.cod_alm ?? null,
-            }, quot);
+            // Si no retorna precio, conserva el producto editado.
+            return normalizeProductForVisualCalc(
+              {
+                ...p,
+                _esNuevo: false,
+                _modificado: false,
+                cod_alm:
+                  quot.cod_alm ??
+                  p.cod_alm ??
+                  p.warehouse ??
+                  null,
+                codnum_alm:
+                  quot.codnum_alm ??
+                  p.codnum_alm ??
+                  p.codNumAlmacen ??
+                  null,
+                codNumAlmacen:
+                  quot.codnum_alm ??
+                  p.codNumAlmacen ??
+                  p.codnum_alm ??
+                  null,
+                warehouse:
+                  quot.cod_alm ??
+                  p.warehouse ??
+                  p.cod_alm ??
+                  null,
+              },
+              quot
+            );
+          } catch (error) {
+            console.error(
+              `❌ Error validando ${p.codigo}:`,
+              error
+            );
+
+            return normalizeProductForVisualCalc(
+              {
+                ...p,
+                cod_alm:
+                  quot.cod_alm ??
+                  p.cod_alm ??
+                  p.warehouse ??
+                  null,
+                codnum_alm:
+                  quot.codnum_alm ??
+                  p.codnum_alm ??
+                  p.codNumAlmacen ??
+                  null,
+                codNumAlmacen:
+                  quot.codnum_alm ??
+                  p.codNumAlmacen ??
+                  p.codnum_alm ??
+                  null,
+                warehouse:
+                  quot.cod_alm ??
+                  p.warehouse ??
+                  p.cod_alm ??
+                  null,
+              },
+              quot
+            );
           }
         })
       );
 
-           const { productos, subtotal, igv, total } = buildVisualTotals(enriched, quot);
+      const productosValidadosMap = new Map(
+        enriched.map(producto => [
+          String(producto.codigo ?? '')
+            .trim()
+            .toUpperCase(),
+          producto,
+        ])
+      );
+
+      const productosFinales = productosOriginales.map(producto => {
+        const codigo = String(producto.codigo ?? '')
+          .trim()
+          .toUpperCase();
+
+        return productosValidadosMap.get(codigo) ?? producto;
+      });
+
+      const resultado = buildVisualTotals(
+        productosFinales,
+        quot
+      );
 
       setFormData(prev => {
         if (!prev) return prev;
+
         return {
           ...prev,
-          productos,
-          subtotal,
-          igv,
-          total,
+          productos: resultado.productos,
+          subtotal: resultado.subtotal,
+          igv: resultado.igv,
+          total: resultado.total,
         };
       });
 
-      // Se devuelve el resultado fresco para poder validar de inmediato,
-      // sin depender del closure viejo de formData tras el setFormData async.
-      return { productos, subtotal, igv, total };
+      return resultado;
     } catch (err) {
-      console.error('❌ Error al enriquecer productos con flags:', err);
+      console.error(
+        '❌ Error al enriquecer productos modificados:',
+        err
+      );
       return null;
     } finally {
       setLoadingPrices(false);
@@ -363,9 +595,15 @@ if (stockRes.success && stockRes.data?.length > 0) {
   };
 
   const handleProductChange = (index, field, value) => {
+    userMadeChangeRef.current = true;
+
     setFormData(prev => {
       const products = [...prev.productos];
-      const product = { ...products[index] };
+
+      const product = {
+        ...products[index],
+        _modificado: true,
+      };
 
       if (field === 'cantidad' || field === 'quantity') {
         const qty = value === '' ? 0 : Number(value);
@@ -393,9 +631,15 @@ if (stockRes.success && stockRes.data?.length > 0) {
   };
 
   const handleDiscount5Blur = (index) => {
+    userMadeChangeRef.current = true;
+
     setFormData(prev => {
       const products = [...prev.productos];
-      const product = { ...products[index] };
+
+      const product = {
+        ...products[index],
+        _modificado: true,
+      };
 
       const flag = product.preciosDetalle?.flag?.trim() ?? product.flag?.trim() ?? '';
       const flagT = flag === 'T';
@@ -457,6 +701,8 @@ const maxD5Validacion = flagT && de03 > 0
       return;
     }
 
+    userMadeChangeRef.current = true;
+
     setFormData(prev => {
       const nextId = (prev.productos[prev.productos.length - 1]?.id || 0) + 1;
       const qtyDefault = 1;
@@ -471,6 +717,9 @@ const maxD5Validacion = flagT && de03 > 0
         codigo: product.codigo,
         nombre: product.nombre,
         descripcion: product.nombre,
+        _esNuevo: true,
+        _modificado: true,
+
         cantidad: qtyDefault,
         quantity: qtyDefault,
         precioLista,
@@ -508,6 +757,8 @@ const maxD5Validacion = flagT && de03 > 0
   };
 
   const handleRemoveProduct = (index) => {
+    userMadeChangeRef.current = true;
+
     setFormData(prev => {
       const products = prev.productos.filter((_, i) => i !== index);
       const { productos, subtotal, igv, total } = buildVisualTotals(products, prev);
@@ -598,35 +849,143 @@ const maxD5Validacion = flagT && de03 > 0
     return Object.keys(finalErrors).length === 0;
   };
 
-      const handleSubmit = async (e) => {
+     const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validate()) return;
+    if (isSaving || loadingPrices) return;
 
-    const fresh = await enrichProductsWithPrices(formData);
-    if (!fresh) {
-      toast.error('No se pudo validar los precios y descuentos. Intenta nuevamente.', {
-        position: 'top-right', duration: 5000, icon: '🚫',
+    setIsSaving(true);
+
+    try {
+      if (!validate()) return;
+
+      const fresh = await enrichProductsWithPrices(formData);
+
+      if (!fresh) {
+        toast.error(
+          'No se pudo validar los precios y descuentos. Intenta nuevamente.',
+          {
+            position: 'top-right',
+            duration: 5000,
+            icon: '🚫',
+          }
+        );
+        return;
+      }
+
+      const validacionFresca = validateProductos(fresh.productos);
+
+      if (!validacionFresca.ok) {
+        setErrors(validacionFresca.errors);
+
+        toast.error(
+          'Se detectaron cambios en precios o descuentos. Revisa los ítems marcados antes de guardar.',
+          {
+            position: 'top-right',
+            duration: 5000,
+            icon: '⚠️',
+          }
+        );
+        return;
+      }
+
+      const productosParaGuardar = fresh.productos.map(({
+        _esNuevo,
+        _modificado,
+        ...producto
+      }) => producto);
+
+      await onSave({
+        ...formData,
+        productos: productosParaGuardar,
+        subtotal: fresh.subtotal,
+        igv: fresh.igv,
+        total: fresh.total,
       });
-      return;
-    }
 
-    // Revalidar con los datos frescos de AS400, sin depender del estado async.
-    const validacionFresca = validateProductos(fresh.productos);
-    if (!validacionFresca.ok) {
-      setErrors(validacionFresca.errors);
-      toast.error('Se detectaron cambios en precios o descuentos. Revisa los ítems marcados antes de guardar.', {
-        position: 'top-right', duration: 5000, icon: '⚠️',
-      });
-      return;
-    }
+      deleteEditDraft(formData.numeroCotizacion);
+userMadeChangeRef.current = false;
 
-    onSave({
-      ...formData,
-      productos: fresh.productos,
-      subtotal: fresh.subtotal,
-      igv: fresh.igv,
-      total: fresh.total,
+    } catch (error) {
+      console.error('❌ Error al preparar la actualización:', error);
+
+      toast.error(
+        'Ocurrió un error al preparar la actualización. Intenta nuevamente.',
+        {
+          position: 'top-right',
+          duration: 5000,
+          icon: '🚫',
+        }
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+      const handleCancelEditDefinitive = () => {
+    toast.custom((t) => (
+      <div
+        className={`${
+          t.visible ? 'animate-enter' : 'animate-leave'
+        } max-w-sm w-full bg-white shadow-lg rounded-xl border border-red-100 p-4 flex flex-col gap-3`}
+      >
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+            <Trash2 className="w-5 h-5 text-red-600" />
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-900 text-sm">
+              ¿Cancelar edición definitivamente?
+            </p>
+
+            <p className="text-xs text-gray-500 mt-0.5">
+              Se eliminarán los cambios guardados localmente de esta cotización.
+              Esta acción no se puede deshacer.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-2 justify-end">
+          <button
+            type="button"
+            onClick={() => toast.dismiss(t.id)}
+            className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+          >
+            No, continuar editando
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+  toast.dismiss(t.id);
+
+  deleteEditDraft(formData?.numeroCotizacion);
+
+  setFormData(null);
+  setErrors({});
+  setEditingDiscount5({});
+  editInitializedRef.current = false;
+  userMadeChangeRef.current = false;
+
+  onClose();
+
+  setTimeout(() => {
+    toast.success('Edición cancelada. Se descartaron los cambios locales.', {
+      position: 'top-right',
+      duration: 3000,
+    });
+  }, 150);
+}}
+            className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition"
+          >
+            Sí, cancelar edición
+          </button>
+        </div>
+      </div>
+    ), {
+      duration: Infinity,
+      position: 'top-right',
     });
   };
 
@@ -651,22 +1010,72 @@ const maxD5Validacion = flagT && de03 > 0
                 <h2 className="text-lg font-bold">
                   Editar Cotización #{formData.numeroCotizacion}
                 </h2>
-                {loadingPrices ? (
+                                {isSaving ? (
                   <p className="text-xs text-emerald-100 flex items-center gap-1 animate-pulse">
-                    <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    <svg
+                      className="w-3 h-3 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
                     </svg>
-                    Cargando validaciones de descuentos...
+                    Actualizando cotización...
+                  </p>
+                ) : loadingPrices ? (
+                  <p className="text-xs text-emerald-100 flex items-center gap-1 animate-pulse">
+                    <svg
+                      className="w-3 h-3 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 12 12h4z"
+                      />
+                    </svg>
+                    Validando productos modificados...
                   </p>
                 ) : (
-                  <p className="text-xs text-emerald-100">Modifica los datos y productos</p>
+                  <p className="text-xs text-emerald-100">
+                    Modifica los datos y productos
+                  </p>
                 )}
               </div>
             </div>
-            <button type="button" onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition">
-              <X className="w-5 h-5" />
-            </button>
+            <button
+  type="button"
+  onClick={onClose}
+  disabled={isBusy}
+  className={`p-2 rounded-lg transition ${
+    isBusy
+      ? 'text-white/40 cursor-not-allowed'
+      : 'hover:bg-white/10 text-white'
+  }`}
+  title={isBusy ? 'Espere a que termine la actualización' : 'Cerrar'}
+>
+  <X className="w-5 h-5" />
+</button>
           </div>
 
           <form onSubmit={handleSubmit} className="px-6 py-5 space-y-6">
@@ -759,11 +1168,15 @@ const maxD5Validacion = flagT && de03 > 0
                   </p>
                 </div>
                 <button
-                  type="button"
-                  onClick={handleAddProduct}
-                  disabled={loadingPrices}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition"
-                >
+  type="button"
+  onClick={handleAddProduct}
+  disabled={loadingPrices || isSaving}
+  className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+    loadingPrices || isSaving
+      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+      : 'bg-emerald-600 text-white hover:bg-emerald-700'
+  }`}
+>
                   <Plus className="w-4 h-4" />
                   Agregar producto
                 </button>
@@ -881,7 +1294,7 @@ const maxD5Validacion = flagT && de03 > 0
                                 type="text"
                                 inputMode="decimal"
                                 value={editingDiscount5[index] ?? String(p.discount5 ?? '')}
-      disabled={flagX}
+      disabled={isBusy || flagX}
       onChange={e => {
         if (flagX) return;
 
@@ -967,6 +1380,7 @@ const maxD5Validacion = flagT && de03 > 0
                               <input
                                 type="text"
                                 inputMode="numeric"
+                                 disabled={isBusy}
                                 value={qty === 0 || qty === null ? '' : String(qty)}
                                 onChange={e => {
                                   const raw = e.target.value.replace(/\D/g, '');
@@ -1024,12 +1438,22 @@ const maxD5Validacion = flagT && de03 > 0
 
                           <td className="px-3 py-2 text-center">
                             <button
-                              type="button"
-                              onClick={() => handleRemoveProduct(index)}
-                              className="p-1 rounded text-red-600 hover:bg-red-50 transition"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+  type="button"
+  onClick={() => handleRemoveProduct(index)}
+  disabled={loadingPrices || isSaving}
+  className={`p-1 rounded transition ${
+    loadingPrices || isSaving
+      ? 'text-gray-300 cursor-not-allowed'
+      : 'text-red-600 hover:bg-red-50'
+  }`}
+  title={
+    loadingPrices || isSaving
+      ? 'Espere a que termine la actualización'
+      : 'Eliminar producto'
+  }
+>
+  <Trash2 className="w-4 h-4" />
+</button>
                           </td>
                         </tr>
                       );
@@ -1060,20 +1484,59 @@ const maxD5Validacion = flagT && de03 > 0
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t">
+                        <div className="flex justify-end gap-3 pt-4 border-t">
+              <button
+  type="button"
+  onClick={onClose}
+  disabled={isBusy}
+  className={`px-4 py-2.5 rounded-lg border font-medium transition ${
+    isBusy
+      ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+  }`}
+>
+  Salir y continuar después
+</button>
+
               <button
                 type="button"
-                onClick={onClose}
-                className="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition font-medium"
+                onClick={handleCancelEditDefinitive}
+                disabled={loadingPrices || isSaving}
+                className="px-4 py-2.5 rounded-lg border border-red-300 text-red-700 hover:bg-red-50 transition font-medium disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
               >
-                Cancelar
+                Cancelar edición definitivamente
               </button>
-              <button
+<button
   type="submit"
-  disabled={loadingPrices}
+  disabled={loadingPrices || isSaving}
   className="px-4 py-2.5 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 shadow-md hover:shadow-lg transition disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:shadow-none"
 >
-  {loadingPrices ? 'Cargando ítems...' : 'Guardar cambios'}
+  {loadingPrices || isSaving ? (
+    <span className="inline-flex items-center gap-2">
+      <svg
+        className="w-4 h-4 animate-spin"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="4"
+        />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+        />
+      </svg>
+      Actualizando cotización...
+    </span>
+  ) : (
+    'Guardar cambios'
+  )}
 </button>
             </div>
           </form>
