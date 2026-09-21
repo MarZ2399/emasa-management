@@ -48,6 +48,7 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
     return Object.values(map).map(r => ({
       ...r,
       metpor: r.meta > 0 ? (r.metnet / r.meta) * 100 : 0,
+      proyectado: r.meta > 0 ? ((r.metnet + r.pend) / r.meta) * 100 : 0,
     }));
   }, [goals]);
 
@@ -65,6 +66,10 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
   const totalPct = totals.meta > 0
     ? (totals.metnet / totals.meta) * 100
     : 0;
+
+  const totalProyectado = totals.meta > 0
+  ? ((totals.metnet + totals.pend) / totals.meta) * 100
+  : 0;
 
   const metgrpMap = useMemo(() => {
     const map = {};
@@ -162,6 +167,7 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
     <ThBtn col="metnet"     label={`Efectivo ${mesLabel} US$`} />
     <ThBtn col="metpor"     label="% Logro US$" />
     <ThBtn col="pend"       label={`Pend. Fact ${mesLabel} US$`} />
+    <ThBtn col="proyectado" label={`Proyectado ${mesLabel} US$`} />
   </tr>
 </thead>
 
@@ -194,6 +200,9 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
           {fmt(row.metpor)}
         </td>
         <td className="px-4 py-3 text-right text-gray-700">{fmt(row.pend)}</td>
+        <td className={`px-4 py-3 text-right ${pctColor(row.proyectado)}`}>
+  {fmt(row.proyectado)}
+</td>
       </tr>
     );
   })}
@@ -211,6 +220,9 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
                 {fmt(totalPct)}
               </td>
               <td className="px-4 py-3 text-right text-gray-900">{fmt(totals.pend)}</td>
+              <td className={`px-4 py-3 text-right ${pctColor(totalProyectado)}`}>
+  {fmt(totalProyectado)}
+</td>
             </tr>
           </tfoot>
         </table>
