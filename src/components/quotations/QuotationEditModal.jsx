@@ -1504,7 +1504,7 @@ const maxD5Validacion = flagT && de03 > 0
                 disabled={loadingPrices || isSaving}
                 className="px-4 py-2.5 rounded-lg border border-red-300 text-red-700 hover:bg-red-50 transition font-medium disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
               >
-                Cancelar edición definitivamente
+                Cancelar edición
               </button>
 <button
   type="submit"
