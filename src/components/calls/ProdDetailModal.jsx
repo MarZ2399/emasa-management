@@ -1,23 +1,39 @@
 // src/components/calls/ProdDetailModal.jsx
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { Building2, AlertCircle, Loader2, Package, Tag, Layers, Ship, BookOpen } from 'lucide-react';
-import { precioService }  from '../../services/precioService';
+import {
+  Building2,
+  AlertCircle,
+  Loader2,
+  Package,
+  Tag,
+  Layers,
+  Ship,
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  ImageOff,
+} from 'lucide-react';
+import { precioService } from '../../services/precioService';
 import { productService } from '../../services/productService';
 import toast from 'react-hot-toast';
 
-const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
 
- 
-  const [preciosData,     setPreciosData]     = useState(null);
-  const [loadingPrecios,  setLoadingPrecios]  = useState(false);
-  const [errorPrecios,    setErrorPrecios]    = useState(null);
-  const [fases,           setFases]           = useState([]);
-  const [loadingFases,    setLoadingFases]    = useState(false);
-  const [carteras,        setCarteras]        = useState([]);
+const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
+  const [preciosData, setPreciosData] = useState(null);
+  const [loadingPrecios, setLoadingPrecios] = useState(false);
+  const [errorPrecios, setErrorPrecios] = useState(null);
+  const [fases, setFases] = useState([]);
+  const [loadingFases, setLoadingFases] = useState(false);
+  const [carteras, setCarteras] = useState([]);
   const [loadingCarteras, setLoadingCarteras] = useState(false);
-  const [detalle,         setDetalle]         = useState(null);
-  const [loadingDetalle,  setLoadingDetalle]  = useState(false);
+  const [detalle, setDetalle] = useState(null);
+  const [loadingDetalle, setLoadingDetalle] = useState(false);
+
+  // ── Imágenes del producto (S3 vía storage-api + tabla producto_imagenes) ──
+  const [imagenes, setImagenes] = useState([]);
+  const [loadingImagenes, setLoadingImagenes] = useState(false);
+  const [indiceActual, setIndiceActual] = useState(0);
 
   // ── Código normalizado — soporta cualquier casing ─────────────────────────
   const codigoProducto = product?.codigo?.trim()
@@ -27,15 +43,15 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
   // ── Normalizar almacenes ──────────────────────────────────────────────────
   const almacenes = (
     product?.almacenesAll ??
-    product?.almacenes    ??
-    product?.stock        ??
+    product?.almacenes ??
+    product?.stock ??
     []
   ).map(a => ({
     almacencod: (a.almacencod ?? '').trim(),
     almacendes: (a.almacendes ?? '').trim(),
-    stock:       a.stock   || 0,
-    reserva:     a.reserva || 0,
-    disponible:   a.disponible || 0, 
+    stock: a.stock || 0,
+    reserva: a.reserva || 0,
+    disponible: a.disponible || 0,
   }));
 
   // const totalStock = almacenes.reduce((sum, a) => sum + a.stock, 0);
@@ -48,17 +64,20 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
       fetchFases();
       fetchCarteras();
       fetchDetalle();
+      fetchImagenes();
     }
+
     if (!isOpen) {
       setPreciosData(null);
       setErrorPrecios(null);
       setFases([]);
       setCarteras([]);
       setDetalle(null);
+      setImagenes([]);
+      setIndiceActual(0);
     }
   }, [isOpen, codigoProducto, clienteRuc]);
 
-  
   if (!product || !isOpen) return null;
 
   // ── Fetch precios ─────────────────────────────────────────────────────────
@@ -67,14 +86,20 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
       setErrorPrecios('Faltan datos para consultar precios');
       return;
     }
+
     try {
       setLoadingPrecios(true);
       setErrorPrecios(null);
       const response = await precioService.obtenerPrecio(clienteRuc, codigoProducto, 1);
+
       if (response.success && response.data) {
         setPreciosData(response.data);
       } else {
-        setErrorPrecios(response.msgerror || response.error || 'No se pudieron obtener los precios');
+        setErrorPrecios(
+          response.msgerror ||
+          response.error ||
+          'No se pudieron obtener los precios'
+        );
       }
     } catch (error) {
       console.error('❌ Error al obtener precios:', error);
@@ -124,11 +149,104 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
     }
   };
 
+  // ── Fetch imágenes (tabla producto_imagenes en PostgreSQL) ────────────────
+  const fetchImagenes = async () => {
+    try {
+      setLoadingImagenes(true);
+      setIndiceActual(0);
+      const response = await productService.getImagenes(codigoProducto);
+
+      if (response.success) {
+        setImagenes(response.data || []);
+      } else {
+        setImagenes([]);
+        console.error('❌ Error al obtener imágenes:', response.msgerror);
+      }
+    } catch (error) {
+      console.error('❌ Error al obtener imágenes:', error);
+      setImagenes([]);
+    } finally {
+      setLoadingImagenes(false);
+    }
+  };
+
+  // ── Navegación del carrusel ───────────────────────────────────────────────
+  const irAnterior = () => {
+    if (imagenes.length === 0) return;
+    setIndiceActual(prev => (prev === 0 ? imagenes.length - 1 : prev - 1));
+  };
+
+  const irSiguiente = () => {
+    if (imagenes.length === 0) return;
+    setIndiceActual(prev => (prev === imagenes.length - 1 ? 0 : prev + 1));
+  };
+
+  // ── Construcción del enlace seguro hacia el emasa-storage-api ─────────────
+  const storageApiUrl = import.meta.env.VITE_STORAGE_API_URL || 'http://localhost:3001';
+
+  const normalizarCarpetaImagen = (tamano = 'img-g') => {
+    const carpeta = String(tamano)
+      .trim()
+      .replace(/_/g, '-')
+      .toLowerCase();
+
+    const carpetasValidas = ['img-g', 'img-m', 'img-p'];
+    return carpetasValidas.includes(carpeta) ? carpeta : 'img-g';
+  };
+
+  const buildEnlaceSeguro = (nombreArchivo, tamano = 'img-g') => {
+    if (!nombreArchivo) return '';
+
+    const carpeta = normalizarCarpetaImagen(tamano);
+    const key = `CRM/imgprod/${carpeta}/${nombreArchivo}`;
+
+    return `${storageApiUrl}/api/archivos/descargar?key=${encodeURIComponent(key)}`;
+  };
+
+  const buildEnlaceSeguroDesdeUrl = (url) => {
+    if (!url) return '';
+
+    const urlBase = String(url).trim();
+    const s3Key = urlBase.includes('.com/')
+      ? urlBase.split('.com/')[1].split('?')[0]
+      : urlBase;
+
+    if (!s3Key) return '';
+
+    return `${storageApiUrl}/api/archivos/descargar?key=${encodeURIComponent(s3Key)}`;
+  };
+
+  const getImagenUrl = (imagen, esMiniatura = false) => {
+    if (!imagen) return '';
+
+    const urlExistente = imagen.url || imagen.urlS3 || imagen.enlace || imagen.ruta;
+
+    if (urlExistente) {
+      return buildEnlaceSeguroDesdeUrl(urlExistente);
+    }
+
+    const nombreArchivo = imagen.nombreArchivo || imagen.nombre || imagen.archivo;
+
+    if (!nombreArchivo) return '';
+
+    if (esMiniatura) {
+      return buildEnlaceSeguro(
+        nombreArchivo,
+        imagen.tieneImgP ? 'img-p' : imagen.tieneImgM ? 'img-m' : 'img-g'
+      );
+    }
+
+    return buildEnlaceSeguro(
+      nombreArchivo,
+      imagen.tieneImgG ? 'img-g' : imagen.tieneImgM ? 'img-m' : imagen.tieneImgP ? 'img-p' : 'img-g'
+    );
+  };
+
   // ── Helpers ───────────────────────────────────────────────────────────────
   const getStockStyle = (stock) => {
-    if (stock === 0) return { badge: 'bg-red-100 text-red-700 border-red-300',          icon: '❌', label: 'Sin Stock'  };
-    if (stock < 10)  return { badge: 'bg-yellow-100 text-yellow-700 border-yellow-300', icon: '⚠️', label: 'Stock Bajo' };
-    return                   { badge: 'bg-green-100 text-green-700 border-green-300',   icon: '✅', label: 'Disponible' };
+    if (stock === 0) return { badge: 'bg-red-100 text-red-700 border-red-300', icon: '❌', label: 'Sin Stock' };
+    if (stock < 10) return { badge: 'bg-yellow-100 text-yellow-700 border-yellow-300', icon: '⚠️', label: 'Stock Bajo' };
+    return { badge: 'bg-green-100 text-green-700 border-green-300', icon: '✅', label: 'Disponible' };
   };
 
   const InfoRow = ({ label, value, cls = '' }) => (
@@ -178,6 +296,119 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
             {/* ════════ COLUMNA IZQUIERDA ════════ */}
             <div className="space-y-5">
 
+              {/* Galería de imágenes */}
+              <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                <div className="bg-[#334a5e] text-white px-4 py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-5 h-5" />
+                    <h3 className="font-bold text-sm uppercase tracking-wide">Imágenes del Producto</h3>
+                  </div>
+                  {imagenes.length > 1 && (
+                    <span className="text-xs text-gray-300">
+                      {indiceActual + 1} / {imagenes.length}
+                    </span>
+                  )}
+                </div>
+
+                <div className="relative bg-gray-50 flex items-center justify-center h-64">
+                  {loadingImagenes ? (
+                    <div className="flex flex-col items-center gap-2 text-blue-700">
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                      <span className="text-sm font-medium">Cargando imágenes...</span>
+                    </div>
+                  ) : imagenes.length > 0 ? (
+                    <>
+                      {(() => {
+                        const imagenActual = imagenes[indiceActual];
+                        const enlaceImagenActual = getImagenUrl(imagenActual);
+
+                        return (
+                          <a
+                            href={enlaceImagenActual}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block hover:opacity-90 transition-opacity"
+                            title="Ver imagen completa"
+                          >
+                            <img
+                              src={enlaceImagenActual}
+                              alt={`${codigoProducto} - imagen ${indiceActual + 1}`}
+                              className="max-h-64 max-w-full object-contain"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                if (e.currentTarget.parentElement) {
+                                  e.currentTarget.parentElement.innerHTML = `
+                                    <div class="flex flex-col items-center gap-2 text-gray-400 p-6">
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect width="18" height="18" x="3" y="3" rx="2"/>
+                                        <circle cx="9" cy="9" r="2"/>
+                                        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                                      </svg>
+                                      <span class="text-sm font-medium">No se pudo cargar la imagen</span>
+                                    </div>`;
+                                }
+                              }}
+                            />
+                          </a>
+                        );
+                      })()}
+
+                      {imagenes.length > 1 && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={irAnterior}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/90 shadow-md hover:bg-white transition"
+                            title="Imagen anterior"
+                          >
+                            <ChevronLeft className="w-5 h-5 text-gray-700" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={irSiguiente}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/90 shadow-md hover:bg-white transition"
+                            title="Siguiente imagen"
+                          >
+                            <ChevronRight className="w-5 h-5 text-gray-700" />
+                          </button>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-gray-400">
+                      <ImageOff className="w-10 h-10 text-gray-300" />
+                      <span className="text-sm font-medium">Sin imágenes disponibles</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Miniaturas (thumbnails) */}
+                {imagenes.length > 1 && (
+                  <div className="flex gap-2 p-3 overflow-x-auto bg-white border-t border-gray-100">
+                    {imagenes.map((img, idx) => (
+                      <button
+                        key={img.secuencia ?? img.nombreArchivo ?? idx}
+                        type="button"
+                        onClick={() => setIndiceActual(idx)}
+                        className={`flex-shrink-0 w-14 h-14 rounded-lg border-2 overflow-hidden transition ${
+                          idx === indiceActual
+                            ? 'border-emerald-500 ring-2 ring-emerald-200'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <img
+                          src={getImagenUrl(img, true)}
+                          alt={`Miniatura ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Información general */}
               <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
                 <div className="bg-[#334a5e] text-white px-4 py-3 flex items-center gap-2">
@@ -185,13 +416,13 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
                   <h3 className="font-bold text-sm uppercase tracking-wide">Información del Producto</h3>
                 </div>
                 <div className="divide-y divide-gray-100">
-                  <InfoRow label="Producto"        value={product.nombre}           />
-                  <InfoRow label="Código"          value={codigoProducto}           />
-                  <InfoRow label="Categoría"       value={product.categoria}        />
-                  <InfoRow label="Marca"           value={product.proveedor}        />
-                  <InfoRow label="Equivalencia 01" value={product.equivalencia01}   />
-                  <InfoRow label="Equivalencia 02" value={product.equivalencia02}   />
-                  <InfoRow label="Core"            value={product.core}             />
+                  <InfoRow label="Producto" value={product.nombre} />
+                  <InfoRow label="Código" value={codigoProducto} />
+                  <InfoRow label="Categoría" value={product.categoria} />
+                  <InfoRow label="Marca" value={product.proveedor} />
+                  <InfoRow label="Equivalencia 01" value={product.equivalencia01} />
+                  <InfoRow label="Equivalencia 02" value={product.equivalencia02} />
+                  <InfoRow label="Core" value={product.core} />
                 </div>
               </div>
 
@@ -209,12 +440,12 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
                   </div>
                 ) : detalle ? (
                   <div className="divide-y divide-gray-100">
-                    <InfoRow label="Nom. Web"    value={detalle.nom_web}            />
-                    <InfoRow label="Rubro"       value={detalle.nom_rubro}          />
-                    <InfoRow label="Familia"     value={detalle.nom_familia}        />
-                    <InfoRow label="Marca"       value={detalle.nom_marca_producto} />
-                    <InfoRow label="Estado"      value={detalle.estado}             />
-                    <InfoRow label="eCommerce"   value={detalle.pub_ecommerce}      />
+                    <InfoRow label="Nom. Web" value={detalle.nom_web} />
+                    <InfoRow label="Rubro" value={detalle.nom_rubro} />
+                    <InfoRow label="Familia" value={detalle.nom_familia} />
+                    <InfoRow label="Marca" value={detalle.nom_marca_producto} />
+                    <InfoRow label="Estado" value={detalle.estado} />
+                    <InfoRow label="eCommerce" value={detalle.pub_ecommerce} />
                     {detalle.glosas?.length > 0 && (
                       <>
                         <div className="bg-gray-100 px-4 py-2 border-b border-gray-200">
@@ -265,11 +496,11 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
                   {preciosData ? (
                     <>
                       {[
-                        { label: 'Precio Lista (LDOL)',          value: `$ ${(preciosData.importes?.ldol || 0).toFixed(3)}`, highlight: false },
-                        { label: 'Precio Unitario Neto (DOLP)',  value: `$ ${(preciosData.importes?.dolp || 0).toFixed(3)}`, highlight: false },
-                        { label: 'Precio c/ desctos. (DOLA)',    value: `$ ${(preciosData.importes?.dola || 0).toFixed(3)}`, highlight: true  },
+                        { label: 'Precio Lista (LDOL)', value: `$ ${(preciosData.importes?.ldol || 0).toFixed(3)}`, highlight: false },
+                        { label: 'Precio Unitario Neto (DOLP)', value: `$ ${(preciosData.importes?.dolp || 0).toFixed(3)}`, highlight: false },
+                        { label: 'Precio c/ desctos. (DOLA)', value: `$ ${(preciosData.importes?.dola || 0).toFixed(3)}`, highlight: true },
                         { label: 'Precio Unitario Soles (SOLP)', value: `S/ ${(preciosData.importes?.solp || 0).toFixed(3)}`, highlight: false },
-                        { label: 'Total en Soles (SOLE)',        value: `S/ ${(preciosData.importes?.sole || 0).toFixed(3)}`, highlight: false },
+                        { label: 'Total en Soles (SOLE)', value: `S/ ${(preciosData.importes?.sole || 0).toFixed(3)}`, highlight: false },
                       ].map((row, i) => (
                         <div key={i} className={`grid grid-cols-[1fr_auto] px-4 py-2.5 ${row.highlight ? 'bg-green-50' : ''}`}>
                           <span className={`font-medium ${row.highlight ? 'text-green-800' : 'text-gray-600'}`}>{row.label}</span>
@@ -296,9 +527,9 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
                           <div className="flex justify-between text-xs text-indigo-800 border-t border-indigo-200 pt-2 mt-2">
                             <span className="font-bold">Flag:</span>
                             <span className={`font-bold px-2 py-0.5 rounded-full text-[11px] border ${
-                              preciosData.flag === 'OK' ? 'bg-green-100 text-green-700 border-green-300'    :
-                              preciosData.flag === 'T'  ? 'bg-orange-100 text-orange-700 border-orange-300' :
-                              preciosData.flag === 'X'  ? 'bg-red-100 text-red-700 border-red-300'          :
+                              preciosData.flag === 'OK' ? 'bg-green-100 text-green-700 border-green-300' :
+                              preciosData.flag === 'T' ? 'bg-orange-100 text-orange-700 border-orange-300' :
+                              preciosData.flag === 'X' ? 'bg-red-100 text-red-700 border-red-300' :
                               'bg-gray-100 text-gray-700 border-gray-300'
                             }`}>
                               {preciosData.flag}
@@ -312,7 +543,6 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
                   ) : null}
                 </div>
               </div>
-
             </div>
 
             {/* ════════ COLUMNA DERECHA ════════ */}
@@ -332,7 +562,7 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
                   {almacenes.length > 0 ? (
                     <>
                       {almacenes.map((almacen, idx) => {
-                        // const status        = getStockStyle(almacen.stock);
+                        // const status = getStockStyle(almacen.stock);
                         const status = getStockStyle(almacen.disponible);
                         const almacenNombre = almacen.almacendes || almacen.almacencod;
                         return (
@@ -355,9 +585,9 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
                             <div className="text-right">
                               <p className={`text-2xl font-extrabold ${
                                 // almacen.stock === 0 ? 'text-gray-400' :
-                                // almacen.stock < 10  ? 'text-yellow-600' : 'text-green-600'
+                                // almacen.stock < 10 ? 'text-yellow-600' : 'text-green-600'
                                 almacen.disponible === 0 ? 'text-gray-400' :
-                                almacen.disponible < 10  ? 'text-yellow-600' : 'text-green-600'
+                                almacen.disponible < 10 ? 'text-yellow-600' : 'text-green-600'
                               }`}>
                                 {/* {almacen.stock} */}
                                 {almacen.disponible}
@@ -406,7 +636,7 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
                           <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 uppercase">Cantidad</th>
-                          <th className="px-4 py-2.5 text-left   text-xs font-semibold text-gray-600 uppercase">Fase</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase">Fase</th>
                           <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 uppercase">Fecha</th>
                           <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 uppercase">F. Bodega</th>
                         </tr>
@@ -416,7 +646,7 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
                           <tr key={i} className="hover:bg-gray-50 transition">
                             <td className="px-4 py-2.5 text-center font-bold text-blue-700">{f.cantidad ?? '—'}</td>
                             <td className="px-4 py-2.5 font-semibold text-gray-800">{f.fase || '—'}</td>
-                            <td className="px-4 py-2.5 text-center text-gray-600 text-xs">{f.fecha   ?? '—'}</td>
+                            <td className="px-4 py-2.5 text-center text-gray-600 text-xs">{f.fecha ?? '—'}</td>
                             <td className="px-4 py-2.5 text-center text-gray-600 text-xs">{f.fbodega ?? '—'}</td>
                           </tr>
                         ))}
@@ -461,13 +691,13 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
                         {/* Campos siempre visibles */}
                         <div className="divide-y divide-gray-100">
                           {[
-                            { label: 'N° Solicitud.', value: r.nsolic                              },
-                            { label: 'Ped. Origen.',  value: r.pedori                              },
-                            { label: 'N° Ped.',       value: r.nvoped                              },
-                            { label: 'Cantidad',      value: r.cantidad, cls: 'font-bold text-blue-700' },
-                            { label: 'Fecha',         value: r.fecha                               },
-                            { label: 'F. Bodega',     value: r.fbodega                             },
-                            { label: 'TCOMEP',        value: r.tcomep                              },
+                            { label: 'N° Solicitud.', value: r.nsolic },
+                            { label: 'Ped. Origen.', value: r.pedori },
+                            { label: 'N° Ped.', value: r.nvoped },
+                            { label: 'Cantidad', value: r.cantidad, cls: 'font-bold text-blue-700' },
+                            { label: 'Fecha', value: r.fecha },
+                            { label: 'F. Bodega', value: r.fbodega },
+                            { label: 'TCOMEP', value: r.tcomep },
                           ].map((row, j) => (
                             <div key={j} className="grid grid-cols-[160px_1fr] text-xs">
                               <div className="bg-gray-50 px-4 py-2 font-semibold text-gray-500">{row.label}</div>
@@ -519,7 +749,6 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
                             </div>
                           )}
                         </div>
-
                       </div>
                     ))}
                   </div>
@@ -530,15 +759,14 @@ const ProdDetailModal = ({ product, clienteRuc, isOpen, onClose }) => {
                   </div>
                 )}
               </div>
-
             </div>
           </div>
         </div>
-
       </div>
     </div>,
     document.body
   );
 };
+
 
 export default ProdDetailModal;

@@ -167,6 +167,29 @@ getDetalle: async (codProducto) => {
   }
 },
 
+  getImagenes: async (codigo) => {
+    try {
+      if (!codigo || codigo.trim() === '') {
+        return {
+          success: true,
+          data: [],
+          msgerror: null
+        };
+      }
+
+      const { data } = await api.get(`/products/${encodeURIComponent(codigo.trim())}/imagenes`);
+      return data;
+    } catch (error) {
+      console.error('❌ Error en getImagenes:', error);
+      return {
+        success: false,
+        data: [],
+        msgerror: error.response?.data?.msgerror || error.message
+      };
+    }
+  },
+
+
 };
 
 
