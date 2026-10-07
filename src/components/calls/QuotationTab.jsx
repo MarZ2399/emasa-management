@@ -87,6 +87,9 @@ const QuotationTab = ({
   const [quotationNumber, setQuotationNumber] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
 
+  const [selectedItems, setSelectedItems] = useState(new Set());
+  const [bulkDiscount, setBulkDiscount] = useState('');
+
   const currency = 'USD';
   const currencySymbol = currency === 'USD' ? '$' : 'S/';
 
@@ -197,6 +200,97 @@ const QuotationTab = ({
       if (hasChanges) setQuotationItems(normalized);
     }
   }, [quotationItems.length]);
+
+  // ── Control de selección masiva ─────────────────────────────────────────
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedItems(new Set((quotationItems ?? []).map((_, i) => i)));
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
+
+  const handleSelectItem = (idx, checked) => {
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      if (checked) next.add(idx);
+      else next.delete(idx);
+      return next;
+    });
+  };
+
+ const handleApplyBulkDiscount = () => {
+    if (selectedItems.size === 0) {
+      toast.error('Selecciona al menos un producto', { position: 'top-right' });
+      return;
+    }
+    
+    const rawBulk = Number(bulkDiscount);
+    if (bulkDiscount === '' || isNaN(rawBulk) || rawBulk < 0 || rawBulk > 100) {
+      toast.error('Ingresa un valor de descuento válido (0-100)', { position: 'top-right' });
+      return;
+    }
+
+    // Contadores para el resumen de la notificación
+    let aplicadosExacto = 0;
+    let ajustadosAlLimite = 0;
+    let omitidosFlagX = 0;
+
+    setQuotationItems(items => {
+      return items.map((item, idx) => {
+        if (!selectedItems.has(idx)) return item;
+
+        const flag = item.preciosDetalle?.flag?.trim() ?? '';
+        const flagT = flag === 'T';
+        const flagX = flag === 'X';
+
+        // Si es Flag X, no se toca y se cuenta como omitido
+        if (flagX) {
+          omitidosFlagX++;
+          return item;
+        }
+
+        const minD5 = flagT ? Number(item.preciosDetalle?.descuentos?.de04 ?? 0) : 0;
+        const maxD5Visual = flagT ? Number(item.preciosDetalle?.descuentos?.de05 ?? 100) : 100;
+        const de03 = Number(item.preciosDetalle?.descuentos?.de03 ?? 0);
+        const maxD5Validacion = flagT && de03 > 0 ? de03 : maxD5Visual;
+
+        const cappedDiscount = flagT
+          ? Math.min(maxD5Validacion, Math.max(minD5, rawBulk))
+          : Math.min(100, Math.max(0, rawBulk));
+
+        // Contar si se aplicó el valor exacto pedido o si el sistema tuvo que recortarlo
+        if (cappedDiscount === rawBulk) {
+          aplicadosExacto++;
+        } else {
+          ajustadosAlLimite++;
+        }
+
+        return normalizeItem({ ...item, discount5: cappedDiscount });
+      });
+    });
+
+    // Mostrar notificación dinámica según los resultados
+    if (ajustadosAlLimite > 0 || omitidosFlagX > 0) {
+      // Usamos un componente React dentro del toast para que se vea estructurado
+      toast.success(
+        <div>
+          <p className="font-bold mb-1">Descuento masivo aplicado:</p>
+          <ul className="text-xs list-disc pl-4 space-y-0.5">
+            {aplicadosExacto > 0 && <li>{aplicadosExacto} aplicados al {rawBulk}% exacto.</li>}
+            {ajustadosAlLimite > 0 && <li>{ajustadosAlLimite} reducidos a su tope máximo.</li>}
+            {omitidosFlagX > 0 && <li>{omitidosFlagX} omitidos (Flag X - Sin dscto).</li>}
+          </ul>
+        </div>,
+        { position: 'top-right', duration: 6000 } // Dura un poco más para que puedan leerlo
+      );
+    } else {
+      toast.success(`Descuento de ${rawBulk}% aplicado a ${selectedItems.size} producto(s)`, { position: 'top-right' });
+    }
+
+    setBulkDiscount('');
+    setSelectedItems(new Set()); // Desmarca los checkboxes después de aplicar
+  };
 
   // ── Helpers de edición ──────────────────────────────────────────────────
   const setItemField = (idx, field, rawValue) => {
@@ -558,6 +652,32 @@ console.log('🔍 item stock fields:', quotationItems.map(i => ({
         </div>
       </div>
 
+
+
+      {/* Panel de Descuento Masivo */}
+      {quotationItems?.length > 0 && (
+        <div className="flex items-center gap-3 mb-4 p-3 bg-gray-50 border rounded-lg shadow-sm w-full md:w-auto">
+          <span className="text-sm font-semibold text-gray-700">Aplicar 5to Dscto Masivo:</span>
+          <input
+            type="number"
+            value={bulkDiscount}
+            onChange={e => setBulkDiscount(e.target.value)}
+            placeholder="%"
+            min="0"
+            max="100"
+            className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-400 outline-none text-sm"
+          />
+          <button
+            onClick={handleApplyBulkDiscount}
+            className="px-4 py-1.5 bg-[#334a5e] text-white rounded-md text-sm font-semibold hover:scale-105 transition shadow-sm disabled:opacity-50"
+            disabled={selectedItems.size === 0}
+          >
+            Aplicar a seleccionados ({selectedItems.size})
+          </button>
+        </div>
+      )}
+
+
       <div className="overflow-auto rounded-xl shadow-lg bg-white border">
         <table
           className="divide-y divide-gray-200 text-sm"
@@ -565,6 +685,14 @@ console.log('🔍 item stock fields:', quotationItems.map(i => ({
         >
           <thead className="bg-gray-100 sticky top-0 z-10">
             <tr>
+              <th style={{ width: 40 }} className="p-4 text-center">
+                <input 
+                  type="checkbox" 
+                  className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                  onChange={handleSelectAll} 
+                  checked={quotationItems?.length > 0 && selectedItems.size === quotationItems.length} 
+                />
+              </th>
               <th style={{ width: 56 }} className="p-4 font-bold text-gray-700 text-center">Item</th>
               <th style={{ width: 180 }} className="p-4 font-bold text-gray-700 text-center">Código Mercadería</th>
               <th style={{ width: 210 }} className="p-4 font-bold text-gray-700 text-center">Descripción Mercadería</th>
@@ -622,8 +750,16 @@ const maxD5Validacion = flagT && de03 > 0
                 } = calcPrecioExacto(precioLista, discount1, discount5, qty);
 
                 return (
-                  <tr key={idx} className="hover:bg-gray-50 transition">
-                    <td style={{ width: 56 }} className="p-4 text-center font-mono font-bold text-blue-900 bg-blue-50 rounded-l-lg">
+                  <tr key={idx} className={`transition ${selectedItems.has(idx) ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+                    <td style={{ width: 40 }} className="p-4 text-center">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                        checked={selectedItems.has(idx)} 
+                        onChange={e => handleSelectItem(idx, e.target.checked)} 
+                      />
+                    </td>
+                    <td style={{ width: 56 }} className="p-4 text-center font-mono font-bold text-blue-900 bg-blue-50 ">
                       {String(idx + 1).padStart(3, '0')}
                     </td>
 

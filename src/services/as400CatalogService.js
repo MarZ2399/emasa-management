@@ -11,6 +11,14 @@ export const getTransportistasAll = async () => {
   return data.data;
 };
 
+
+export const getFormasPago = async () => {
+  const { data } = await api.get('/as400-catalogs/formas-pago');
+
+  return data.data;
+};
+
+
 // ── UBIGEO ────────────────────────────────────────────────────────────────
 
 export const getDepartamentos = async () => {

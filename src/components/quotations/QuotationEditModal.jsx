@@ -1000,7 +1000,7 @@ userMadeChangeRef.current = false;
     <>
       <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
         <div
-          className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto"
+          className="bg-white rounded-xl shadow-2xl w-full max-w-7xl max-h-[90vh] overflow-y-auto"
           onClick={e => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-emerald-500 to-green-600 text-white sticky top-0 z-10">
@@ -1201,7 +1201,7 @@ userMadeChangeRef.current = false;
                   <thead className="bg-gray-100">
                     <tr>
                       <th className="px-3 py-2 text-center font-semibold text-gray-700 w-8">#</th>
-                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Código</th>
+                      <th className="px-3 py-2 text-left font-semibold text-gray-700 min-w-[140px]">Código</th>
                       <th className="px-3 py-2 text-left font-semibold text-gray-700">Descripción</th>
                       <th className="px-3 py-2 text-right font-semibold text-gray-700">Precio Lista</th>
                       <th className="px-3 py-2 text-right font-semibold text-gray-700">Dscto 1 (%)</th>
@@ -1256,7 +1256,7 @@ const maxD5Validacion = flagT && de03 > 0
                               value={p.codigo}
                               readOnly
                               onChange={e => handleProductChange(index, 'codigo', e.target.value)}
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                              className="w-full min-w-[140px] px-2 py-1 border border-gray-300 rounded text-xs"
                             />
                           </td>
 
@@ -1266,7 +1266,7 @@ const maxD5Validacion = flagT && de03 > 0
                               value={p.nombre}
                               readOnly
                               onChange={e => handleProductChange(index, 'nombre', e.target.value)}
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                              className="w-full min-w-[250px] px-2 py-1 border border-gray-300 rounded text-xs"
                             />
                           </td>
 
@@ -1275,7 +1275,7 @@ const maxD5Validacion = flagT && de03 > 0
                               type="text"
                               value={precioLista.toFixed(3)}
                               readOnly
-                              className="w-24 px-2 py-1 border border-gray-200 rounded text-right text-xs bg-gray-100 text-gray-500 cursor-not-allowed"
+                              className="w-16 px-2 py-1 border border-gray-200 rounded text-right text-xs bg-gray-100 text-gray-500 cursor-not-allowed"
                             />
                           </td>
 
@@ -1284,7 +1284,7 @@ const maxD5Validacion = flagT && de03 > 0
                               type="text"
                               value={p.discount1 ?? 0}
                               readOnly
-                              className="w-20 px-2 py-1 border border-indigo-200 rounded text-right text-xs bg-indigo-50 text-indigo-700 cursor-not-allowed font-semibold"
+                              className="w-14 px-2 py-1 border border-indigo-200 rounded text-right text-xs bg-indigo-50 text-indigo-700 cursor-not-allowed font-semibold"
                             />
                           </td>
 
@@ -1340,7 +1340,7 @@ const maxD5Validacion = flagT && de03 > 0
 
         handleDiscount5Blur(index);
       }}
-                                className={`w-20 px-2 py-1 rounded text-right text-xs font-semibold focus:ring-1 outline-none border ${
+                                className={`w-14 px-2 py-1 rounded text-right text-xs font-semibold focus:ring-1 outline-none border ${
                                   flagX
                                     ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
                                     : flagT
@@ -1412,7 +1412,7 @@ const maxD5Validacion = flagT && de03 > 0
                                     handleProductChange(index, 'quantity', 1);
                                   }
                                 }}
-                                className={`w-16 px-2 py-1 border rounded text-right text-xs font-bold focus:ring-1 outline-none ${
+                                className={`w-12 px-2 py-1 border rounded text-right text-xs font-bold focus:ring-1 outline-none ${
                                   errors[`producto_${index}_stock`]
                                     ? 'border-red-400 bg-red-50 text-red-700 focus:ring-red-400'
                                     : 'border-blue-200 bg-blue-50 focus:ring-blue-400'

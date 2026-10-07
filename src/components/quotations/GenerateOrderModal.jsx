@@ -12,28 +12,31 @@ import useTransportistas from '../../hooks/useTransportistas';
 import useUbigeo from '../../hooks/useUbigeo';
 import useClientShippingAddresses from '../../hooks/useClientShippingAddresses';
 import { transmitOrder, getOrderPreview } from '../../services/orderRequestService';
+import {
+  getFormasPago,
+} from '../../services/as400CatalogService';
 
 import toast from 'react-hot-toast';
 
-const FORMAS_PAGO = {
-  ADE: 'Adelantos pagos - Contado',
-  AD2: 'Adelanto por dscto. 0.02',
-  CEF: 'Contado - Marketplace',
-  CON: 'Contado',
-  F03: 'Factura 3 días',
-  F07: 'Factura 7 días',
-  F15: 'Factura 15 días',
-  F30: 'Factura 30 días',
-  F45: 'Factura 45 días',
-  F60: 'Factura 60 días',
-  F75: 'Factura 75 días',
-  F90: 'Factura 90 días',
-  F92: 'Factura 120 días',
-  PLA: 'Descuento planilla al personal',
-  TRA: 'Traslado entre almacenes',
-  TTG: 'Transf. a título gratuito',
-  210: 'Factura 210 días',
-};
+// const FORMAS_PAGO = {
+//   ADE: 'Adelantos pagos - Contado',
+//   AD2: 'Adelanto por dscto. 0.02',
+//   CEF: 'Contado - Marketplace',
+//   CON: 'Contado',
+//   F03: 'Factura 3 días',
+//   F07: 'Factura 7 días',
+//   F15: 'Factura 15 días',
+//   F30: 'Factura 30 días',
+//   F45: 'Factura 45 días',
+//   F60: 'Factura 60 días',
+//   F75: 'Factura 75 días',
+//   F90: 'Factura 90 días',
+//   F92: 'Factura 120 días',
+//   PLA: 'Descuento planilla al personal',
+//   TRA: 'Traslado entre almacenes',
+//   TTG: 'Transf. a título gratuito',
+//   210: 'Factura 210 días',
+// };
 
 const IGV_RATE = 0.18;
 
@@ -66,7 +69,11 @@ const calcPrecioVisual = (precioLista, discount1, discount5, quantity = 1) => {
 
 const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
 
-   const todasLasOpciones = Object.keys(FORMAS_PAGO);
+     const [formasPago, setFormasPago] = useState([]);
+  const [loadingFormasPago, setLoadingFormasPago] = useState(false);
+  const [errorFormasPago, setErrorFormasPago] = useState(null);
+
+  const todasLasOpciones = formasPago.map((forma) => String(forma.codigo).trim());
 
   const fpActual = String(quotation?.formaPago || quotation?.forpag || '').trim().toUpperCase();
    const forpagOpciones = todasLasOpciones.includes(fpActual) || !fpActual
@@ -132,7 +139,7 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
     }
   }, [transportOptions]);
 
-  useEffect(() => {
+    useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = 'unset'; };
   }, [isOpen]);
@@ -143,6 +150,32 @@ const GenerateOrderModal = ({ quotation, isOpen, onClose, onSave }) => {
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const cargarFormasPago = async () => {
+      try {
+        setLoadingFormasPago(true);
+        setErrorFormasPago(null);
+
+        const data = await getFormasPago();
+        setFormasPago(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('❌ Error cargando formas de pago:', error);
+        setFormasPago([]);
+        setErrorFormasPago(
+          error.response?.data?.error ||
+          error.message ||
+          'No se pudieron cargar las formas de pago'
+        );
+      } finally {
+        setLoadingFormasPago(false);
+      }
+    };
+
+    cargarFormasPago();
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -519,7 +552,7 @@ const handleAddressSelect = (addressId) => {
               <Package className="w-5 h-5 text-blue-600" />
               Información del Cliente
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
               <div>
                 <span className="font-medium text-gray-700">Cliente:</span>
                 <span className="ml-2 text-gray-900">{quotation.clienteNombre ?? quotation.cliente}</span>
@@ -535,6 +568,10 @@ const handleAddressSelect = (addressId) => {
               <div>
                 <span className="font-medium text-gray-700">Asesor:</span>
                 <span className="ml-2 text-gray-900">{quotation.asesor}</span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700">Forma de pago:</span>
+                <span className="ml-2 text-gray-900 font-bold">{quotation.formaPago}</span>
               </div>
             </div>
           </div>
@@ -718,21 +755,32 @@ const handleAddressSelect = (addressId) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Forma de Pago
-                </label>
-                <select
-                  value={formData.formaPago}
-                  onChange={(e) => handleChange('formaPago', e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2ecc70] focus:border-transparent appearance-none bg-white"
-                >
-                  {forpagOpciones.map(op => (
-                    <option key={op} value={op}>
-    {FORMAS_PAGO[op] ? `${op} - ${FORMAS_PAGO[op]}` : op}
-  </option>
-                  ))}
-                </select>
-              </div>
+  {/* <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pago</label> */}
+  <div>
+  <SearchableSelect
+    value={formData.formaPago}
+    onChange={(value) => handleChange('formaPago', value)}
+    options={forpagOpciones.map((op) => {
+      const forma = formasPago.find((f) => String(f.codigo).trim() === op);
+      return {
+        value: op,
+        label: forma ? `${op} - ${forma.descripcion}` : op,
+      };
+    })}
+    label="Forma de Pago"
+    placeholder={loadingFormasPago ? 'Cargando...' : 'Buscar forma de pago...'}
+    required={true}
+    error={errorFormasPago}
+    disabled={loadingFormasPago}
+  />
+</div>
+  {errorFormasPago && (
+    <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+      <AlertCircle className="w-3 h-3" />
+      {errorFormasPago}
+    </p>
+  )}
+</div>
             </div>
           </div>
 

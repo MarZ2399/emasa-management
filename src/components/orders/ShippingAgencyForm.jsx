@@ -27,6 +27,8 @@ const ShippingAgencyForm = ({ agencyData, onChange, errors = {} }) => {
             <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
+              name="nombre"
+              autoComplete="name"
               value={agencyData?.nombre || ''}
               onChange={(e) => handleChange('nombre', e.target.value)}
               placeholder="Ej: Juan Pérez García"
@@ -49,6 +51,8 @@ const ShippingAgencyForm = ({ agencyData, onChange, errors = {} }) => {
             <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
+              name="dni"
+              autoComplete="on"
               value={agencyData?.dni || ''}
               onChange={(e) => handleChange('dni', e.target.value.replace(/\D/g, '').slice(0, 8))}
               placeholder="12345678"
@@ -72,6 +76,8 @@ const ShippingAgencyForm = ({ agencyData, onChange, errors = {} }) => {
             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="tel"
+              name="telefono"
+              autoComplete="tel"
               value={agencyData?.telefono || ''}
               onChange={(e) => handleChange('telefono', e.target.value.replace(/\D/g, '').slice(0, 9))}
               placeholder="987654321"
