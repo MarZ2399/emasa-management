@@ -4,32 +4,41 @@ import api from './api'; //  Usar la instancia configurada con interceptores
 
 /**
  * Buscar cliente por RUC
- * @param {string} ruc - RUC del cliente
- * @returns {Promise<Object>} - Datos del cliente formateados
+ * @param {string} ruc RUC del cliente
+ * @returns {Promise<Object>} Datos del cliente formateados
  */
 export const getClientByRuc = async (ruc) => {
   try {
-    //  Llamadas en paralelo — cliente + contactos al mismo tiempo
+    // Llamadas en paralelo — cliente + contactos al mismo tiempo
     const [clientResponse, contactsResponse] = await Promise.all([
       api.get(`/customers/ruc/${ruc}`),
       api.get(`/customers/${ruc}/contacts`)
     ]);
 
-    if (!clientResponse.data.success) {
-      throw new Error(clientResponse.data.msgerror || 'Cliente no encontrado');
+    const clientData = clientResponse.data;
+
+    // 1. EVALUAR LA RESPUESTA DEL BACKEND
+    if (!clientData.success) {
+      // 1.a Si el cliente EXISTE pero NO PERTENECE a la cartera
+      if (clientData.pertenece_cartera === false) {
+        const { nombre, vendedorActual } = clientData.data;
+        // Lanzamos un error con el mensaje exacto para que el frontend lo muestre en la alerta roja
+        throw new Error(`El RUC ${ruc} (${nombre}) pertenece actualmente a: ${vendedorActual}`);
+      }
+      
+      // 1.b Si el cliente no existe en la base de datos u otro error
+      throw new Error(clientData.msgerror || 'Cliente no encontrado');
     }
 
-    
+    const clientFormatted = formatClientData(clientData.data);
 
-    const clientFormatted = formatClientData(clientResponse.data.data);
-
-    //  Mapear contactos al formato de InfoCard
+    // Mapear contactos al formato de InfoCard
     const contactos = (contactsResponse.data.data || []).map((c) => ({
-  email:    c.EMAIL?.trim()          || '-',
-  phone:    c.TELEFONO?.trim()       || '-',
-  fullName: c.NOMBRECOMPLETO?.trim() || '-',
-  birthday: formatDate(c.FECHANACIMIENTO) || '-',
-}));
+      email:    c.EMAIL?.trim()        || '-',
+      phone:    c.TELEFONO?.trim()     || '-',
+      fullName: c.NOMBRECOMPLETO?.trim() || '-',
+      birthday: formatDate(c.FECHANACIMIENTO) || '-',
+    }));
 
     return {
       ...clientFormatted,
@@ -42,9 +51,9 @@ export const getClientByRuc = async (ruc) => {
     if (error.response?.status === 401) {
       throw new Error('Sesión expirada. Por favor inicia sesión nuevamente.');
     }
-    if (error.response?.status === 404) {
-      throw new Error('El RUC ingresado no existe o no pertenece a tu cartera de clientes');
-    }
+    
+    // Eliminamos el if (error.response?.status === 404) porque 
+    // ahora lo manejamos arriba con el status 200 y success: false
 
     throw new Error(error.message || 'Error al consultar el cliente');
   }
