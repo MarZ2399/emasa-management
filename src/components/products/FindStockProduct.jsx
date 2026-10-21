@@ -8,17 +8,6 @@ import { productService } from '../../services/productService';
 import toast from 'react-hot-toast';
 import SectionHeader from '../common/SectionHeader';
 
-const STOCK_COLS = [
-  { key: 'codProd',         label: 'Código'     },
-  { key: 'mercaderia',      label: 'Mercadería' },
-  { key: 'precioLista',     label: 'P. Lista $' },
-  // { key: 'stockDisponible', label: 'Disponible' },
-  // { key: 'descAlmc',        label: 'Almacén'    },
-   { key: 'almacenes',    label: 'Stock por Almacén'  },
-  { key: 'core',            label: 'Core'       },
-  { key: 'codReemplazo',    label: 'Reemplazo'  },
-];
-
 const PAGE_SIZE = 50;
 
 const getStockBadge = (stock) => {
@@ -161,23 +150,21 @@ const AlmacenSelect = ({ value, onChange, options }) => {
 const FindStockProduct = () => {
   const [allRows,        setAllRows]        = useState([]);
   const [coreOptions,    setCoreOptions]    = useState([]);
-  const [almacenOptions, setAlmacenOptions] = useState([]);  //  NUEVO
+  const [almacenOptions, setAlmacenOptions] = useState([]);
   const [loading,        setLoading]        = useState(false);
   const [buscado,        setBuscado]        = useState(false);
 
-  const [filtros, setFiltros] = useState({ core: '', almacen: '', codigo: '', descripcion: '' }); //  almacen agregado
+  const [filtros, setFiltros] = useState({ core: '', almacen: '', codigo: '', descripcion: '' });
   const [page, setPage] = useState(1);
-const [excelMode, setExcelMode] = useState('detalle');
-const [hasSearchedOnce, setHasSearchedOnce] = useState(false);
-
-const coreRequired = !filtros.core?.trim();
+  const [excelMode, setExcelMode] = useState('detalle');
+  const [hasSearchedOnce, setHasSearchedOnce] = useState(false);
 
   // ── Al montar: cargar cores y almacenes ───────────────────────────────
   useEffect(() => {
     productService.getCoresStock().then(res => {
       if (res.success) setCoreOptions(res.data);
     });
-    productService.getAlmacenesStock().then(res => {        //  NUEVO
+    productService.getAlmacenesStock().then(res => {
       if (res.success) setAlmacenOptions(res.data);
     });
   }, []);
@@ -190,84 +177,86 @@ const coreRequired = !filtros.core?.trim();
   // ── Filtrado local sobre allRows ───────────────────────────────────────
   const filtered = useMemo(() => {
     return allRows.filter(row => {
-      // const matchCodigo  = !filtros.codigo      || row.codProd.toUpperCase().includes(filtros.codigo.toUpperCase());
-      // const matchDesc    = !filtros.descripcion || row.mercaderia.toUpperCase().includes(filtros.descripcion.toUpperCase());
-      const matchCore    = !filtros.core        || row.core === filtros.core;
-      const matchAlmacen = !filtros.almacen     || row.codAlmc === filtros.almacen; //  NUEVO
-      return matchCore && matchAlmacen; //matchCodigo && matchDesc && 
+      const matchCore    = !filtros.core    || row.core === filtros.core;
+      const matchAlmacen = !filtros.almacen || row.codAlmc === filtros.almacen;
+      return matchCore && matchAlmacen;
     });
   }, [allRows, filtros]);
 
-
-
-  // const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  // const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // ── CONDICIÓN PARA MOSTRAR COLUMNA MOTOR ───────────────────────────────
+  const mostrarColumnaMotor = useMemo(() => {
+    return filtered.some(row => 
+      row.core === 'Partes Motor' || 
+      (row.codProd && row.codProd.toUpperCase().startsWith('D3.'))
+    );
+  }, [filtered]);
 
   // Agrupa las filas por codProd
-const grouped = useMemo(() => {
-  const map = new Map();
-  filtered.forEach(row => {
-    const key = row.codProd;
-    if (!map.has(key)) {
-      map.set(key, {
-        codProd:      row.codProd,
-        mercaderia:   row.mercaderia,
-        precioLista:  row.precioLista,
-        core:         row.core,
-        codReemplazo: row.codReemplazo,
-        almacenes: [],
+  const grouped = useMemo(() => {
+    const map = new Map();
+    filtered.forEach(row => {
+      const key = row.codProd;
+      if (!map.has(key)) {
+        map.set(key, {
+          codProd:      row.codProd,
+          mercaderia:   row.mercaderia,
+          precioLista:  row.precioLista,
+          core:         row.core,
+          codReemplazo: row.codReemplazo,
+          motor:        row.motor, // <-- AGREGADO PARA EL MOTOR
+          almacenes: [],
+        });
+      }
+      map.get(key).almacenes.push({
+        codAlmc:        row.codAlmc,
+        descAlmc:       row.descAlmc || row.codAlmc,
+        stockDisponible: row.stockDisponible,
       });
-    }
-    map.get(key).almacenes.push({
-      codAlmc:        row.codAlmc,
-      descAlmc:       row.descAlmc || row.codAlmc,
-      stockDisponible: row.stockDisponible,
     });
-  });
-  return Array.from(map.values());
-}, [filtered]);
+    return Array.from(map.values());
+  }, [filtered]);
 
-const totalPages = Math.max(1, Math.ceil(grouped.length / PAGE_SIZE));
-const paginated  = grouped.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(grouped.length / PAGE_SIZE));
+  const paginated  = grouped.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // ── Buscar ─────────────────────────────────────────────────────────────
   const handleBuscar = useCallback(async () => {
-  if (!hasSearchedOnce && !filtros.core?.trim()) {
-    toast.error('Debe seleccionar el Core (Grupo de Venta) para la primera búsqueda.', {
-      position: 'top-right',
-      duration: 4000,
-      icon: '⚠️',
-    });
-    return;
-  }
-
-  try {
-    setLoading(true);
-    setBuscado(false);
-    setPage(1);
-
-    const response = await productService.getStockGeneral(filtros);
-
-    if (response.success) {
-      setAllRows(response.data);
-      setBuscado(true);
-      setHasSearchedOnce(true);
-
-      if (response.data.length === 0) {
-        toast('Sin resultados para los filtros ingresados', { icon: '🔍' });
-      }
-    } else {
-      toast.error(response.msgerror || 'Error al consultar stock');
+    if (!hasSearchedOnce && !filtros.core?.trim()) {
+      toast.error('Debe seleccionar el Core (Grupo de Venta) para la primera búsqueda.', {
+        position: 'top-right',
+        duration: 4000,
+        icon: '⚠️',
+      });
+      return;
     }
-  } catch {
-    toast.error('Error de conexión');
-  } finally {
-    setLoading(false);
-  }
-}, [filtros, hasSearchedOnce]);
+
+    try {
+      setLoading(true);
+      setBuscado(false);
+      setPage(1);
+
+      const response = await productService.getStockGeneral(filtros);
+
+      if (response.success) {
+        setAllRows(response.data);
+        setBuscado(true);
+        setHasSearchedOnce(true);
+
+        if (response.data.length === 0) {
+          toast('Sin resultados para los filtros ingresados', { icon: '🔍' });
+        }
+      } else {
+        toast.error(response.msgerror || 'Error al consultar stock');
+      }
+    } catch {
+      toast.error('Error de conexión');
+    } finally {
+      setLoading(false);
+    }
+  }, [filtros, hasSearchedOnce]);
 
   const handleLimpiar = () => {
-    setFiltros({ core: '', almacen: '', codigo: '', descripcion: '' }); //  almacen reseteado
+    setFiltros({ core: '', almacen: '', codigo: '', descripcion: '' });
     setAllRows([]);
     setBuscado(false);
     setPage(1);
@@ -278,181 +267,113 @@ const paginated  = grouped.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
     if (e.key === 'Enter') handleBuscar();
   };
 
- const handleExportExcel = () => {
-  const sourceRows = excelMode === 'detalle' ? filtered : grouped;
-  if (sourceRows.length === 0) return toast('No hay datos para exportar', { icon: '⚠️' });
+  // ── Exportar Excel ─────────────────────────────────────────────────────
+  const handleExportExcel = () => {
+    const sourceRows = excelMode === 'detalle' ? filtered : grouped;
+    if (sourceRows.length === 0) return toast('No hay datos para exportar', { icon: '⚠️' });
 
-  const wb = XLSX.utils.book_new();
-  const now = new Date().toLocaleString('es-PE', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
-
-  let wsData = [];
-  let mergeEndCol = 0;
-  let colWidths = [];
-
-  if (excelMode === 'detalle') {
-    wsData = [
-      ['Consulta de Stock'],
-      [`Formato: Detallado | Generado: ${now} | Total registros: ${filtered.length}`],
-      [],
-      ['Código', 'Mercadería', 'P. Lista $', 'Disponible', 'Almacén', 'Core', 'Reemplazo'],
-      ...filtered.map(row => [
-        row.codProd,
-        row.mercaderia,
-        Number(row.precioLista ?? 0),
-        Number(row.stockDisponible ?? 0),
-        row.descAlmc || row.codAlmc || '',
-        row.core || '',
-        row.codReemplazo || '',
-      ])
-    ];
-    mergeEndCol = 6;
-    colWidths = [
-      { wch: 18 }, { wch: 45 }, { wch: 12 },
-      { wch: 12 }, { wch: 20 }, { wch: 22 }, { wch: 15 },
-    ];
-  } else {
-    wsData = [
-      ['Consulta de Stock'],
-      [`Formato: Agrupado | Generado: ${now} | Total productos: ${grouped.length}`],
-      [],
-      ['Código', 'Mercadería', 'P. Lista $', 'Stock por Almacén', 'Core', 'Reemplazo'],
-      ...grouped.map(row => [
-        row.codProd,
-        row.mercaderia,
-        Number(row.precioLista ?? 0),
-        row.almacenes
-          .map(alm => `${alm.descAlmc}: ${alm.stockDisponible}`)
-          .join('\n'),
-        row.core || '',
-        row.codReemplazo || '',
-      ])
-    ];
-    mergeEndCol = 5;
-    colWidths = [
-      { wch: 18 }, { wch: 45 }, { wch: 12 },
-      { wch: 38 }, { wch: 22 }, { wch: 15 },
-    ];
-  }
-
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols'] = colWidths;
-
-  const headerStyle = {
-    font: { bold: true, color: { rgb: 'FFFFFF' } },
-    fill: { fgColor: { rgb: '334a5e' } },
-    alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
-  };
-
-  const titleStyle = {
-    font: { bold: true, sz: 14, color: { rgb: '334a5e' } },
-    alignment: { horizontal: 'left', vertical: 'center' }
-  };
-
-  const subTitleStyle = {
-    font: { sz: 9, color: { rgb: '666666' } },
-    alignment: { horizontal: 'left', vertical: 'center' }
-  };
-
-  if (ws['A1']) ws['A1'].s = titleStyle;
-  if (ws['A2']) ws['A2'].s = subTitleStyle;
-
-  const headerCells = excelMode === 'detalle'
-    ? ['A4','B4','C4','D4','E4','F4','G4']
-    : ['A4','B4','C4','D4','E4','F4'];
-
-  headerCells.forEach(cell => {
-    if (ws[cell]) ws[cell].s = headerStyle;
-  });
-
-  ws['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: mergeEndCol } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: mergeEndCol } },
-  ];
-
-  if (excelMode === 'detalle') {
-    filtered.forEach((row, i) => {
-      const rowNum = i + 5;
-
-      const priceCell = `C${rowNum}`;
-      if (ws[priceCell]) {
-        ws[priceCell].s = {
-          alignment: { horizontal: 'right', vertical: 'center' },
-          numFmt: '0.00'
-        };
-      }
-
-      const stockCell = `D${rowNum}`;
-      if (ws[stockCell]) {
-        const stock = Number(row.stockDisponible ?? 0);
-        if (stock <= 0) {
-          ws[stockCell].s = {
-            fill: { fgColor: { rgb: 'FEE2E2' } },
-            font: { color: { rgb: 'B91C1C' }, bold: true },
-            alignment: { horizontal: 'center', vertical: 'center' }
-          };
-        } else if (stock < 10) {
-          ws[stockCell].s = {
-            fill: { fgColor: { rgb: 'FEF3C7' } },
-            font: { color: { rgb: 'A16207' }, bold: true },
-            alignment: { horizontal: 'center', vertical: 'center' }
-          };
-        } else {
-          ws[stockCell].s = {
-            fill: { fgColor: { rgb: 'DCFCE7' } },
-            font: { color: { rgb: '15803D' }, bold: true },
-            alignment: { horizontal: 'center', vertical: 'center' }
-          };
-        }
-      }
+    const wb = XLSX.utils.book_new();
+    const now = new Date().toLocaleString('es-PE', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: true
     });
-  } else {
-    grouped.forEach((row, i) => {
-      const rowNum = i + 5;
 
-      const priceCell = `C${rowNum}`;
-      if (ws[priceCell]) {
-        ws[priceCell].s = {
-          alignment: { horizontal: 'right', vertical: 'top' },
-          numFmt: '0.00'
-        };
-      }
+    let wsData = [];
+    let mergeEndCol = 0;
+    let colWidths = [];
 
-      const almacenCell = `D${rowNum}`;
-      if (ws[almacenCell]) {
-        ws[almacenCell].s = {
-          alignment: { horizontal: 'left', vertical: 'top', wrapText: true }
-        };
+    // Cabeceras Dinámicas
+    const headersDetalle = ['Código', 'Mercadería'];
+    if (mostrarColumnaMotor) headersDetalle.push('Motor');
+    headersDetalle.push('P. Lista $', 'Disponible', 'Almacén', 'Core', 'Reemplazo');
+
+    const headersAgrupado = ['Código', 'Mercadería'];
+    if (mostrarColumnaMotor) headersAgrupado.push('Motor');
+    headersAgrupado.push('P. Lista $', 'Stock por Almacén', 'Core', 'Reemplazo');
+
+    if (excelMode === 'detalle') {
+      wsData = [
+        ['Consulta de Stock'],
+        [`Formato: Detallado | Generado: ${now} | Total registros: ${filtered.length}`],
+        [],
+        headersDetalle,
+        ...filtered.map(row => {
+          const rowData = [row.codProd, row.mercaderia];
+          if (mostrarColumnaMotor) rowData.push(row.motor || '');
+          rowData.push(
+            Number(row.precioLista ?? 0),
+            Number(row.stockDisponible ?? 0),
+            row.descAlmc || row.codAlmc || '',
+            row.core || '',
+            row.codReemplazo || ''
+          );
+          return rowData;
+        })
+      ];
+      mergeEndCol = mostrarColumnaMotor ? 7 : 6;
+      colWidths = [
+        { wch: 18 }, { wch: 45 },
+        ...(mostrarColumnaMotor ? [{ wch: 15 }] : []),
+        { wch: 12 }, { wch: 12 }, { wch: 20 }, { wch: 22 }, { wch: 15 },
+      ];
+    } else {
+      wsData = [
+        ['Consulta de Stock'],
+        [`Formato: Agrupado | Generado: ${now} | Total productos: ${grouped.length}`],
+        [],
+        headersAgrupado,
+        ...grouped.map(row => {
+          const rowData = [row.codProd, row.mercaderia];
+          if (mostrarColumnaMotor) rowData.push(row.motor || '');
+          rowData.push(
+            Number(row.precioLista ?? 0),
+            row.almacenes.map(alm => `${alm.descAlmc}: ${alm.stockDisponible}`).join('\n'),
+            row.core || '',
+            row.codReemplazo || ''
+          );
+          return rowData;
+        })
+      ];
+      mergeEndCol = mostrarColumnaMotor ? 6 : 5;
+      colWidths = [
+        { wch: 18 }, { wch: 45 },
+        ...(mostrarColumnaMotor ? [{ wch: 15 }] : []),
+        { wch: 12 }, { wch: 38 }, { wch: 22 }, { wch: 15 },
+      ];
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = colWidths;
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: mergeEndCol } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: mergeEndCol } },
+    ];
+
+    // Estilos generales (requiere xlsx-js-style)
+    const headerStyle = {
+      font: { bold: true, color: { rgb: 'FFFFFF' } },
+      fill: { fgColor: { rgb: '334a5e' } },
+      alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
+    };
+    if (ws['A1']) ws['A1'].s = { font: { bold: true, sz: 14, color: { rgb: '334a5e' } } };
+    if (ws['A2']) ws['A2'].s = { font: { sz: 9, color: { rgb: '666666' } } };
+
+    // Aplicar estilos a cabeceras
+    const colLetters = mostrarColumnaMotor 
+      ? ['A','B','C','D','E','F','G','H'] 
+      : ['A','B','C','D','E','F','G'];
+      
+    colLetters.forEach((letter, idx) => {
+      if (idx <= mergeEndCol) {
+        const cell = `${letter}4`;
+        if (ws[cell]) ws[cell].s = headerStyle;
       }
     });
 
-    ws['!rows'] = [
-      {},
-      {},
-      {},
-      {},
-      ...grouped.map(row => {
-        const lines = Math.max(1, row.almacenes.length);
-        return { hpt: Math.max(22, lines * 18) };
-      })
-    ];
-  }
-
-  XLSX.utils.book_append_sheet(wb, ws, 'Stock');
-  XLSX.writeFile(
-    wb,
-    `Stock_${excelMode}_${new Date().toISOString().slice(0, 10)}.xlsx`
-  );
-  toast.success(
-    `Excel ${excelMode === 'detalle' ? 'detallado' : 'agrupado'} exportado (${sourceRows.length} registros)`
-  );
-};
+    XLSX.utils.book_append_sheet(wb, ws, 'Stock');
+    XLSX.writeFile(wb, `Stock_${excelMode}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success(`Excel ${excelMode === 'detalle' ? 'detallado' : 'agrupado'} exportado`);
+  };
 
   // ── Exportar PDF ───────────────────────────────────────────────────────
   const handleExportPDF = () => {
@@ -468,30 +389,42 @@ const paginated  = grouped.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
     doc.setTextColor(120);
     doc.text(`Generado: ${new Date().toLocaleString('es-PE')}   |   Total registros: ${filtered.length}`, 14, 21);
 
+    const pdfHeaders = ['Código', 'Mercadería'];
+    if (mostrarColumnaMotor) pdfHeaders.push('Motor');
+    pdfHeaders.push('P. Lista $', 'Disponible', 'Almacén', 'Core', 'Reemplazo');
+
+    const columnStyles = mostrarColumnaMotor ? {
+      0: { cellWidth: 28 },
+      1: { cellWidth: 54 },
+      2: { cellWidth: 20 }, // Motor
+      3: { cellWidth: 20, halign: 'right' },
+      4: { cellWidth: 20, halign: 'center' },
+      5: { cellWidth: 25 },
+      6: { cellWidth: 28 },
+      7: { cellWidth: 27 },
+    } : {
+      0: { cellWidth: 32 },
+      1: { cellWidth: 70 },
+      2: { cellWidth: 22, halign: 'right' },
+      3: { cellWidth: 22, halign: 'center' },
+      4: { cellWidth: 25 },
+      5: { cellWidth: 28 },
+      6: { cellWidth: 28 },
+    };
+
     autoTable(doc, {
       startY: 26,
-      head: [['Código', 'Mercadería', 'P. Lista $', 'Disponible', 'Almacén', 'Core', 'Reemplazo']],
-      body: filtered.map(row => [
-        row.codProd,
-        row.mercaderia,
-        ` ${row.precioLista.toFixed(2)}`,
-        row.stockDisponible,
-        row.descAlmc || row.codAlmc || '',
-        row.core || '',
-        row.codReemplazo || '',
-      ]),
+      head: [pdfHeaders],
+      body: filtered.map(row => {
+        const rData = [row.codProd, row.mercaderia];
+        if (mostrarColumnaMotor) rData.push(row.motor || '');
+        rData.push(` ${row.precioLista.toFixed(2)}`, row.stockDisponible, row.descAlmc || row.codAlmc || '', row.core || '', row.codReemplazo || '');
+        return rData;
+      }),
       headStyles:         { fillColor: [51, 74, 94], fontSize: 8, fontStyle: 'bold' },
       bodyStyles:         { fontSize: 7.5 },
       alternateRowStyles: { fillColor: [245, 247, 250] },
-      columnStyles: {
-        0: { cellWidth: 32 },
-        1: { cellWidth: 70 },
-        2: { cellWidth: 22, halign: 'right' },
-        3: { cellWidth: 22, halign: 'center' },
-        4: { cellWidth: 25 },
-        5: { cellWidth: 28 },
-        6: { cellWidth: 28 },
-      },
+      columnStyles: columnStyles,
       margin: { left: 14, right: 14 },
     });
 
@@ -501,7 +434,6 @@ const paginated  = grouped.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
   const labelCls = 'block text-xs font-semibold text-gray-600 mb-1';
-  
 
   const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
     .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
@@ -513,7 +445,6 @@ const paginated  = grouped.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="space-y-6">
-
       <SectionHeader
         icon={Layers}
         title="Consulta Stock"
@@ -525,11 +456,9 @@ const paginated  = grouped.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h2 className="text-sm font-bold text-gray-700 mb-4 pb-2 border-b">Filtros de Búsqueda</h2>
 
-        {/* Fila 1: Core + Almacén */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <label className={labelCls}>Core (Grupo de Venta)<span className="ml-1 text-red-500">* Obligatorio para la primera búsqueda.</span></label>
-            
             <CoreSelect
               value={filtros.core}
               onChange={val => set('core', val)}
@@ -537,7 +466,6 @@ const paginated  = grouped.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
             />
           </div>
 
-          {/*  NUEVO — Almacén */}
           <div>
             <label className={labelCls}>
               Almacén
@@ -551,7 +479,6 @@ const paginated  = grouped.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
           </div>
         </div>
 
-        {/* Fila 2: Código + Descripción */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>Código de Producto</label>
@@ -595,7 +522,6 @@ const paginated  = grouped.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
       {/* ── Tabla ─────────────────────────────────────────────────────────── */}
       {buscado && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-
           <div className="bg-[#334a5e] text-white px-5 py-3 flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <Package className="w-5 h-5" />
@@ -603,26 +529,26 @@ const paginated  = grouped.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-blue-200">
-  {grouped.length} productos
-  {filtered.length !== allRows.length && ` (filtrados de ${allRows.length} registros)`}
-</span>
+                {grouped.length} productos
+                {filtered.length !== allRows.length && ` (filtrados de ${allRows.length} registros)`}
+              </span>
               <div className="flex items-center gap-2">
-    <span className="text-xs text-blue-200 font-medium">Formato Excel:</span>
-    <select
-      value={excelMode}
-      onChange={(e) => setExcelMode(e.target.value)}
-      className="px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-white/20 bg-white/10 text-white outline-none focus:ring-2 focus:ring-white/30"
-    >
-      <option value="detalle" className="text-gray-900">Detallado</option>
-      <option value="agrupado" className="text-gray-900">Agrupado</option>
-    </select>
-  </div>
+                <span className="text-xs text-blue-200 font-medium">Formato Excel:</span>
+                <select
+                  value={excelMode}
+                  onChange={(e) => setExcelMode(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-white/20 bg-white/10 text-white outline-none focus:ring-2 focus:ring-white/30"
+                >
+                  <option value="detalle" className="text-gray-900">Detallado</option>
+                  <option value="agrupado" className="text-gray-900">Agrupado</option>
+                </select>
+              </div>
 
-  <button onClick={handleExportExcel}
-    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition">
-    <FileSpreadsheet className="w-3.5 h-3.5" />
-    Excel
-  </button>
+              <button onClick={handleExportExcel}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition">
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                Excel
+              </button>
               <button onClick={handleExportPDF}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-semibold transition">
                 <FileText className="w-3.5 h-3.5" />
@@ -634,77 +560,83 @@ const paginated  = grouped.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
-  <tr>
-    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Código</th>
-    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Mercadería</th>
-    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">P. Lista $</th>
-    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Stock por Almacén</th>
-    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Core</th>
-    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Reemplazo</th>
-  </tr>
-</thead>
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Código</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Mercadería</th>
+                  {mostrarColumnaMotor && (
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Motor</th>
+                  )}
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">P. Lista $</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Stock por Almacén</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Core</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Reemplazo</th>
+                </tr>
+              </thead>
               <tbody className="divide-y divide-gray-100">
-  {paginated.length > 0 ? paginated.map((row, i) => (
-    <tr key={row.codProd} className={`hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
-      
-      {/* Código */}
-      <td className="px-4 py-3 text-xs font-semibold text-gray-800 whitespace-nowrap align-top">
-        {row.codProd}
-      </td>
+                {paginated.length > 0 ? paginated.map((row, i) => (
+                  <tr key={row.codProd} className={`hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                    
+                    <td className="px-4 py-3 text-xs font-semibold text-gray-800 whitespace-nowrap align-top">
+                      {row.codProd}
+                    </td>
 
-      {/* Mercadería */}
-      <td className="px-4 py-3 text-xs text-gray-700 max-w-[220px] align-top">
-        <span className="line-clamp-2">{row.mercaderia}</span>
-      </td>
+                    <td className="px-4 py-3 text-xs text-gray-700 max-w-[220px] align-top">
+                      <span className="line-clamp-2">{row.mercaderia}</span>
+                    </td>
 
-      {/* Precio */}
-      <td className="px-4 py-3 text-xs text-right font-medium text-gray-800 whitespace-nowrap align-top">
-        {row.precioLista.toFixed(2)}
-      </td>
+                    {/* COLUMNA MOTOR CONDICIONAL */}
+                    {mostrarColumnaMotor && (
+                      <td className="px-4 py-3 text-xs text-gray-800 font-semibold align-top whitespace-nowrap">
+                        {row.motor ? (
+                          <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[11px]">
+                            {row.motor}
+                          </span>
+                        ) : '—'}
+                      </td>
+                    )}
 
-      {/* Stock por Almacén — panel agrupado */}
-      <td className="px-4 py-3 align-top">
-        <div className="flex flex-col gap-1.5">
-          {row.almacenes.map((alm, j) => (
-            <div key={j} className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 min-w-[200px]">
-              <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                {/* ícono almacén */}
-                <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 10l9-7 9 7v10a1 1 0 01-1 1H4a1 1 0 01-1-1V10z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 21V12h6v9" />
-                </svg>
-                <span className="font-semibold text-gray-700">{alm.descAlmc}</span>
-              </div>
-              <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${getStockBadge(alm.stockDisponible)}`}>
-                {alm.stockDisponible}
-              </span>
-            </div>
-          ))}
-        </div>
-      </td>
+                    <td className="px-4 py-3 text-xs text-right font-medium text-gray-800 whitespace-nowrap align-top">
+                      {row.precioLista.toFixed(2)}
+                    </td>
 
-      {/* Core */}
-      <td className="px-4 py-3 text-xs align-top">
-        {row.core
-          ? <span className="px-2 py-0.5 bg-purple-100 text-purple-800 border border-purple-300 rounded-full text-xs font-semibold whitespace-nowrap">{row.core}</span>
-          : '—'}
-      </td>
+                    <td className="px-4 py-3 align-top">
+                      <div className="flex flex-col gap-1.5">
+                        {row.almacenes.map((alm, j) => (
+                          <div key={j} className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 min-w-[200px]">
+                            <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                              <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 10l9-7 9 7v10a1 1 0 01-1 1H4a1 1 0 01-1-1V10z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 21V12h6v9" />
+                              </svg>
+                              <span className="font-semibold text-gray-700">{alm.descAlmc}</span>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${getStockBadge(alm.stockDisponible)}`}>
+                              {alm.stockDisponible}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
 
-      {/* Reemplazo */}
-      <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap align-top">
-        {row.codReemplazo || '—'}
-      </td>
+                    <td className="px-4 py-3 text-xs align-top">
+                      {row.core
+                        ? <span className="px-2 py-0.5 bg-purple-100 text-purple-800 border border-purple-300 rounded-full text-xs font-semibold whitespace-nowrap">{row.core}</span>
+                        : '—'}
+                    </td>
 
-    </tr>
-  )) : (
-    <tr>
-      <td colSpan={6} className="text-center py-10 text-gray-400">
-        <Package className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-        <p className="text-sm font-medium">Sin resultados para los filtros aplicados</p>
-      </td>
-    </tr>
-  )}
-</tbody>
+                    <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap align-top">
+                      {row.codReemplazo || '—'}
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={mostrarColumnaMotor ? 7 : 6} className="text-center py-10 text-gray-400">
+                      <Package className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                      <p className="text-sm font-medium">Sin resultados para los filtros aplicados</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
             </table>
           </div>
 
@@ -739,10 +671,8 @@ const paginated  = grouped.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
               </div>
             </div>
           )}
-
         </div>
       )}
-
     </div>
   );
 };
