@@ -30,26 +30,36 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
           meta:        0,
           venta:       0,
           devolucion:  0,
-          pend: 0,
+          pend:        0,
           metnet:      0,
-          metpor:      0,
+          vnetadol:    0, // Recolectamos para cálculo interno
+          costodol:    0, // Recolectamos para cálculo interno
           count:       0,
         };
       }
       map[key].meta       += Number(row.META)       || 0;
       map[key].venta      += Number(row.VENTA)      || 0;
       map[key].devolucion += Number(row.DEVOLUCION) || 0;
-      map[key].pend += Number(row.PEND) || 0;
+      map[key].pend       += Number(row.PEND)       || 0;
       map[key].metnet     += Number(row.METNET)     || 0;
+      map[key].vnetadol   += Number(row.VNETADOL)   || 0;
+      map[key].costodol   += Number(row.COSTODOL)   || 0;
       map[key].count      += 1;
     });
 
-    // Recalcular % logro sobre los totales agrupados
-    return Object.values(map).map(r => ({
-      ...r,
-      metpor: r.meta > 0 ? (r.metnet / r.meta) * 100 : 0,
-      proyectado: r.meta > 0 ? ((r.metnet + r.pend) / r.meta) * 100 : 0,
-    }));
+    // ── AQUÍ CALCULAMOS LA CONTRIBUCIÓN Y EL MARGEN ──
+    return Object.values(map).map(r => {
+      const contribucion = r.vnetadol - r.costodol;
+      const margen = r.vnetadol > 0 ? (contribucion / r.vnetadol) * 100 : 0;
+
+      return {
+        ...r,
+        contribucion, // Nueva propiedad calculada
+        margen,       // Nueva propiedad calculada
+        metpor: r.meta > 0 ? (r.metnet / r.meta) * 100 : 0,
+        proyectado: r.meta > 0 ? ((r.metnet + r.pend) / r.meta) * 100 : 0,
+      };
+    });
   }, [goals]);
 
   // ── Totales ─────────────────────────────────────────────────────
@@ -58,10 +68,16 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
       meta:       acc.meta       + r.meta,
       venta:      acc.venta      + r.venta,
       devolucion: acc.devolucion + r.devolucion,
-      pend: acc.pend + r.pend,
+      pend:       acc.pend       + r.pend,
       metnet:     acc.metnet     + r.metnet,
-    }), { meta: 0, venta: 0, devolucion: 0, pend: 0, metnet: 0 }),
+      vnetadol:   acc.vnetadol   + r.vnetadol,
+      costodol:   acc.costodol   + r.costodol,
+    }), { meta: 0, venta: 0, devolucion: 0, pend: 0, metnet: 0, vnetadol: 0, costodol: 0 }), 
   [rows]);
+
+  // ── CÁLCULO DE TOTALES PARA CONTRIBUCIÓN Y MARGEN ──
+  const totalContribucion = totals.vnetadol - totals.costodol;
+  const totalMargen = totals.vnetadol > 0 ? (totalContribucion / totals.vnetadol) * 100 : 0;
 
   const totalPct = totals.meta > 0
     ? (totals.metnet / totals.meta) * 100
@@ -97,23 +113,23 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
   };
 
   const SortIcon = ({ col }) => {
-  if (sortKey !== col) return <ArrowUpDown className="w-3 h-3 opacity-40" />;
-  return sortDir === 'asc'
-    ? <ArrowUp   className="w-3 h-3 text-white" />  // ← antes text-blue-600
-    : <ArrowDown className="w-3 h-3 text-white" />;  // ← antes text-blue-600
-};
+    if (sortKey !== col) return <ArrowUpDown className="w-3 h-3 opacity-40" />;
+    return sortDir === 'asc'
+      ? <ArrowUp   className="w-3 h-3 text-white" />
+      : <ArrowDown className="w-3 h-3 text-white" />;
+  };
 
   const ThBtn = ({ col, label }) => (
-  <th
-    onClick={() => handleSort(col)}
-    className="px-4 py-3 text-right text-xs font-semibold text-white/90 uppercase tracking-wider cursor-pointer hover:text-white select-none whitespace-nowrap"
-  >
-    <div className="flex items-center justify-end gap-1">
-      {label}
-      <SortIcon col={col} />
-    </div>
-  </th>
-);
+    <th
+      onClick={() => handleSort(col)}
+      className="px-4 py-3 text-right text-xs font-semibold text-white/90 uppercase tracking-wider cursor-pointer hover:text-white select-none whitespace-nowrap"
+    >
+      <div className="flex items-center justify-end gap-1">
+        {label}
+        <SortIcon col={col} />
+      </div>
+    </th>
+  );
 
   if (!goals.length) return null;
 
@@ -152,61 +168,72 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gradient-to-r from-[#5982A6] to-[#1a2f3d]">
-  <tr>
-    <th
-      onClick={() => handleSort('descripcion')}
-      className="px-4 py-3 text-left text-xs font-semibold text-white/90 uppercase tracking-wider cursor-pointer hover:text-white select-none"
-    >
-      <div className="flex items-center gap-1">
-        Descripción <SortIcon col="descripcion" />
-      </div>
-    </th>
-    <ThBtn col="meta"       label={`Meta ${mesLabel} US$`} />
-    <ThBtn col="venta"      label={`Ventas ${mesLabel} US$`} />
-    <ThBtn col="devolucion" label={`Devolución ${mesLabel} US$`} />
-    <ThBtn col="metnet"     label={`Efectivo ${mesLabel} US$`} />
-    <ThBtn col="metpor"     label="% Logro US$" />
-    <ThBtn col="pend"       label={`Pend. Fact ${mesLabel} US$`} />
-    <ThBtn col="proyectado" label={`Proyectado ${mesLabel} US$`} />
-  </tr>
-</thead>
+            <tr>
+              <th
+                onClick={() => handleSort('descripcion')}
+                className="px-4 py-3 text-left text-xs font-semibold text-white/90 uppercase tracking-wider cursor-pointer hover:text-white select-none"
+              >
+                <div className="flex items-center gap-1">
+                  Descripción <SortIcon col="descripcion" />
+                </div>
+              </th>
+              <ThBtn col="meta"         label={`Meta ${mesLabel} US$`} />
+              <ThBtn col="venta"        label={`Ventas ${mesLabel} US$`} />
+              <ThBtn col="devolucion"   label={`Devolución ${mesLabel} US$`} />
+              <ThBtn col="metnet"       label={`Efectivo ${mesLabel} US$`} />
+              <ThBtn col="metpor"       label="% Logro US$" />
+              <ThBtn col="pend"         label={`Pend. Fact ${mesLabel} US$`} />
+              <ThBtn col="proyectado"   label={`Proyectado ${mesLabel} US$`} />
+              <ThBtn col="contribucion" label={`Contribución ${mesLabel} US$`} /> {/* NUEVA COLUMNA */}
+              <ThBtn col="margen"       label="Margen %" />                       {/* NUEVA COLUMNA */}
+            </tr>
+          </thead>
 
           <tbody className="divide-y divide-gray-100">
-  {sorted.map((row, i) => {
-    const isSelected = selectedCore?.METGRD === row.descripcion;
-    const clickable  = typeof onRowClick === 'function';
+            {sorted.map((row, i) => {
+              const isSelected = selectedCore?.METGRD === row.descripcion;
+              const clickable  = typeof onRowClick === 'function';
 
-    return (
-      <tr
-        key={row.descripcion}
-        onClick={() => clickable && onRowClick({
-          METGRP: metgrpMap[row.descripcion],
-          METGRD: row.descripcion,
-        })}
-        className={`transition-colors
-          ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}
-          ${clickable ? 'cursor-pointer' : ''}
-          ${isSelected
-            ? 'bg-blue-50 ring-1 ring-inset ring-blue-300'
-            : 'hover:bg-blue-50'}
-        `}
-      >
-        <td className="px-4 py-3 font-medium text-gray-800">{row.descripcion}</td>
-        <td className="px-4 py-3 text-right text-gray-700">{fmt(row.meta)}</td>
-        <td className="px-4 py-3 text-right text-gray-700">{fmt(row.venta)}</td>
-        <td className="px-4 py-3 text-right text-gray-700">{fmt(row.devolucion)}</td>
-        <td className="px-4 py-3 text-right text-gray-700">{fmt(row.metnet)}</td>
-        <td className={`px-4 py-3 text-right ${pctColor(row.metpor)}`}>
-          {fmt(row.metpor)}
-        </td>
-        <td className="px-4 py-3 text-right text-gray-700">{fmt(row.pend)}</td>
-        <td className={`px-4 py-3 text-right ${pctColor(row.proyectado)}`}>
-  {fmt(row.proyectado)}
-</td>
-      </tr>
-    );
-  })}
-</tbody>
+              return (
+                <tr
+                  key={row.descripcion}
+                  onClick={() => clickable && onRowClick({
+                    METGRP: metgrpMap[row.descripcion],
+                    METGRD: row.descripcion,
+                  })}
+                  className={`transition-colors
+                    ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}
+                    ${clickable ? 'cursor-pointer' : ''}
+                    ${isSelected
+                      ? 'bg-blue-50 ring-1 ring-inset ring-blue-300'
+                      : 'hover:bg-blue-50'}
+                  `}
+                >
+                  <td className="px-4 py-3 font-medium text-gray-800">{row.descripcion}</td>
+                  <td className="px-4 py-3 text-right text-gray-700">{fmt(row.meta)}</td>
+                  <td className="px-4 py-3 text-right text-gray-700">{fmt(row.venta)}</td>
+                  <td className="px-4 py-3 text-right text-gray-700">{fmt(row.devolucion)}</td>
+                  <td className="px-4 py-3 text-right text-gray-700">{fmt(row.metnet)}</td>
+                  <td className={`px-4 py-3 text-right ${pctColor(row.metpor)}`}>
+                    {fmt(row.metpor)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-gray-700">{fmt(row.pend)}</td>
+                  <td className={`px-4 py-3 text-right ${pctColor(row.proyectado)}`}>
+                    {fmt(row.proyectado)}
+                  </td>
+                  
+                  {/* CELDAS NUEVAS */}
+                  <td className="px-4 py-3 text-right text-gray-700 font-medium">
+                    {fmt(row.contribucion)}
+                  </td>
+                  <td className={`px-4 py-3 text-right ${pctColor(row.margen)}`}>
+                    {fmt(row.margen)}%
+                  </td>
+                  
+                </tr>
+              );
+            })}
+          </tbody>
 
           {/* Fila de totales */}
           <tfoot>
@@ -221,8 +248,17 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
               </td>
               <td className="px-4 py-3 text-right text-gray-900">{fmt(totals.pend)}</td>
               <td className={`px-4 py-3 text-right ${pctColor(totalProyectado)}`}>
-  {fmt(totalProyectado)}
-</td>
+                {fmt(totalProyectado)}
+              </td>
+              
+              {/* TOTALES NUEVOS */}
+              <td className="px-4 py-3 text-right text-gray-900">
+                {fmt(totalContribucion)}
+              </td>
+              <td className={`px-4 py-3 text-right ${pctColor(totalMargen)}`}>
+                {fmt(totalMargen)}%
+              </td>
+
             </tr>
           </tfoot>
         </table>

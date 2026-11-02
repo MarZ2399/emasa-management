@@ -1,13 +1,15 @@
 // src/components/statement/StatementButton.jsx
 import React, { useState } from 'react';
-import { FileDown, Eye, Loader } from 'lucide-react';
+import { FileDown, Eye, Loader, Table } from 'lucide-react';
 import { generateStatementPDF } from './StatementPDF';
+import { generateStatementExcel } from '../../utils/excelStatement';
 import { getStatement } from '../../services/statementService';
 import toast from 'react-hot-toast';
 
 const StatementButton = ({ ruc, disabled }) => {
   const [loadingView, setLoadingView] = useState(false);
   const [loadingDownload, setLoadingDownload] = useState(false);
+  const [loadingExcel, setLoadingExcel] = useState(false);
   const [error, setError] = useState(null);
 
   const fetchData = async () => {
@@ -16,7 +18,7 @@ const StatementButton = ({ ruc, disabled }) => {
   };
 
   const handleView = async () => {
-    if (!ruc || loadingView || loadingDownload) return;
+    if (!ruc || loadingView || loadingDownload || loadingExcel) return;
 
     setLoadingView(true);
     setError(null);
@@ -46,7 +48,7 @@ const StatementButton = ({ ruc, disabled }) => {
   };
 
   const handleDownload = async () => {
-    if (!ruc || loadingView || loadingDownload) return;
+    if (!ruc || loadingView || loadingDownload || loadingExcel) return;
 
     setLoadingDownload(true);
     setError(null);
@@ -75,7 +77,37 @@ const StatementButton = ({ ruc, disabled }) => {
     }
   };
 
-  const isLoading = loadingView || loadingDownload;
+  const handleExcel = async () => {
+    if (!ruc || loadingView || loadingDownload || loadingExcel) return;
+
+    setLoadingExcel(true);
+    setError(null);
+
+    const toastId = toast.loading(
+      'Se está exportando la información a Excel. Por favor, espere un momento...'
+    );
+
+    try {
+      const data = await fetchData();
+      generateStatementExcel(ruc, data);
+
+      toast.success('Estado de cuenta exportado a Excel correctamente.', {
+        id: toastId,
+      });
+    } catch (e) {
+      console.error('❌ StatementButton excel error:', e);
+      const msg = e.response?.data?.error || e.message || 'Error al exportar a Excel';
+      setError(msg);
+
+      toast.error(msg, {
+        id: toastId,
+      });
+    } finally {
+      setLoadingExcel(false);
+    }
+  };
+
+  const isLoading = loadingView || loadingDownload || loadingExcel;
 
   return (
     <div className="flex flex-col items-start gap-1">
@@ -109,6 +141,21 @@ const StatementButton = ({ ruc, disabled }) => {
             : <FileDown className="w-4 h-4" />
           }
           Descargar EECC
+        </button>
+
+        <button
+          onClick={handleExcel}
+          disabled={disabled || isLoading}
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#008f51] text-white
+            rounded-lg hover:bg-[#007341] transition font-semibold text-sm
+            disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Descargar Estado de Cuenta Excel"
+        >
+          {loadingExcel
+            ? <Loader className="w-4 h-4 animate-spin" />
+            : <Table className="w-4 h-4" />
+          }
+          Excel EECC
         </button>
 
       </div>

@@ -1,5 +1,5 @@
 // src/components/dashboard/DashboardFilters.jsx
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Filter, Eye, Users, X } from 'lucide-react';
 import SearchableSelect from '../common/SearchableSelect';
 
@@ -35,12 +35,13 @@ const DashboardFilters = ({
   ano, mes, onAnoChange, onMesChange,
   nivel, vendorName,
   team = [],
+  selectedJefe,                 // <-- RECIBIMOS COMO PROP
+  onSelectJefe,                 // <-- RECIBIMOS COMO PROP
   onSelectVendor,
   onClearVendor,
 }) => {
   const nivelCfg   = NIVEL_CONFIG[nivel] ?? NIVEL_CONFIG[2];
   const mesLabel   = MESES.find(m => m.value === mes)?.label || '';
-  const [selectedJefe, setSelectedJefe] = useState('');
 
   const jefesOptions = useMemo(() => {
     if (nivel > 1 || !team.length) return [];
@@ -66,7 +67,7 @@ const DashboardFilters = ({
   }, [team, nivel, selectedJefe]);
 
   const handleJefeChange = (val) => {
-    setSelectedJefe(val);
+    onSelectJefe(val);
     onClearVendor?.();
   };
 
@@ -83,21 +84,19 @@ const DashboardFilters = ({
   const showTeamFilters = nivel <= 1 && team.length > 0;
 
   const currentMonth = new Date().getMonth() + 1;
-const previousMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+  const previousMonth = currentMonth === 1 ? 12 : currentMonth - 1;
 
-const mesesOptions =
-  nivel === 2
-    ? MESES
-        .filter(m => m.value === currentMonth || m.value === previousMonth)
-        .map(m => ({ ...m, value: String(m.value) }))
-    : MESES.map(m => ({ ...m, value: String(m.value) }));
+  const mesesOptions =
+    nivel === 2
+      ? MESES
+          .filter(m => m.value === currentMonth || m.value === previousMonth)
+          .map(m => ({ ...m, value: String(m.value) }))
+      : MESES.map(m => ({ ...m, value: String(m.value) }));
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm ">
-
       {/* ── FILA 1 ─────────────────────────────────────────────── */}
       <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[auto_1px_auto_1px_auto] gap-x-5 gap-y-3 items-center">
-
         {/* Período */}
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -134,46 +133,42 @@ const mesesOptions =
         <div className="hidden lg:block h-10 bg-gray-100 w-px justify-self-center" />
 
         {/* Año + Mes */}
-{/* Año + Mes */}
-<div className="flex gap-3">
-  {/* Año bloqueado solo para vendedor */}
-  <div className="w-40 flex-shrink-0">
-    {nivel === 2 ? (
-      <>
-        <p className="text-xs font-medium text-gray-500 mb-1">Año</p>
-        <div className="h-9 px-3 flex items-center bg-gray-100 border border-gray-200 rounded-lg text-sm text-gray-500 cursor-not-allowed select-none">
-          {ano}
-        </div>
-      </>
-    ) : (
-      <SearchableSelect
-        label="Año"
-        value={String(ano)}
-        onChange={(val) => onAnoChange(Number(val))}
-        options={YEARS}
-        placeholder="Año..."
-      />
-    )}
-  </div>
+        <div className="flex gap-3">
+          <div className="w-40 flex-shrink-0">
+            {nivel === 2 ? (
+              <>
+                <p className="text-xs font-medium text-gray-500 mb-1">Año</p>
+                <div className="h-9 px-3 flex items-center bg-gray-100 border border-gray-200 rounded-lg text-sm text-gray-500 cursor-not-allowed select-none">
+                  {ano}
+                </div>
+              </>
+            ) : (
+              <SearchableSelect
+                label="Año"
+                value={String(ano)}
+                onChange={(val) => onAnoChange(Number(val))}
+                options={YEARS}
+                placeholder="Año..."
+              />
+            )}
+          </div>
 
-  {/* Mes editable para todos, pero vendedor solo ve mes actual y anterior */}
-  <div className="flex-1 min-w-[140px]">
-    <SearchableSelect
-      label="Mes"
-      value={String(mes)}
-      onChange={(val) => onMesChange(Number(val))}
-      options={mesesOptions}
-      placeholder="Mes..."
-    />
-  </div>
-</div>
+          <div className="flex-1 min-w-[140px]">
+            <SearchableSelect
+              label="Mes"
+              value={String(mes)}
+              onChange={(val) => onMesChange(Number(val))}
+              options={mesesOptions}
+              placeholder="Mes..."
+            />
+          </div>
+        </div>
       </div>
 
       {/* ── FILA 2: Filtros equipo ──────────────────────────────── */}
       {showTeamFilters && (
         <div className="border-t border-gray-100 bg-gray-50/60 px-5 py-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[auto_1fr_1fr_auto] gap-3 items-end">
-
             {/* Label */}
             <div className="flex items-center gap-2 pb-1 flex-shrink-0">
               <div className="w-7 h-7 bg-white border border-gray-200 rounded-lg flex items-center justify-center">
@@ -194,7 +189,7 @@ const mesesOptions =
                 placeholder="Todos los jefes"
               />
             ) : (
-              <div /> // placeholder para mantener grid en nivel 1
+              <div />
             )}
 
             {/* Vendedor */}
@@ -216,9 +211,9 @@ const mesesOptions =
                 <span className="font-bold text-gray-700">{vendedoresOptions.length}</span>
                 {' '}vend.
               </span>
-              {vendorName && (
+              {(vendorName || selectedJefe) && (
                 <button
-                  onClick={() => { onClearVendor?.(); setSelectedJefe(''); }}
+                  onClick={() => { onClearVendor?.(); onSelectJefe?.(''); }}
                   className="flex items-center gap-1 text-xs text-red-500 hover:text-white hover:bg-red-500
                              border border-red-200 hover:border-red-500 bg-white
                              rounded-lg px-3 py-2 transition-all whitespace-nowrap font-medium"
