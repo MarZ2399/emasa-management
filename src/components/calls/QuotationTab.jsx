@@ -4,9 +4,11 @@ import { Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { previewQuotationPDF, generateQuotationPDF } from '../../utils/pdfGenerator';
 import { precioService } from '../../services/precioService';
+import { productService } from '../../services/productService';
 import quotationService from '../../services/quotationService';
 import { logActivity, EVENTOS } from '../../services/activityLogService';
 import { AuthContext } from '../../context/AuthContext';
+import * as XLSX from 'xlsx-js-style';
 
 const IGV_RATE = 0.18;
 
@@ -89,6 +91,8 @@ const QuotationTab = ({
 
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [bulkDiscount, setBulkDiscount] = useState('');
+
+  const [isImporting, setIsImporting] = useState(false);
 
   const currency = 'USD';
   const currencySymbol = currency === 'USD' ? '$' : 'S/';
@@ -200,6 +204,165 @@ const QuotationTab = ({
       if (hasChanges) setQuotationItems(normalized);
     }
   }, [quotationItems.length]);
+
+
+  // ASEGÚRATE DE IMPORTAR productService AL INICIO:
+// ── Importación masiva desde Excel ────────────────────────────────────────
+  const handleImportExcel = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!selectedClient?.ruc) {
+      toast.error('Debe seleccionar un cliente antes de importar', { position: 'top-right' });
+      e.target.value = ''; 
+      return;
+    }
+
+    setIsImporting(true);
+    const toastId = toast.loading(`Procesando archivo Excel...`, { position: 'top-right' });
+
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      const parsedItems = [];
+
+      for (let i = 1; i < jsonData.length; i++) {
+        const row = jsonData[i];
+        if (!row || row.length === 0) continue;
+
+        const rawCode = row[0]; 
+        const rawQty = row[1];  
+
+        if (!rawCode) continue;
+
+        const codigo = String(rawCode).trim().toUpperCase();
+        const cantidad = Math.max(1, Number(rawQty) || 1);
+
+        parsedItems.push({ codigo, cantidad });
+      }
+
+      if (parsedItems.length === 0) {
+        toast.error('El Excel está vacío o sin formato (Col A: Código, Col B: Cantidad)', { id: toastId, duration: 5000 });
+        setIsImporting(false);
+        e.target.value = '';
+        return;
+      }
+
+      toast.loading(`Validando ${parsedItems.length} productos...`, { id: toastId });
+
+      const validItems = [];
+      let errores = 0;
+      let stockAjustado = 0;
+
+      // Iteramos y validamos cada código
+      for (const item of parsedItems) {
+        try {
+          let descripcionProducto = 'Producto Importado';
+          let maxStockReal = 0;
+          
+          // 1. Obtener la descripción real y el stock por almacén usando productService
+          try {
+            const productResponse = await productService.searchByCodigo(item.codigo);
+            
+            if (productResponse.success && productResponse.data?.length > 0) {
+              const productoEncontrado = productResponse.data[0];
+              
+              // Extraer descripción
+              if (productoEncontrado.producto?.descripcion) {
+                  descripcionProducto = productoEncontrado.producto.descripcion.trim();
+              } else if (productoEncontrado.descripcion) {
+                  descripcionProducto = productoEncontrado.descripcion.trim();
+              } else if (productoEncontrado.nombre) {
+                  descripcionProducto = productoEncontrado.nombre.trim();
+              }
+
+              // Extraer el stock real según el almacén seleccionado actualmente
+              if (productoEncontrado.stock && Array.isArray(productoEncontrado.stock)) {
+                const almacenData = productoEncontrado.stock.find(
+                  s => s.almacencod?.trim() === almacenCotizacion?.cod
+                );
+                if (almacenData) {
+                  maxStockReal = Number(almacenData.disponible ?? almacenData.stock ?? 0);
+                }
+              }
+            } else {
+              errores++;
+              continue; 
+            }
+          } catch (prodErr) {
+            console.error(`Error buscando info base del producto ${item.codigo}:`, prodErr);
+            errores++;
+            continue; 
+          }
+
+          // 2. Obtener precios, flags y stock general desde el servicio de precios
+          const response = await precioService.obtenerPrecio(
+            selectedClient.ruc,
+            item.codigo,
+            item.cantidad,
+            almacenCotizacion?.cod ?? null
+          );
+
+          if (response.success && response.data) {
+            // Usamos el stock real del almacén seleccionado (si no viene, respaldamos con el general)
+            const stockLimite = maxStockReal > 0 ? maxStockReal : Number(response.data.stock || 0);
+            let cantidadFinal = item.cantidad;
+
+            // 3. Validar Stock: Si excede lo disponible, se ajusta a la cantidad máxima aceptada
+            if (stockLimite > 0 && cantidadFinal > stockLimite) {
+              cantidadFinal = stockLimite; 
+              stockAjustado++;
+            }
+
+            const newItem = {
+              codigo: item.codigo,
+              nombre: descripcionProducto,
+              quantity: cantidadFinal,
+              cantidadOriginal: item.cantidad,
+              preciosDetalle: response.data,
+              discount1: response.data?.descuentos?.de01 || 0,
+              discount5: 0, 
+              stock: stockLimite, 
+            };
+            
+            validItems.push(normalizeItem(newItem));
+          } else {
+             errores++;
+          }
+        } catch (err) {
+          console.error(`Error general procesando ${item.codigo}:`, err);
+          errores++;
+        }
+      }
+
+      if (validItems.length > 0) {
+        setQuotationItems(prev => {
+          const existentes = prev.map(p => p.codigo);
+          const nuevos = validItems.filter(v => !existentes.includes(v.codigo));
+          return [...prev, ...nuevos];
+        });
+        
+        let msjExito = `Se importaron ${validItems.length} productos. `;
+        if (errores > 0) msjExito += `(${errores} omitidos o sin precio). `;
+        if (stockAjustado > 0) msjExito += `(${stockAjustado} ajustados al stock máximo permitido).`;
+        
+        toast.success(msjExito, { id: toastId, duration: 7000 });
+      } else {
+        toast.error('No se pudo validar ningún producto del Excel.', { id: toastId, duration: 5000 });
+      }
+
+    } catch (error) {
+      console.error('Error al procesar el Excel:', error);
+      toast.error('Hubo un error al leer el archivo Excel', { id: toastId });
+    } finally {
+      setIsImporting(false);
+      e.target.value = ''; 
+    }
+  };
 
   // ── Control de selección masiva ─────────────────────────────────────────
   const handleSelectAll = (e) => {
@@ -676,6 +839,19 @@ console.log('🔍 item stock fields:', quotationItems.map(i => ({
           </button>
         </div>
       )}
+
+      {/* NUEVO: Panel de Importación de Excel */}
+      <div className="flex items-center gap-3 mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg shadow-sm w-full md:w-auto">
+        <span className="text-sm font-semibold text-blue-800">Importar Excel:</span>
+        <input
+          type="file"
+          accept=".xlsx, .xls"
+          onChange={handleImportExcel}
+          className="text-sm file:mr-4 file:py-1.5 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-[#334a5e] file:text-white hover:file:bg-blue-700 cursor-pointer"
+          disabled={isImporting}
+        />
+        {isImporting && <span className="text-sm text-blue-600 font-medium animate-pulse">Consultando precios y stock...</span>}
+      </div>
 
 
       <div className="overflow-auto rounded-xl shadow-lg bg-white border">
