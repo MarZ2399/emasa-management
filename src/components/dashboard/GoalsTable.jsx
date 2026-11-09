@@ -1,3 +1,4 @@
+// src/components/calls/GoalsTable.jsx
 import React, { useMemo, useState } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
@@ -18,6 +19,9 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
   const [sortDir, setSortDir]   = useState('asc');
 
   const mesLabel = MESES[mes] || mes;
+
+  // NUEVO: Según tu BD, Vendedores = 2. Solo los roles Admin (1), Jefe (3) y Gerente (4) verán finanzas.
+  const canViewFinancials = nivelAcceso !== 2;
 
   // ── Agrupar por grupo de producto (METGRD) ──────────────────────
   const rows = useMemo(() => {
@@ -54,8 +58,8 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
 
       return {
         ...r,
-        contribucion, // Nueva propiedad calculada
-        margen,       // Nueva propiedad calculada
+        contribucion, 
+        margen,       
         metpor: r.meta > 0 ? (r.metnet / r.meta) * 100 : 0,
         proyectado: r.meta > 0 ? ((r.metnet + r.pend) / r.meta) * 100 : 0,
       };
@@ -153,15 +157,30 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
             {mesLabel} {ano} US$
           </p>
         </div>
-        <span className={`text-sm font-semibold px-3 py-1 rounded-full ${
-          totalPct >= 100
-            ? 'bg-green-100 text-green-700'
-            : totalPct >= 70
-            ? 'bg-yellow-100 text-yellow-700'
-            : 'bg-red-100 text-red-600'
-        }`}>
-          {fmt(totalPct)}% total
-        </span>
+        
+        <div className="flex items-center gap-4">
+          {/* Recuadro financiero: Solo para Admin, Jefe y Gerente */}
+          {/* {canViewFinancials && (
+             <div className="flex gap-4 items-center mr-4 text-xs font-semibold text-gray-600">
+                <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-md border border-blue-100">
+                  Margen: {fmt(totalMargen)}%
+                </span>
+                <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-md border border-indigo-100">
+                   Contr.: ${fmt(totalContribucion)}
+                </span>
+             </div>
+           )} */}
+          
+          <span className={`text-sm font-semibold px-3 py-1 rounded-full ${
+            totalPct >= 100
+              ? 'bg-green-100 text-green-700'
+              : totalPct >= 70
+              ? 'bg-yellow-100 text-yellow-700'
+              : 'bg-red-100 text-red-600'
+          }`}>
+            {fmt(totalPct)}% total
+          </span>
+        </div>
       </div>
 
       {/* Tabla */}
@@ -184,8 +203,14 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
               <ThBtn col="metpor"       label="% Logro US$" />
               <ThBtn col="pend"         label={`Pend. Fact ${mesLabel} US$`} />
               <ThBtn col="proyectado"   label={`Proyectado ${mesLabel} US$`} />
-              <ThBtn col="contribucion" label={`Contribución ${mesLabel} US$`} /> {/* NUEVA COLUMNA */}
-              <ThBtn col="margen"       label="Margen %" />                       {/* NUEVA COLUMNA */}
+              
+              {/* Cabeceras financieras limitadas */}
+              {canViewFinancials && (
+                <>
+                  <ThBtn col="contribucion" label={`Contribución ${mesLabel} US$`} />
+                  <ThBtn col="margen"       label="Margen %" />
+                </>
+              )}
             </tr>
           </thead>
 
@@ -222,13 +247,17 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
                     {fmt(row.proyectado)}
                   </td>
                   
-                  {/* CELDAS NUEVAS */}
-                  <td className="px-4 py-3 text-right text-gray-700 font-medium">
-                    {fmt(row.contribucion)}
-                  </td>
-                  <td className={`px-4 py-3 text-right ${pctColor(row.margen)}`}>
-                    {fmt(row.margen)}%
-                  </td>
+                  {/* Filas financieras limitadas */}
+                  {canViewFinancials && (
+                    <>
+                      <td className="px-4 py-3 text-right text-gray-700 font-medium">
+                        {fmt(row.contribucion)}
+                      </td>
+                      <td className={`px-4 py-3 text-right ${pctColor(row.margen)}`}>
+                        {fmt(row.margen)}%
+                      </td>
+                    </>
+                  )}
                   
                 </tr>
               );
@@ -251,13 +280,17 @@ const GoalsTable = ({ goals, mes, ano, vendorName, nivelAcceso, onRowClick, sele
                 {fmt(totalProyectado)}
               </td>
               
-              {/* TOTALES NUEVOS */}
-              <td className="px-4 py-3 text-right text-gray-900">
-                {fmt(totalContribucion)}
-              </td>
-              <td className={`px-4 py-3 text-right ${pctColor(totalMargen)}`}>
-                {fmt(totalMargen)}%
-              </td>
+              {/* Totales financieros limitados */}
+              {canViewFinancials && (
+                <>
+                  <td className="px-4 py-3 text-right text-gray-900">
+                    {fmt(totalContribucion)}
+                  </td>
+                  <td className={`px-4 py-3 text-right ${pctColor(totalMargen)}`}>
+                    {fmt(totalMargen)}%
+                  </td>
+                </>
+              )}
 
             </tr>
           </tfoot>
